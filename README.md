@@ -1,59 +1,55 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MarkDev — Admin & API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Learn • Build • Grow**
 
-## About Laravel
+The Laravel backend of the MarkDev Learning Management System: a premium Blade + Alpine admin portal and the versioned REST API (`/api/v1/*`) that powers the React student portal (`markdev-student-portal`).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Tech stack
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Concern | Choice |
+| --- | --- |
+| Framework | Laravel 12 (PHP 8.4) |
+| Database | MySQL (SQLite for local/testing) |
+| Admin UI | Blade + TailwindCSS v4 + Alpine.js |
+| Auth | Laravel Breeze (web) + Sanctum bearer tokens (API) |
+| RBAC | spatie/laravel-permission — fully database-driven |
+| Files | spatie/laravel-medialibrary + public disk |
+| Exports | maatwebsite/excel (CSV/XLSX) |
+| PDFs | barryvdh/laravel-dompdf (certificates, invoices) |
+| Ops | Queues, Scheduler, spatie/laravel-backup |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Getting started
 
-## Learning Laravel
+```bash
+composer install
+cp .env.example .env          # point DB_* at MySQL (or set DB_CONNECTION=sqlite)
+php artisan key:generate
+php artisan migrate --seed    # RBAC matrix + demo data
+php artisan storage:link
+npm install && npm run build
+composer run dev              # serves app + queue + logs + vite
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Seeded accounts (password: `password`):
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Role | Email |
+| --- | --- |
+| Super Admin | superadmin@markdev.test |
+| Admin | admin@markdev.test |
+| Manager | manager@markdev.test |
+| Instructor | instructor@markdev.test |
+| Student | student@markdev.test |
 
-## Laravel Sponsors
+Background workers: `php artisan queue:work` and `php artisan schedule:work` (backups, invoice past-due sweeps, token pruning).
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Architecture
 
-### Premium Partners
+- **`routes/api.php`** — versioned student-facing REST API under `/api/v1`, Sanctum-authenticated. The contract is defined by the portal repo's `docs/API.md` and TypeScript types; API Resources here serialize to exactly those shapes.
+- **`routes/web.php`** — Breeze auth + the admin portal (`/admin/*`), gated by role/permission middleware. Students cannot access the panel.
+- **RBAC** — roles `super-admin`, `admin`, `manager`, `instructor`, `student` with a `module.action` permission matrix seeded in `RolePermissionSeeder`. Nothing is hardcoded: gates check permission names only, and Super Admin passes every gate via `Gate::before`.
+- **Audit trail** — `App\Support\AuditLogger` + the `Auditable` model trait record every create/update/delete/restore/force-delete with old/new values, plus login/logout/failed-login events, IP, browser, OS, device, URL and HTTP method. Only Super Admin and Admin can view/export the log.
+- **Soft deletes** — all important models; restores and force deletes are audit-logged.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## The frontend
 
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The student experience lives in [`markdev-student-portal`](https://github.com/shahzadnazar/markdev-student-portal) (React 19). Point its `VITE_API_URL` at this app's URL.
