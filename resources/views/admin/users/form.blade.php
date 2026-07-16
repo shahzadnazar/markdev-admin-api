@@ -21,6 +21,8 @@
                 <x-form.input label="Full name" name="name" :value="$user?->name" required />
                 <x-form.input label="Email" name="email" type="email" :value="$user?->email" required />
                 <x-form.input label="Phone" name="phone" :value="$user?->phone" />
+                <x-form.input label="Biometric ID" name="biometric_id" :value="$user?->biometric_id"
+                    hint="The user id enrolled on the fingerprint/face terminal." />
                 <x-form.input label="Headline" name="headline" :value="$user?->headline" hint="Shown on instructor profiles." />
             </div>
 

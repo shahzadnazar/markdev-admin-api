@@ -18,6 +18,8 @@ class AttendanceRecord extends Model
         'status',
         'notes',
         'recorded_by',
+        'source',
+        'biometric_device_id',
     ];
 
     protected function casts(): array

@@ -63,6 +63,7 @@ class DemoSeeder extends Seeder
             'name' => 'Shahzad Student',
             'email' => 'student@markdev.test',
             'headline' => 'Full-stack learner',
+            'biometric_id' => '1001',
             'points' => 1240,
         ]);
         $student->assignRole('student');
@@ -403,6 +404,32 @@ class DemoSeeder extends Seeder
         }
         PointEvent::create(['user_id' => $student->id, 'points' => 50, 'reason' => 'Completed Git & GitHub for Teams', 'created_at' => now()->subDays(10)]);
         PointEvent::create(['user_id' => $student->id, 'points' => 20, 'reason' => 'Passed Eloquent knowledge check', 'created_at' => now()->subDays(2)]);
+
+        /* ---------------------------- Biometric device ------------------------- */
+
+        $device = \App\Models\BiometricDevice::create([
+            'name' => 'Main Lab Terminal',
+            'vendor' => 'ZKTeco',
+            'serial_number' => 'ZK-4590-DEMO',
+            'location' => 'Lab 2, main campus',
+            'course_id' => $laravel->id,
+            'api_key' => \App\Models\BiometricDevice::generateKey(),
+            'session_start' => '17:00',
+            'late_after_minutes' => 15,
+            'last_seen_at' => now()->subHours(2),
+        ]);
+
+        $biometric = app(\App\Services\BiometricAttendanceService::class);
+        $biometric->ingest($device, [
+            'biometric_id' => '1001',
+            'punched_at' => now()->subDay()->setTime(17, 5)->toDateTimeString(),
+            'direction' => 'in',
+        ]);
+        $biometric->ingest($device, [
+            'biometric_id' => '9999',
+            'punched_at' => now()->subDay()->setTime(17, 20)->toDateTimeString(),
+            'direction' => 'in',
+        ]);
 
         /* ---------------------------- Notifications ---------------------------- */
 

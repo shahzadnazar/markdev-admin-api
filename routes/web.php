@@ -160,6 +160,18 @@ Route::prefix('admin')
             Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
             Route::get('attendance/log', [AttendanceController::class, 'log'])->name('attendance.log');
             Route::post('attendance', [AttendanceController::class, 'save'])->middleware('can:attendance.manage')->name('attendance.save');
+
+            // Biometric devices & punch logs
+            Route::get('biometric/devices', [\App\Http\Controllers\Admin\BiometricController::class, 'devices'])->name('biometric.devices');
+            Route::get('biometric/punches', [\App\Http\Controllers\Admin\BiometricController::class, 'punches'])->name('biometric.punches');
+            Route::middleware('can:attendance.manage')->group(function () {
+                Route::post('biometric/devices', [\App\Http\Controllers\Admin\BiometricController::class, 'storeDevice'])->name('biometric.devices.store');
+                Route::put('biometric/devices/{device}', [\App\Http\Controllers\Admin\BiometricController::class, 'updateDevice'])->name('biometric.devices.update');
+                Route::post('biometric/devices/{device}/key', [\App\Http\Controllers\Admin\BiometricController::class, 'regenerateKey'])->name('biometric.devices.key');
+                Route::post('biometric/devices/{device}/reprocess', [\App\Http\Controllers\Admin\BiometricController::class, 'reprocess'])->name('biometric.devices.reprocess');
+                Route::delete('biometric/devices/{device}', [\App\Http\Controllers\Admin\BiometricController::class, 'destroyDevice'])->name('biometric.devices.destroy');
+                Route::post('biometric/punches/import', [\App\Http\Controllers\Admin\BiometricController::class, 'import'])->name('biometric.punches.import');
+            });
         });
 
         Route::middleware('can:certificates.view')->group(function () {

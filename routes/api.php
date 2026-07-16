@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AssignmentController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BillingController;
+use App\Http\Controllers\Api\V1\BiometricPunchController;
 use App\Http\Controllers\Api\V1\BookmarkController;
 use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\CategoryController;
@@ -25,6 +26,11 @@ use App\Http\Controllers\Api\V1\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    /* ---------------------- Biometric devices (X-Device-Key) --------------- */
+
+    Route::post('biometric/punches', [BiometricPunchController::class, 'store'])
+        ->middleware(\App\Http\Middleware\AuthenticateBiometricDevice::class);
+
     /* ------------------------------- Guest -------------------------------- */
 
     Route::post('auth/login', [AuthController::class, 'login']);

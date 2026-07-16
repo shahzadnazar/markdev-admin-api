@@ -46,6 +46,7 @@
                 @endcan
                 @can('attendance.view')
                     <x-admin.nav-item :href="route('admin.attendance.index')" icon="calendar" :active="request()->routeIs('admin.attendance.*')">Attendance</x-admin.nav-item>
+                    <x-admin.nav-item :href="route('admin.biometric.devices')" icon="server" :active="request()->routeIs('admin.biometric.*')">Biometric</x-admin.nav-item>
                 @endcan
                 @can('certificates.view')
                     <x-admin.nav-item :href="route('admin.certificates.index')" icon="certificate" :active="request()->routeIs('admin.certificates.*')">Certificates</x-admin.nav-item>

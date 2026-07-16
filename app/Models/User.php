@@ -26,6 +26,7 @@ class User extends Authenticatable
         'headline',
         'bio',
         'avatar_path',
+        'biometric_id',
         'is_active',
         'points',
         'last_login_at',

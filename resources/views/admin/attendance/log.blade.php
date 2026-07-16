@@ -56,6 +56,9 @@
                         <x-badge :variant="['present' => 'success', 'late' => 'warning', 'absent' => 'danger', 'excused' => 'neutral'][$record->status] ?? 'neutral'">
                             {{ $record->status }}
                         </x-badge>
+                        @if ($record->source === 'biometric')
+                            <x-badge variant="secondary" class="ml-1" title="Marked by a biometric device">device</x-badge>
+                        @endif
                     </td>
                     <td class="td text-xs text-on-surface-variant">{{ $record->recorder?->name ?? '—' }}</td>
                     <td class="td max-w-[14rem]"><p class="truncate text-xs text-outline" title="{{ $record->notes }}">{{ $record->notes ?? '—' }}</p></td>
