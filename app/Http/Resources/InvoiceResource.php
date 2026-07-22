@@ -22,6 +22,12 @@ class InvoiceResource extends JsonResource
             'due_at' => $this->due_at?->toISOString(),
             'paid_at' => $this->paid_at?->toISOString(),
             'download_url' => $this->download_url,
+            'latest_submission' => $this->whenLoaded(
+                'latestSubmission',
+                fn () => $this->latestSubmission
+                    ? (new TransactionResource($this->latestSubmission))->resolve()
+                    : null,
+            ),
         ];
     }
 }

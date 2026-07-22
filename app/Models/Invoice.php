@@ -60,4 +60,11 @@ class Invoice extends Model
     {
         return $this->file_path ? Storage::disk('public')->url($this->file_path) : null;
     }
+
+    /** The most recent student fee submission against this invoice. */
+    public function latestSubmission(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Transaction::class)
+            ->ofMany(['id' => 'max'], fn ($query) => $query->where('submitted_by_student', true));
+    }
 }

@@ -13,6 +13,8 @@
                 <x-form.input label="Site name" name="site_name" :value="$settings['site_name']" required />
                 <x-form.input type="email" label="Support email" name="support_email" :value="$settings['support_email']"
                     hint="Shown to students in the Help Center." />
+                <x-form.input label="Support phone" name="support_phone" :value="$settings['support_phone']"
+                    hint="Shown on the student fee-payment screen." placeholder="+92 300 1234567" />
 
                 <x-form.select label="Default timezone" name="timezone" required>
                     @foreach ($timezones as $timezone)

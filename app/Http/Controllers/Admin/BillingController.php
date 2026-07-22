@@ -8,6 +8,7 @@ use App\Models\FeePlan;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\FeeSubmissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -224,5 +225,53 @@ class BillingController extends Controller
         } while (Invoice::withTrashed()->where('number', $number)->exists());
 
         return $number;
+    }
+
+    /* ---------------------------- Fee submissions -------------------------- */
+
+    public function submissions(Request $request): View
+    {
+        $status = in_array($request->query('status'), ['pending', 'success', 'rejected'], true)
+            ? $request->query('status')
+            : 'pending';
+
+        $submissions = Transaction::query()
+            ->with(['user', 'invoice', 'reviewer'])
+            ->where('submitted_by_student', true)
+            ->where('status', $status)
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $like = '%'.trim($request->string('search')).'%';
+                $query->where(fn ($inner) => $inner->where('reference', 'like', $like)
+                    ->orWhere('reference_no', 'like', $like)
+                    ->orWhereHas('user', fn ($user) => $user->where('name', 'like', $like)));
+            })
+            ->orderByDesc('created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.billing.submissions', [
+            'submissions' => $submissions,
+            'status' => $status,
+            'pendingCount' => Transaction::where('submitted_by_student', true)->where('status', 'pending')->count(),
+        ]);
+    }
+
+    public function approveSubmission(Request $request, Transaction $transaction, FeeSubmissionService $service): RedirectResponse
+    {
+        $service->approve($transaction, $request->user());
+
+        return back()->with('success', "Payment {$transaction->reference} approved — invoice marked paid.");
+    }
+
+    public function rejectSubmission(Request $request, Transaction $transaction, FeeSubmissionService $service): RedirectResponse
+    {
+        $data = $request->validate(
+            ['rejection_reason' => ['required', 'string', 'min:5', 'max:500']],
+            ['rejection_reason.required' => 'Tell the student why the submission is rejected.'],
+        );
+
+        $service->reject($transaction, $request->user(), $data['rejection_reason']);
+
+        return back()->with('success', "Payment {$transaction->reference} rejected — the student has been notified.");
     }
 }

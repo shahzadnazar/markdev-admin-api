@@ -24,6 +24,16 @@
         </x-slot:actions>
     </x-page-header>
 
+    @if ($invoice->status === 'pending')
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning-container/50 px-5 py-4">
+            <p class="text-sm text-on-surface">
+                <span class="font-semibold">A student fee submission is awaiting review for this invoice.</span>
+                Verify the receipt, then approve or reject it.
+            </p>
+            <x-btn size="sm" :href="route('admin.billing.submissions')">Review submission</x-btn>
+        </div>
+    @endif
+
     <div class="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <div class="space-y-6">
             {{-- Invoice summary --}}
@@ -37,7 +47,7 @@
                             <p class="mt-2 text-xs text-outline">Plan: {{ $invoice->feePlan->title }}{{ $invoice->feePlan->course ? ' · '.$invoice->feePlan->course->title : '' }}</p>
                         @endif
                     </div>
-                    <x-badge :variant="['open' => 'primary', 'paid' => 'success', 'past_due' => 'danger', 'void' => 'neutral'][$invoice->status] ?? 'neutral'" class="text-xs">
+                    <x-badge :variant="['open' => 'primary', 'pending' => 'warning', 'paid' => 'success', 'past_due' => 'danger', 'void' => 'neutral'][$invoice->status] ?? 'neutral'" class="text-xs">
                         {{ str_replace('_', ' ', $invoice->status) }}
                     </x-badge>
                 </div>
@@ -90,7 +100,7 @@
                                         </td>
                                         <td class="td font-mono text-sm text-on-surface">{{ $transaction->currency }} {{ number_format((float) $transaction->amount, 2) }}</td>
                                         <td class="td">
-                                            <x-badge :variant="['success' => 'success', 'pending' => 'warning', 'failed' => 'danger', 'refunded' => 'neutral'][$transaction->status] ?? 'neutral'">
+                                            <x-badge :variant="['success' => 'success', 'pending' => 'warning', 'rejected' => 'danger', 'failed' => 'danger', 'refunded' => 'neutral'][$transaction->status] ?? 'neutral'">
                                                 {{ $transaction->status }}
                                             </x-badge>
                                         </td>

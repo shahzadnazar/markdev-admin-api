@@ -25,6 +25,7 @@ class DashboardController extends Controller
             'courses' => Course::count(),
             'lessons' => Lesson::count(),
             'pending_submissions' => AssignmentSubmission::whereNull('graded_at')->count(),
+            'pending_fees' => \App\Models\Transaction::where('submitted_by_student', true)->where('status', 'pending')->count(),
             'attempts_today' => QuizAttempt::whereDate('started_at', today())->count(),
             'attendance_rate' => $this->attendanceRate(),
         ];

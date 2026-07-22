@@ -15,7 +15,7 @@
             <x-form.label for="status" value="Status" />
             <select name="status" id="status" class="field">
                 <option value="">All statuses</option>
-                @foreach (['success', 'pending', 'failed', 'refunded'] as $status)
+                @foreach (['pending', 'success', 'rejected', 'failed', 'refunded'] as $status)
                     <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>
                 @endforeach
             </select>
@@ -51,7 +51,7 @@
                     </td>
                     <td class="td font-mono text-sm text-on-surface">{{ $transaction->currency }} {{ number_format((float) $transaction->amount, 2) }}</td>
                     <td class="td">
-                        <x-badge :variant="['success' => 'success', 'pending' => 'warning', 'failed' => 'danger', 'refunded' => 'neutral'][$transaction->status] ?? 'neutral'">
+                        <x-badge :variant="['success' => 'success', 'pending' => 'warning', 'rejected' => 'danger', 'failed' => 'danger', 'refunded' => 'neutral'][$transaction->status] ?? 'neutral'">
                             {{ $transaction->status }}
                         </x-badge>
                     </td>

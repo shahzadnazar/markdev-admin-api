@@ -117,7 +117,6 @@ Route::prefix('v1')->group(function () {
         Route::get('billing', [BillingController::class, 'overview']);
         Route::get('billing/transactions', [BillingController::class, 'transactions']);
         Route::get('billing/invoices', [BillingController::class, 'invoices']);
-        Route::post('billing/invoices/{invoice}/pay', [BillingController::class, 'payInvoice']);
-        Route::post('billing/transactions/{transaction}/retry', [BillingController::class, 'retryTransaction']);
+        Route::post('billing/invoices/{invoice}/submissions', [BillingController::class, 'submitPayment']);
     });
 });

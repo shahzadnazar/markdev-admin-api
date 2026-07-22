@@ -227,9 +227,18 @@ Route::prefix('admin')
             Route::get('billing/invoices/{invoice}', [BillingController::class, 'showInvoice'])->name('billing.invoices.show');
             Route::post('billing/invoices/{invoice}/void', [BillingController::class, 'voidInvoice'])->middleware('can:billing.manage')->name('billing.invoices.void');
             Route::post('billing/invoices/{invoice}/payments', [BillingController::class, 'recordPayment'])->middleware('can:billing.manage')->name('billing.invoices.payments.store');
-
+            Route::get('billing/submissions', [BillingController::class, 'submissions'])->name('billing.submissions');
+            Route::post('billing/submissions/{transaction}/approve', [BillingController::class, 'approveSubmission'])->middleware('can:billing.manage')->name('billing.submissions.approve');
+            Route::post('billing/submissions/{transaction}/reject', [BillingController::class, 'rejectSubmission'])->middleware('can:billing.manage')->name('billing.submissions.reject');
             Route::get('billing/transactions', [BillingController::class, 'transactions'])->name('billing.transactions.index');
         });
+
+        // Topbar bell — available to every panel user.
+        Route::post('notifications/read-all', function () {
+            auth()->user()->unreadNotifications->markAsRead();
+
+            return back();
+        })->name('notifications.read-all');
 
         /* ------------------------------ System ------------------------------- */
 

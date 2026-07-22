@@ -2,17 +2,18 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Requests\Api\SubmitFeeRequest;
 use App\Http\Resources\InvoiceResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Invoice;
+use App\Models\Setting;
 use App\Models\Transaction;
-use App\Services\PaymentService;
+use App\Services\FeeSubmissionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 
 class BillingController extends ApiController
 {
@@ -22,32 +23,50 @@ class BillingController extends ApiController
 
         $plan = $user->feePlans()->where('is_active', true)->latest()->first();
 
+        $channels = collect(FeeSubmissionService::CHANNELS)
+            ->map(fn (array $channel, string $value) => ['value' => $value, 'label' => $channel['label']])
+            ->values();
+
+        $supportPhone = Setting::where('key', 'support_phone')->value('value');
+
         if ($plan === null) {
             return response()->json([
                 'data' => [
                     'plan_title' => null,
                     'billing_cycle' => null,
                     'billing_active' => false,
-                    'currency' => 'USD',
+                    'currency' => 'PKR',
                     'total_amount' => 0,
                     'paid_amount' => 0,
                     'remaining_amount' => 0,
                     'paid_percent' => 0,
+                    'pending_review_amount' => 0,
                     'next_due_at' => null,
                     'next_invoice' => null,
+                    'pending_invoice' => null,
                     'statement_url' => null,
+                    'payment_channels' => $channels,
+                    'support_phone' => $supportPhone,
                 ],
             ]);
         }
 
         $total = (float) $plan->total_amount;
         $paid = (float) $plan->invoices()->where('status', 'paid')->sum('amount');
+        $pendingReview = (float) $plan->invoices()->where('status', 'pending')->sum('amount');
         $remaining = round(max($total - $paid, 0), 2);
 
         $nextInvoice = $plan->invoices()
+            ->with('latestSubmission')
             ->whereIn('status', ['open', 'past_due'])
             ->orderByRaw('due_at is null')
             ->orderBy('due_at')
+            ->orderBy('id')
+            ->first();
+
+        $pendingInvoice = $plan->invoices()
+            ->with('latestSubmission')
+            ->where('status', 'pending')
             ->orderBy('id')
             ->first();
 
@@ -61,9 +80,13 @@ class BillingController extends ApiController
                 'paid_amount' => $paid,
                 'remaining_amount' => $remaining,
                 'paid_percent' => $total > 0 ? round(min($paid / $total * 100, 100), 1) : 0,
+                'pending_review_amount' => $pendingReview,
                 'next_due_at' => $nextInvoice?->due_at?->toISOString(),
                 'next_invoice' => $nextInvoice ? (new InvoiceResource($nextInvoice))->resolve() : null,
+                'pending_invoice' => $pendingInvoice ? (new InvoiceResource($pendingInvoice))->resolve() : null,
                 'statement_url' => null,
+                'payment_channels' => $channels,
+                'support_phone' => $supportPhone,
             ],
         ]);
     }
@@ -99,7 +122,7 @@ class BillingController extends ApiController
 
     public function invoices(Request $request): AnonymousResourceCollection
     {
-        $query = Invoice::where('user_id', $request->user()->id);
+        $query = Invoice::with('latestSubmission')->where('user_id', $request->user()->id);
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
@@ -118,55 +141,23 @@ class BillingController extends ApiController
         return InvoiceResource::collection($invoices);
     }
 
-    public function payInvoice(Request $request, Invoice $invoice, PaymentService $payments): JsonResponse
-    {
+    /** Student uploads proof of payment; the submission awaits admin review. */
+    public function submitPayment(
+        SubmitFeeRequest $request,
+        Invoice $invoice,
+        FeeSubmissionService $submissions,
+    ): JsonResponse {
         Gate::authorize('pay', $invoice);
 
-        if (! in_array($invoice->status, ['open', 'past_due'], true)) {
-            throw ValidationException::withMessages([
-                'invoice' => ['Only open or past-due invoices can be paid.'],
-            ]);
-        }
-
-        $transaction = $payments->settleInvoice($request->user(), $invoice);
-
-        return response()->json([
-            'data' => [
-                'checkout_url' => null,
-                'transaction' => (new TransactionResource($transaction))->resolve(),
-            ],
-        ]);
-    }
-
-    public function retryTransaction(Request $request, Transaction $transaction, PaymentService $payments): JsonResponse
-    {
-        Gate::authorize('retry', $transaction);
-
-        if ($transaction->status !== 'failed') {
-            throw ValidationException::withMessages([
-                'transaction' => ['Only failed transactions can be retried.'],
-            ]);
-        }
-
-        $invoice = $transaction->invoice;
-
-        if ($invoice === null || ! in_array($invoice->status, ['open', 'past_due'], true)) {
-            throw ValidationException::withMessages([
-                'transaction' => ['The related invoice is no longer payable.'],
-            ]);
-        }
-
-        $settled = $payments->settleInvoice($request->user(), $invoice, [
-            'type' => $transaction->method_type,
-            'brand' => $transaction->method_brand,
-            'last4' => $transaction->method_last4,
-        ]);
+        $transaction = $submissions->submit(
+            $request->user(),
+            $invoice,
+            $request->safe()->except('receipt'),
+            $request->file('receipt'),
+        );
 
         return response()->json([
-            'data' => [
-                'checkout_url' => null,
-                'transaction' => (new TransactionResource($settled))->resolve(),
-            ],
-        ]);
+            'data' => (new TransactionResource($transaction))->resolve(),
+        ], 201);
     }
 }

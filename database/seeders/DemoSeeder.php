@@ -345,43 +345,58 @@ class DemoSeeder extends Seeder
             'course_id' => $laravel->id,
             'title' => 'Advanced Web Development',
             'billing_cycle' => 'annual',
-            'currency' => 'USD',
-            'total_amount' => 1200.00,
+            'currency' => 'PKR',
+            'total_amount' => 45000.00,
         ]);
 
         $inv1 = Invoice::create([
             'fee_plan_id' => $plan->id, 'user_id' => $student->id,
-            'number' => 'INV-2026-0001', 'title' => 'Tuition installment 1 of 3',
-            'amount' => 400.00, 'status' => 'paid',
+            'number' => 'INV-2026-0001', 'title' => 'Full Stack Web Development - Installment 1',
+            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'paid',
             'issued_at' => now()->subMonths(5), 'due_at' => now()->subMonths(4), 'paid_at' => now()->subMonths(4)->subDays(3),
         ]);
         $inv2 = Invoice::create([
             'fee_plan_id' => $plan->id, 'user_id' => $student->id,
-            'number' => 'INV-2026-0002', 'title' => 'Tuition installment 2 of 3',
-            'amount' => 400.00, 'status' => 'paid',
-            'issued_at' => now()->subMonths(3), 'due_at' => now()->subMonths(2), 'paid_at' => now()->subMonths(2)->subDays(2),
+            'number' => 'INV-2026-0002', 'title' => 'Full Stack Web Development - Installment 2',
+            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'pending',
+            'issued_at' => now()->subMonths(2), 'due_at' => now()->addDays(10),
         ]);
         Invoice::create([
             'fee_plan_id' => $plan->id, 'user_id' => $student->id,
-            'number' => 'INV-2026-0003', 'title' => 'Tuition installment 3 of 3',
-            'amount' => 400.00, 'status' => 'open',
+            'number' => 'INV-2026-0003', 'title' => 'Full Stack Web Development - Installment 3',
+            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'open',
             'issued_at' => now()->subDays(15), 'due_at' => now()->addMonths(2),
         ]);
 
+        // Verified installment 1: rejected first, then approved on resubmission.
         Transaction::create([
             'invoice_id' => $inv1->id, 'user_id' => $student->id, 'reference' => 'TRX-77032',
-            'method_type' => 'card', 'method_brand' => 'Visa', 'method_last4' => '4242',
-            'amount' => 400.00, 'status' => 'failed', 'created_at' => now()->subMonths(4)->subDays(5),
+            'method_type' => 'wallet', 'method_brand' => 'JazzCash', 'bank_name' => 'JazzCash',
+            'payer_name' => 'Shahzad Student', 'reference_no' => 'JC-113355',
+            'payment_date' => now()->subMonths(4)->subDays(6)->toDateString(),
+            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'rejected',
+            'submitted_by_student' => true,
+            'rejection_reason' => 'The receipt image is unreadable — please upload a clear photo of the full slip.',
+            'reviewed_at' => now()->subMonths(4)->subDays(5),
+            'created_at' => now()->subMonths(4)->subDays(6),
         ]);
         Transaction::create([
             'invoice_id' => $inv1->id, 'user_id' => $student->id, 'reference' => 'TRX-88154',
-            'method_type' => 'bank_transfer',
-            'amount' => 400.00, 'status' => 'success', 'created_at' => now()->subMonths(4)->subDays(3),
+            'method_type' => 'bank_transfer', 'method_brand' => 'Bank transfer', 'bank_name' => 'Bank transfer',
+            'payer_name' => 'Shahzad Student', 'reference_no' => 'FT-90211',
+            'payment_date' => now()->subMonths(4)->subDays(4)->toDateString(),
+            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'success',
+            'submitted_by_student' => true, 'reviewed_at' => now()->subMonths(4)->subDays(3),
+            'created_at' => now()->subMonths(4)->subDays(4),
         ]);
+        // Installment 2: submission waiting for admin review right now.
         Transaction::create([
             'invoice_id' => $inv2->id, 'user_id' => $student->id, 'reference' => 'TRX-99201',
-            'method_type' => 'card', 'method_brand' => 'Visa', 'method_last4' => '4242',
-            'amount' => 400.00, 'status' => 'success', 'created_at' => now()->subMonths(2)->subDays(2),
+            'method_type' => 'wallet', 'method_brand' => 'EasyPaisa', 'bank_name' => 'EasyPaisa',
+            'payer_name' => 'Shahzad Student', 'reference_no' => 'EP-556677',
+            'payment_date' => now()->subDay()->toDateString(),
+            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'pending',
+            'submitted_by_student' => true, 'created_at' => now()->subDay(),
         ]);
 
         /* --------------------------- Misc engagement --------------------------- */

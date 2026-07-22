@@ -47,6 +47,44 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
                     @endif
 
                     <div class="ml-auto flex items-center gap-2">
+                        {{-- Notifications --}}
+                        @php $unreadNotifications = auth()->user()->unreadNotifications()->latest()->limit(8)->get(); @endphp
+                        <div x-data="{ open: false }" class="relative">
+                            <button type="button" x-on:click="open = ! open"
+                                class="relative rounded-full p-2 text-on-surface-variant transition hover:bg-white hover:text-primary hover:shadow-card"
+                                aria-label="Notifications{{ $unreadNotifications->count() ? ' ('.$unreadNotifications->count().' unread)' : '' }}">
+                                <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg>
+                                @if ($unreadNotifications->isNotEmpty())
+                                    <span class="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-error font-mono text-[9px] font-bold leading-none text-white">{{ $unreadNotifications->count() }}</span>
+                                @endif
+                            </button>
+
+                            <div x-show="open" x-cloak x-on:click.outside="open = false" x-transition
+                                class="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl bg-white shadow-elevated">
+                                <div class="flex items-center justify-between border-b border-surface-ice px-4 py-2.5">
+                                    <p class="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-on-surface-variant">Notifications</p>
+                                    @if ($unreadNotifications->isNotEmpty())
+                                        <form method="POST" action="{{ route('admin.notifications.read-all') }}">
+                                            @csrf
+                                            <button type="submit" class="text-xs font-medium text-primary hover:underline">Mark all read</button>
+                                        </form>
+                                    @endif
+                                </div>
+                                <div class="max-h-80 overflow-y-auto">
+                                    @forelse ($unreadNotifications as $notification)
+                                        <a href="{{ str_starts_with($notification->data['action_url'] ?? '', '/admin') ? ($notification->data['action_url'] ?? '#') : '#' }}"
+                                            class="block border-b border-surface-ice/70 px-4 py-3 transition hover:bg-surface-ice">
+                                            <p class="text-[13px] font-semibold text-on-surface">{{ $notification->data['title'] ?? 'Notification' }}</p>
+                                            <p class="mt-0.5 line-clamp-2 text-xs leading-5 text-on-surface-variant">{{ $notification->data['message'] ?? '' }}</p>
+                                            <p class="mt-1 font-mono text-[10px] text-outline">{{ $notification->created_at->diffForHumans() }}</p>
+                                        </a>
+                                    @empty
+                                        <p class="px-4 py-8 text-center text-sm text-on-surface-variant">You're all caught up.</p>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- User menu --}}
                         <div x-data="{ open: false }" class="relative">
                             <button type="button" x-on:click="open = ! open"

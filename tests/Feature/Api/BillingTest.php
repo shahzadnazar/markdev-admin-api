@@ -6,6 +6,12 @@ use App\Models\FeePlan;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Notifications\FeeSubmissionReceived;
+use App\Notifications\FeeSubmissionReviewed;
+use App\Services\FeeSubmissionService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 class BillingTest extends ApiTestCase
@@ -124,87 +130,138 @@ class BillingTest extends ApiTestCase
             ->assertJsonPath('data.0.status', 'open');
     }
 
-    public function test_paying_an_open_invoice_settles_it(): void
+    protected function submit(Invoice $invoice, array $overrides = [])
+    {
+        return $this->post("/api/v1/billing/invoices/{$invoice->id}/submissions", array_merge([
+            'channel' => 'jazzcash',
+            'payer_name' => 'Shahzad Student',
+            'reference_no' => 'JC-12345',
+            'payment_date' => now()->subDay()->toDateString(),
+            'notes' => 'Paid from my JazzCash account.',
+            'receipt' => UploadedFile::fake()->image('receipt.jpg', 800, 1200),
+        ], $overrides), ['Accept' => 'application/json']);
+    }
+
+    public function test_submitting_proof_of_payment_marks_everything_pending(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $admin = User::factory()->create(['email' => 'reviewer@markdev.test']);
+        $admin->assignRole('admin');
+
+        $user = $this->actingAsStudent();
+        [, , $open] = $this->makePlan($user);
+
+        $response = $this->submit($open)->assertStatus(201)
+            ->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.invoice_id', $open->id)
+            ->assertJsonPath('data.submitted_by_student', true)
+            ->assertJsonPath('data.method.label', 'JazzCash')
+            ->assertJsonPath('data.reference_no', 'JC-12345');
+
+        $this->assertMatchesRegularExpression('/^TRX-\d{5}$/', $response->json('data.reference'));
+        $this->assertSame('pending', $open->fresh()->status);
+
+        $transaction = Transaction::find($response->json('data.id'));
+        Storage::disk('public')->assertExists($transaction->receipt_path);
+
+        // Billing reviewers are notified.
+        Notification::assertSentTo($admin, FeeSubmissionReceived::class);
+
+        // Overview exposes the pending state.
+        $this->getJson('/api/v1/billing')->assertOk()
+            ->assertJsonPath('data.pending_review_amount', 400)
+            ->assertJsonPath('data.pending_invoice.id', $open->id)
+            ->assertJsonPath('data.pending_invoice.latest_submission.status', 'pending');
+    }
+
+    public function test_submission_requires_all_compulsory_fields(): void
     {
         $user = $this->actingAsStudent();
         [, , $open] = $this->makePlan($user);
 
-        $response = $this->postJson("/api/v1/billing/invoices/{$open->id}/pay")->assertOk();
-
-        $response->assertJsonPath('data.checkout_url', null)
-            ->assertJsonPath('data.transaction.status', 'success')
-            ->assertJsonPath('data.transaction.invoice_id', $open->id)
-            ->assertJsonPath('data.transaction.amount', 400)
-            ->assertJsonPath('data.transaction.method.label', "Visa \u{2022}\u{2022}\u{2022}\u{2022} 4242");
-
-        $this->assertMatchesRegularExpression('/^TRX-\d{5}$/', $response->json('data.transaction.reference'));
-
-        $open->refresh();
-        $this->assertSame('paid', $open->status);
-        $this->assertNotNull($open->paid_at);
-
-        // Overview reflects the payment.
-        $this->getJson('/api/v1/billing')->assertOk()
-            ->assertJsonPath('data.paid_amount', 800)
-            ->assertJsonPath('data.next_invoice', null);
-    }
-
-    public function test_paying_a_settled_invoice_is_rejected(): void
-    {
-        $user = $this->actingAsStudent();
-        [, $paid] = $this->makePlan($user);
-
-        $this->postJson("/api/v1/billing/invoices/{$paid->id}/pay")
+        $this->post("/api/v1/billing/invoices/{$open->id}/submissions", [], ['Accept' => 'application/json'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('invoice');
+            ->assertJsonValidationErrors(['channel', 'payer_name', 'reference_no', 'payment_date', 'receipt']);
     }
 
-    public function test_paying_someone_elses_invoice_is_forbidden(): void
+    public function test_cannot_submit_twice_or_for_settled_invoices(): void
     {
+        Storage::fake('public');
+        Notification::fake();
+
+        $user = $this->actingAsStudent();
+        [, $paid, $open] = $this->makePlan($user);
+
+        $this->submit($open)->assertStatus(201);
+        $this->submit($open)->assertStatus(422)->assertJsonValidationErrors('invoice');
+        $this->submit($paid)->assertStatus(422)->assertJsonValidationErrors('invoice');
+    }
+
+    public function test_cannot_submit_for_someone_elses_invoice(): void
+    {
+        Storage::fake('public');
+
         $owner = $this->student();
         [, , $open] = $this->makePlan($owner);
 
         Sanctum::actingAs($this->student());
 
-        $this->postJson("/api/v1/billing/invoices/{$open->id}/pay")->assertForbidden();
+        $this->submit($open)->assertForbidden();
         $this->assertSame('open', $open->fresh()->status);
     }
 
-    public function test_retrying_a_failed_transaction_settles_the_invoice(): void
+    public function test_admin_approval_marks_the_invoice_paid_and_notifies_the_student(): void
     {
+        Storage::fake('public');
+        Notification::fake();
+
+        $reviewer = User::factory()->create();
+        $reviewer->assignRole('admin');
+
         $user = $this->actingAsStudent();
         [, , $open] = $this->makePlan($user);
+        $this->submit($open)->assertStatus(201);
 
-        $failed = Transaction::create([
-            'invoice_id' => $open->id, 'user_id' => $user->id, 'reference' => 'TRX-90001',
-            'method_type' => 'card', 'method_brand' => 'Mastercard', 'method_last4' => '4444',
-            'amount' => 400, 'currency' => 'USD', 'status' => 'failed',
-        ]);
+        $transaction = Transaction::where('invoice_id', $open->id)->first();
+        app(FeeSubmissionService::class)->approve($transaction, $reviewer);
 
-        $this->postJson("/api/v1/billing/transactions/{$failed->id}/retry")->assertOk()
-            ->assertJsonPath('data.transaction.status', 'success')
-            ->assertJsonPath('data.transaction.method.brand', 'Mastercard');
-
+        $transaction->refresh();
+        $this->assertSame('success', $transaction->status);
+        $this->assertSame($reviewer->id, $transaction->reviewed_by);
         $this->assertSame('paid', $open->fresh()->status);
+        Notification::assertSentTo($user, FeeSubmissionReviewed::class);
     }
 
-    public function test_only_failed_transactions_can_be_retried(): void
+    public function test_admin_rejection_reopens_the_invoice_with_a_reason_and_allows_resubmit(): void
     {
+        Storage::fake('public');
+        Notification::fake();
+
+        $reviewer = User::factory()->create();
+        $reviewer->assignRole('admin');
+
         $user = $this->actingAsStudent();
         [, , $open] = $this->makePlan($user);
+        $this->submit($open)->assertStatus(201);
 
-        $success = Transaction::create([
-            'invoice_id' => $open->id, 'user_id' => $user->id, 'reference' => 'TRX-90002',
-            'method_type' => 'card', 'amount' => 400, 'currency' => 'USD', 'status' => 'success',
-        ]);
+        $transaction = Transaction::where('invoice_id', $open->id)->first();
+        app(FeeSubmissionService::class)->reject($transaction, $reviewer, 'Receipt amount does not match the invoice.');
 
-        $this->postJson("/api/v1/billing/transactions/{$success->id}/retry")->assertStatus(422);
+        $transaction->refresh();
+        $this->assertSame('rejected', $transaction->status);
+        $this->assertSame('Receipt amount does not match the invoice.', $transaction->rejection_reason);
+        $this->assertSame('open', $open->fresh()->status);
+        Notification::assertSentTo($user, FeeSubmissionReviewed::class);
 
-        // Cross-user retry is forbidden.
-        $foreign = Transaction::create([
-            'user_id' => $this->student()->id, 'reference' => 'TRX-90003',
-            'method_type' => 'card', 'amount' => 100, 'currency' => 'USD', 'status' => 'failed',
-        ]);
-        $this->postJson("/api/v1/billing/transactions/{$foreign->id}/retry")->assertForbidden();
+        // The invoice list surfaces the rejection so the student can resubmit.
+        $this->getJson('/api/v1/billing/invoices')->assertOk()
+            ->assertJsonPath('data.0.latest_submission.status', 'rejected')
+            ->assertJsonPath('data.0.latest_submission.rejection_reason', 'Receipt amount does not match the invoice.');
+
+        // Resubmission works after a rejection.
+        $this->submit($open, ['reference_no' => 'JC-99999'])->assertStatus(201);
+        $this->assertSame('pending', $open->fresh()->status);
     }
 }

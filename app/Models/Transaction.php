@@ -24,12 +24,24 @@ class Transaction extends Model
         'status',
         'receipt_path',
         'recorded_by',
+        'payer_name',
+        'bank_name',
+        'reference_no',
+        'payment_date',
+        'notes',
+        'submitted_by_student',
+        'rejection_reason',
+        'reviewed_by',
+        'reviewed_at',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
+            'payment_date' => 'date',
+            'submitted_by_student' => 'boolean',
+            'reviewed_at' => 'datetime',
         ];
     }
 
@@ -55,5 +67,10 @@ class Transaction extends Model
     public function getReceiptUrlAttribute(): ?string
     {
         return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
+    }
+
+    public function reviewer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by')->withTrashed();
     }
 }

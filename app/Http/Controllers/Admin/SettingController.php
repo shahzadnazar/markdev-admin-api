@@ -21,6 +21,7 @@ class SettingController extends Controller
             'settings' => [
                 'site_name' => $settings['site_name'] ?? config('app.name'),
                 'support_email' => $settings['support_email'] ?? '',
+                'support_phone' => $settings['support_phone'] ?? '',
                 'timezone' => $settings['timezone'] ?? config('app.timezone'),
                 'maintenance_mode' => (bool) ($settings['maintenance_mode'] ?? false),
             ],
@@ -34,6 +35,7 @@ class SettingController extends Controller
         $data = $request->validate([
             'site_name' => ['required', 'string', 'max:120'],
             'support_email' => ['nullable', 'email', 'max:255'],
+            'support_phone' => ['nullable', 'string', 'max:30'],
             'timezone' => ['required', 'timezone:all'],
             'maintenance_mode' => ['nullable', 'boolean'],
         ]);

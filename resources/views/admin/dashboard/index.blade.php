@@ -16,6 +16,7 @@
     {{-- Action metrics --}}
     <div class="mt-5 grid gap-5 sm:grid-cols-3">
         <x-stat-widget label="Pending grading" :value="number_format($stats['pending_submissions'])" sub="submissions waiting for a score" icon="clipboard" :tone="$stats['pending_submissions'] > 0 ? 'warning' : 'success'" />
+        <x-stat-widget label="Fee review" :value="number_format($stats['pending_fees'])" sub="payment submissions waiting" icon="banknotes" :tone="$stats['pending_fees'] > 0 ? 'warning' : 'success'" />
         <x-stat-widget label="Quiz attempts today" :value="number_format($stats['attempts_today'])" sub="since midnight" icon="quiz" tone="primary" />
         <x-stat-widget label="Attendance this month" :value="$stats['attendance_rate'] === null ? '—' : $stats['attendance_rate'].'%'" sub="present or late, all courses" icon="calendar" :tone="($stats['attendance_rate'] ?? 100) >= 75 ? 'success' : 'warning'" />
     </div>
