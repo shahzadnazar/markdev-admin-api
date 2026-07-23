@@ -17,6 +17,10 @@ class FeePlan extends Model
         'course_id',
         'title',
         'billing_cycle',
+        'installment_months',
+        'due_day',
+        'fine_per_day',
+        'starts_at',
         'currency',
         'total_amount',
         'is_active',
@@ -26,6 +30,10 @@ class FeePlan extends Model
     {
         return [
             'total_amount' => 'decimal:2',
+            'fine_per_day' => 'decimal:2',
+            'installment_months' => 'integer',
+            'due_day' => 'integer',
+            'starts_at' => 'date',
             'is_active' => 'boolean',
         ];
     }

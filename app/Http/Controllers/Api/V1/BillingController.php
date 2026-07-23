@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Setting;
 use App\Models\Transaction;
 use App\Services\FeeSubmissionService;
+use App\Support\BillingConfig;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -47,6 +48,7 @@ class BillingController extends ApiController
                     'statement_url' => null,
                     'payment_channels' => $channels,
                     'support_phone' => $supportPhone,
+                    'installments' => null,
                 ],
             ]);
         }
@@ -87,6 +89,15 @@ class BillingController extends ApiController
                 'statement_url' => null,
                 'payment_channels' => $channels,
                 'support_phone' => $supportPhone,
+                'installments' => $plan->installment_months ? [
+                    'months' => $plan->installment_months,
+                    'due_day' => $plan->due_day,
+                    'fine_per_day' => BillingConfig::finePerDay($plan),
+                    'grace_days' => BillingConfig::graceDays(),
+                    'activation_days' => BillingConfig::activationDays(),
+                    'paid_count' => $plan->invoices()->where('status', 'paid')->count(),
+                    'defaulted_fine_total' => (float) $plan->invoices()->where('status', 'past_due')->sum('fine_amount'),
+                ] : null,
             ],
         ]);
     }
@@ -134,7 +145,10 @@ class BillingController extends ApiController
                 ->orWhere('title', 'like', "%{$search}%"));
         }
 
-        $invoices = $query->orderByDesc('issued_at')->orderByDesc('id')
+        $invoices = $query->orderByRaw('sequence_no is null')
+            ->orderBy('sequence_no')
+            ->orderByDesc('issued_at')
+            ->orderByDesc('id')
             ->paginate($this->perPage($request))
             ->withQueryString();
 

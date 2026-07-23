@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\FeeSubmissionReceived;
 use App\Notifications\FeeSubmissionReviewed;
 use App\Support\AuditLogger;
+use App\Support\BillingConfig;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -56,7 +57,7 @@ class FeeSubmissionService
                 'description' => "Student fee submission for {$invoice->number}",
                 'method_type' => $channel['method_type'],
                 'method_brand' => $channel['label'],
-                'amount' => $invoice->amount,
+                'amount' => $invoice->payable_total,
                 'currency' => $invoice->currency ?? 'PKR',
                 'status' => 'pending',
                 'receipt_path' => $receiptPath,
@@ -127,9 +128,9 @@ class FeeSubmissionService
 
             $invoice = $transaction->invoice;
             if ($invoice && $invoice->status === 'pending') {
-                $invoice->update([
-                    'status' => $invoice->due_at?->isPast() ? 'past_due' : 'open',
-                ]);
+                $graceOver = $invoice->due_at !== null
+                    && $invoice->due_at->copy()->addDays(BillingConfig::graceDays())->isPast();
+                $invoice->update(['status' => $graceOver ? 'past_due' : 'open']);
             }
         });
 

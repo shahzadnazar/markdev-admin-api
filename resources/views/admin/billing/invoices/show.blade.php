@@ -47,7 +47,7 @@
                             <p class="mt-2 text-xs text-outline">Plan: {{ $invoice->feePlan->title }}{{ $invoice->feePlan->course ? ' · '.$invoice->feePlan->course->title : '' }}</p>
                         @endif
                     </div>
-                    <x-badge :variant="['open' => 'primary', 'pending' => 'warning', 'paid' => 'success', 'past_due' => 'danger', 'void' => 'neutral'][$invoice->status] ?? 'neutral'" class="text-xs">
+                    <x-badge :variant="['upcoming' => 'neutral', 'open' => 'primary', 'pending' => 'warning', 'paid' => 'success', 'past_due' => 'danger', 'void' => 'neutral'][$invoice->status] ?? 'neutral'" class="text-xs">
                         {{ str_replace('_', ' ', $invoice->status) }}
                     </x-badge>
                 </div>
@@ -55,7 +55,14 @@
                 <dl class="mt-6 grid gap-6 border-t border-surface-ice pt-6 sm:grid-cols-4">
                     <div>
                         <dt class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant">Amount</dt>
-                        <dd class="mt-1 font-display text-2xl font-bold text-on-surface">{{ $invoice->currency }} {{ number_format((float) $invoice->amount, 2) }}</dd>
+                        <dd class="mt-1 font-display text-2xl font-bold text-on-surface">
+                            {{ $invoice->currency }} {{ number_format((float) $invoice->payable_total, 2) }}
+                            @if ((float) $invoice->fine_amount > 0)
+                                <span class="block font-sans text-xs font-normal text-error">
+                                    incl. {{ number_format((float) $invoice->fine_amount, 0) }} defaulter fine ({{ $invoice->fine_days }} days)
+                                </span>
+                            @endif
+                        </dd>
                     </div>
                     <div>
                         <dt class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant">Issued</dt>

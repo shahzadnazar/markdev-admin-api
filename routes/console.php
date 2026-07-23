@@ -15,7 +15,7 @@ Artisan::command('inspire', function () {
 | Run with: php artisan schedule:work (or a cron entry for schedule:run).
 */
 
-Schedule::command('invoices:mark-past-due')->hourly();
+Schedule::command('billing:sweep')->dailyAt('00:15');
 Schedule::command('sanctum:prune-expired', ['--hours' => 24])->daily();
 Schedule::command('backup:clean')->dailyAt('01:00');
 Schedule::command('backup:run')->dailyAt('01:30');

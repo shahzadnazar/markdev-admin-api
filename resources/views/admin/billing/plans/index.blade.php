@@ -42,7 +42,12 @@
                         <p class="font-medium text-on-surface">{{ $plan->user?->name ?? 'Deleted user' }}</p>
                         <p class="text-xs text-outline">{{ $plan->user?->email }}</p>
                     </td>
-                    <td class="td"><x-badge variant="secondary">{{ str_replace('_', ' ', $plan->billing_cycle) }}</x-badge></td>
+                    <td class="td">
+                        <x-badge variant="secondary">{{ str_replace('_', ' ', $plan->billing_cycle) }}</x-badge>
+                        @if ($plan->installment_months)
+                            <p class="mt-1 font-mono text-[10px] text-outline">{{ $plan->installment_months }} months · due day {{ $plan->due_day }}</p>
+                        @endif
+                    </td>
                     <td class="td font-mono text-sm text-on-surface">{{ $plan->currency }} {{ number_format((float) $plan->total_amount, 2) }}</td>
                     <td class="td">
                         <x-badge :variant="$plan->is_active ? 'success' : 'neutral'">{{ $plan->is_active ? 'active' : 'inactive' }}</x-badge>

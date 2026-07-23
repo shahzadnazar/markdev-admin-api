@@ -340,64 +340,61 @@ class DemoSeeder extends Seeder
 
         /* -------------------------------- Billing ------------------------------ */
 
-        $plan = FeePlan::create([
-            'user_id' => $student->id,
-            'course_id' => $laravel->id,
-            'title' => 'Advanced Web Development',
-            'billing_cycle' => 'annual',
-            'currency' => 'PKR',
-            'total_amount' => 45000.00,
-        ]);
+        // Global billing knobs
+        foreach ([
+            'defaulter_fine_per_day' => 100,
+            'billing_grace_days' => 5,
+            'billing_activation_days' => 5,
+            'support_phone' => '+92 300 1234567',
+        ] as $key => $value) {
+            \App\Models\Setting::updateOrCreate(['key' => $key], ['value' => $value, 'group' => 'general']);
+        }
 
-        $inv1 = Invoice::create([
-            'fee_plan_id' => $plan->id, 'user_id' => $student->id,
-            'number' => 'INV-2026-0001', 'title' => 'Full Stack Web Development - Installment 1',
-            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'paid',
-            'issued_at' => now()->subMonths(5), 'due_at' => now()->subMonths(4), 'paid_at' => now()->subMonths(4)->subDays(3),
-        ]);
-        $inv2 = Invoice::create([
-            'fee_plan_id' => $plan->id, 'user_id' => $student->id,
-            'number' => 'INV-2026-0002', 'title' => 'Full Stack Web Development - Installment 2',
-            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'pending',
-            'issued_at' => now()->subMonths(2), 'due_at' => now()->addDays(10),
-        ]);
-        Invoice::create([
-            'fee_plan_id' => $plan->id, 'user_id' => $student->id,
-            'number' => 'INV-2026-0003', 'title' => 'Full Stack Web Development - Installment 3',
-            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'open',
-            'issued_at' => now()->subDays(15), 'due_at' => now()->addMonths(2),
-        ]);
+        // Monthly installment plan: admission ~3 months ago, due on the 5th.
+        $plan = app(\App\Services\InstallmentPlanService::class)->create(
+            student: $student,
+            course: $laravel,
+            title: 'Full Stack Web Development',
+            totalFee: 90000.00,
+            months: 6,
+            dueDay: 5,
+            admissionDate: now()->subMonthsNoOverflow(3)->subDays(3),
+            currency: 'PKR',
+        );
 
-        // Verified installment 1: rejected first, then approved on resubmission.
+        $schedule = $plan->invoices()->orderBy('sequence_no')->get();
+
+        // Installments 1 and 2 are settled (the first after one rejection).
         Transaction::create([
-            'invoice_id' => $inv1->id, 'user_id' => $student->id, 'reference' => 'TRX-77032',
+            'invoice_id' => $schedule[0]->id, 'user_id' => $student->id, 'reference' => 'TRX-77032',
             'method_type' => 'wallet', 'method_brand' => 'JazzCash', 'bank_name' => 'JazzCash',
             'payer_name' => 'Shahzad Student', 'reference_no' => 'JC-113355',
-            'payment_date' => now()->subMonths(4)->subDays(6)->toDateString(),
-            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'rejected',
+            'payment_date' => $schedule[0]->due_at->copy()->subDays(2)->toDateString(),
+            'amount' => (float) $schedule[0]->amount, 'currency' => 'PKR', 'status' => 'rejected',
             'submitted_by_student' => true,
             'rejection_reason' => 'The receipt image is unreadable — please upload a clear photo of the full slip.',
-            'reviewed_at' => now()->subMonths(4)->subDays(5),
-            'created_at' => now()->subMonths(4)->subDays(6),
+            'reviewed_at' => $schedule[0]->due_at->copy()->subDay(),
+            'created_at' => $schedule[0]->due_at->copy()->subDays(2),
         ]);
-        Transaction::create([
-            'invoice_id' => $inv1->id, 'user_id' => $student->id, 'reference' => 'TRX-88154',
-            'method_type' => 'bank_transfer', 'method_brand' => 'Bank transfer', 'bank_name' => 'Bank transfer',
-            'payer_name' => 'Shahzad Student', 'reference_no' => 'FT-90211',
-            'payment_date' => now()->subMonths(4)->subDays(4)->toDateString(),
-            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'success',
-            'submitted_by_student' => true, 'reviewed_at' => now()->subMonths(4)->subDays(3),
-            'created_at' => now()->subMonths(4)->subDays(4),
-        ]);
-        // Installment 2: submission waiting for admin review right now.
-        Transaction::create([
-            'invoice_id' => $inv2->id, 'user_id' => $student->id, 'reference' => 'TRX-99201',
-            'method_type' => 'wallet', 'method_brand' => 'EasyPaisa', 'bank_name' => 'EasyPaisa',
-            'payer_name' => 'Shahzad Student', 'reference_no' => 'EP-556677',
-            'payment_date' => now()->subDay()->toDateString(),
-            'amount' => 15000.00, 'currency' => 'PKR', 'status' => 'pending',
-            'submitted_by_student' => true, 'created_at' => now()->subDay(),
-        ]);
+
+        foreach ([0, 1] as $index) {
+            $invoice = $schedule[$index];
+            Transaction::create([
+                'invoice_id' => $invoice->id, 'user_id' => $student->id,
+                'reference' => 'TRX-'.str_pad((string) (88150 + $index), 5, '0', STR_PAD_LEFT),
+                'method_type' => 'wallet', 'method_brand' => 'EasyPaisa', 'bank_name' => 'EasyPaisa',
+                'payer_name' => 'Shahzad Student', 'reference_no' => 'EP-'.(556600 + $index),
+                'payment_date' => $invoice->due_at->copy()->subDay()->toDateString(),
+                'amount' => (float) $invoice->amount, 'currency' => 'PKR', 'status' => 'success',
+                'submitted_by_student' => true, 'reviewed_at' => $invoice->due_at,
+                'created_at' => $invoice->due_at->copy()->subDay(),
+            ]);
+            $invoice->update(['status' => 'paid', 'paid_at' => $invoice->due_at]);
+        }
+
+        // The sweep marks installment 3 as a defaulter and accrues its fine,
+        // notifying the demo student along the way.
+        \Illuminate\Support\Facades\Artisan::call('billing:sweep');
 
         /* --------------------------- Misc engagement --------------------------- */
 

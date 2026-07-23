@@ -22,6 +22,18 @@
                     @endforeach
                 </x-form.select>
 
+                <div class="grid gap-5 sm:grid-cols-3 border-t border-surface-ice pt-5">
+                    <x-form.input type="number" label="Defaulter fine / day" name="defaulter_fine_per_day"
+                        :value="$settings['defaulter_fine_per_day']" required min="0" step="0.01"
+                        hint="Added daily once the grace period ends." />
+                    <x-form.input type="number" label="Grace days" name="billing_grace_days"
+                        :value="$settings['billing_grace_days']" required min="0" max="60"
+                        hint="Warning window after the due date." />
+                    <x-form.input type="number" label="Activation days" name="billing_activation_days"
+                        :value="$settings['billing_activation_days']" required min="0" max="28"
+                        hint="How many days before the due date an installment opens." />
+                </div>
+
                 <x-form.toggle label="Maintenance mode" name="maintenance_mode" :checked="(bool) old('maintenance_mode', $settings['maintenance_mode'])"
                     hint="Shows a maintenance banner to admin users; plan portal downtime with your team." />
 
