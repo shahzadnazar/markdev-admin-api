@@ -50,6 +50,23 @@ Background workers: `php artisan queue:work` and `php artisan schedule:work` (ba
 - **Audit trail** — `App\Support\AuditLogger` + the `Auditable` model trait record every create/update/delete/restore/force-delete with old/new values, plus login/logout/failed-login events, IP, browser, OS, device, URL and HTTP method. Only Super Admin and Admin can view/export the log.
 - **Soft deletes** — all important models; restores and force deletes are audit-logged.
 
+## Instructor workspace
+
+Instructors log into the same `/admin` panel but see a classroom-scoped workspace (`RestrictsToInstructor` trait — every course-linked query is limited to courses where they are the assigned instructor):
+
+| Area | Instructor access |
+| --- | --- |
+| Dashboard | Own-classroom variant: my courses/students, grading queue, scoped attendance %, schedule |
+| Courses / curriculum | Full builder (modules, lessons, quiz questions) for **own courses only**; new courses auto-assign them as instructor |
+| Enrollments | Read-only "my students" list for their courses |
+| Assignments & quizzes | Create, edit, grade — own courses only |
+| Attendance | Mark & review sheets for own courses |
+| Announcements | Post/edit/delete to **one of their own courses** — never academy-wide |
+| Media library | View & upload |
+| Users, billing, reports, settings, biometric devices, audit logs | No access |
+
+Admins manage the faculty from **Admin → People → Instructors**: directory with active/inactive filters, per-instructor profile (courses, students, pending grading, upcoming schedule), and quick add via the user form with the role pre-selected.
+
 ## Biometric attendance devices
 
 Fingerprint/face terminals (ZKTeco, ESSL, Hikvision, or any bridge software) can mark attendance automatically:

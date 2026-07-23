@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Enrollment;
@@ -15,10 +16,13 @@ use Illuminate\View\View;
 
 class EnrollmentController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function index(Request $request): View
     {
         $enrollments = Enrollment::query()
             ->with(['user', 'course'])
+            ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('course_id', $mine))
             ->when($request->filled('course'), fn ($query) => $query->where('course_id', $request->integer('course')))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.trim($request->string('search')).'%';
@@ -30,7 +34,7 @@ class EnrollmentController extends Controller
 
         return view('admin.enrollments.index', [
             'enrollments' => $enrollments,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
         ]);
     }
 

@@ -20,6 +20,7 @@
             <x-admin.nav-section label="People">
                 @can('users.view')
                     <x-admin.nav-item :href="route('admin.users.index')" icon="users" :active="request()->routeIs('admin.users.*')">Users</x-admin.nav-item>
+                    <x-admin.nav-item :href="route('admin.instructors.index')" icon="academic-cap" :active="request()->routeIs('admin.instructors.*')">Instructors</x-admin.nav-item>
                 @endcan
                 @role('super-admin')
                     <x-admin.nav-item :href="route('admin.roles.index')" icon="shield" :active="request()->routeIs('admin.roles.*')">Roles &amp; Permissions</x-admin.nav-item>
@@ -46,6 +47,8 @@
                 @endcan
                 @can('attendance.view')
                     <x-admin.nav-item :href="route('admin.attendance.index')" icon="calendar" :active="request()->routeIs('admin.attendance.*')">Attendance</x-admin.nav-item>
+                @endcan
+                @can('devices.view')
                     <x-admin.nav-item :href="route('admin.biometric.devices')" icon="server" :active="request()->routeIs('admin.biometric.*')">Biometric</x-admin.nav-item>
                 @endcan
                 @can('certificates.view')

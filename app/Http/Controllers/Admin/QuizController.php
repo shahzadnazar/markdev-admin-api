@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Quiz;
@@ -12,11 +13,14 @@ use Illuminate\View\View;
 
 class QuizController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function index(Request $request): View
     {
         $quizzes = Quiz::query()
             ->with(['course', 'lesson'])
             ->withCount(['questions', 'attempts'])
+            ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('course_id', $mine))
             ->when($request->filled('course'), fn ($query) => $query->where('course_id', $request->integer('course')))
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
             ->latest()
@@ -25,35 +29,39 @@ class QuizController extends Controller
 
         return view('admin.quizzes.index', [
             'quizzes' => $quizzes,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('admin.quizzes.form', [
             'quiz' => null,
-            'courses' => Course::with('lessons:id,course_id,title')->orderBy('title')->get(),
+            'courses' => $this->selectableCourses($request)->with('lessons:id,course_id,title')->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $quiz = Quiz::create($this->validated($request));
+        $data = $this->validated($request);
+        $this->authorizeCourseAccess($request, (int) $data['course_id']);
+        $quiz = Quiz::create($data);
 
         return redirect()->route('admin.quizzes.show', $quiz)->with('success', "Quiz \"{$quiz->title}\" created — add questions below.");
     }
 
     /** The quiz builder. */
-    public function show(Quiz $quiz): View
+    public function show(Request $request, Quiz $quiz): View
     {
+        $this->authorizeCourseAccess($request, $quiz->course_id);
         $quiz->load(['course', 'lesson', 'questions.options'])->loadCount('attempts');
 
         return view('admin.quizzes.builder', ['quiz' => $quiz]);
     }
 
-    public function attempts(Quiz $quiz): View
+    public function attempts(Request $request, Quiz $quiz): View
     {
+        $this->authorizeCourseAccess($request, $quiz->course_id);
         $quiz->load('course')->loadCount('questions');
 
         $attempts = $quiz->attempts()
@@ -64,23 +72,29 @@ class QuizController extends Controller
         return view('admin.quizzes.attempts', ['quiz' => $quiz, 'attempts' => $attempts]);
     }
 
-    public function edit(Quiz $quiz): View
+    public function edit(Request $request, Quiz $quiz): View
     {
+        $this->authorizeCourseAccess($request, $quiz->course_id);
+
         return view('admin.quizzes.form', [
             'quiz' => $quiz,
-            'courses' => Course::with('lessons:id,course_id,title')->orderBy('title')->get(),
+            'courses' => $this->selectableCourses($request)->with('lessons:id,course_id,title')->get(),
         ]);
     }
 
     public function update(Request $request, Quiz $quiz): RedirectResponse
     {
-        $quiz->update($this->validated($request));
+        $this->authorizeCourseAccess($request, $quiz->course_id);
+        $data = $this->validated($request);
+        $this->authorizeCourseAccess($request, (int) $data['course_id']);
+        $quiz->update($data);
 
         return redirect()->route('admin.quizzes.show', $quiz)->with('success', "Quiz \"{$quiz->title}\" updated.");
     }
 
-    public function destroy(Quiz $quiz): RedirectResponse
+    public function destroy(Request $request, Quiz $quiz): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $quiz->course_id);
         $title = $quiz->title;
         $quiz->delete();
 

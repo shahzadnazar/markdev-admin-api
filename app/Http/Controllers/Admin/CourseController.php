@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Course;
@@ -15,9 +16,12 @@ use Illuminate\View\View;
 
 class CourseController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function index(Request $request): View
     {
         $courses = Course::query()
+            ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('id', $mine))
             ->with(['category', 'instructor'])
             ->withCount(['lessons', 'enrollments'])
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
@@ -52,6 +56,10 @@ class CourseController extends Controller
             $data['thumbnail_path'] = $request->file('thumbnail')->store('courses', 'public');
         }
 
+        if ($this->managedCourseIds($request) !== null) {
+            $data['instructor_id'] = $request->user()->id;
+        }
+
         $course = Course::create($data);
 
         return redirect()->route('admin.courses.show', $course)->with('success', "Course \"{$course->title}\" created — now build the curriculum.");
@@ -60,6 +68,7 @@ class CourseController extends Controller
     /** The course builder. */
     public function show(Course $course): View
     {
+        $this->authorizeCourseAccess(request(), $course->id);
         $course->load([
             'category',
             'instructor',
@@ -72,6 +81,7 @@ class CourseController extends Controller
 
     public function edit(Course $course): View
     {
+        $this->authorizeCourseAccess(request(), $course->id);
         return view('admin.courses.form', [
             'course' => $course,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
@@ -81,6 +91,7 @@ class CourseController extends Controller
 
     public function update(Request $request, Course $course): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $course->id);
         $data = $this->validated($request, $course);
 
         if ($request->hasFile('thumbnail')) {
@@ -110,6 +121,7 @@ class CourseController extends Controller
 
     public function destroy(Course $course): RedirectResponse
     {
+        $this->authorizeCourseAccess(request(), $course->id);
         $title = $course->title;
         $course->delete();
 

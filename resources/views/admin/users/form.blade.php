@@ -39,7 +39,7 @@
                     @foreach ($roles as $role)
                         <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-outline-variant/60 px-4 py-3 transition hover:border-primary/40">
                             <input type="checkbox" name="roles[]" value="{{ $role->name }}" class="check"
-                                @checked(in_array($role->name, old('roles', $user?->roles->pluck('name')->all() ?? [])))>
+                                @checked(in_array($role->name, old('roles', $user?->roles->pluck('name')->all() ?? (request('role') ? [request('role')] : []))))>
                             <span class="text-sm font-medium text-on-surface">{{ $role->name }}</span>
                         </label>
                     @endforeach

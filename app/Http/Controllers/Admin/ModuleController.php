@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Module;
@@ -11,8 +12,11 @@ use Illuminate\Validation\Rule;
 
 class ModuleController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function store(Request $request, Course $course): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $course->id);
         $data = $request->validate(['title' => ['required', 'string', 'max:255']]);
 
         $course->modules()->create([
@@ -25,6 +29,7 @@ class ModuleController extends Controller
 
     public function update(Request $request, Module $module): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $module->course_id);
         $data = $request->validate(['title' => ['required', 'string', 'max:255']]);
 
         $module->update($data);
@@ -54,6 +59,7 @@ class ModuleController extends Controller
 
     public function destroy(Module $module): RedirectResponse
     {
+        $this->authorizeCourseAccess(request(), $module->course_id);
         $title = $module->title;
         $module->lessons()->delete();
         $module->delete();

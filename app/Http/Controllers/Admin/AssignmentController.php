@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Assignment;
 use App\Models\AssignmentAttachment;
@@ -16,11 +17,14 @@ use Illuminate\View\View;
 
 class AssignmentController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function index(Request $request): View
     {
         $assignments = Assignment::query()
             ->with(['course', 'lesson'])
             ->withCount(['submissions', 'submissions as ungraded_count' => fn ($query) => $query->whereNull('graded_at')])
+            ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('course_id', $mine))
             ->when($request->filled('course'), fn ($query) => $query->where('course_id', $request->integer('course')))
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
             ->latest()
@@ -29,21 +33,22 @@ class AssignmentController extends Controller
 
         return view('admin.assignments.index', [
             'assignments' => $assignments,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('admin.assignments.form', [
             'assignment' => null,
-            'courses' => Course::with('lessons:id,course_id,title')->orderBy('title')->get(),
+            'courses' => $this->selectableCourses($request)->with('lessons:id,course_id,title')->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
+        $this->authorizeCourseAccess($request, (int) $data['course_id']);
 
         $assignment = Assignment::create(collect($data)->except('attachments')->all());
         $this->storeAttachments($request, $assignment);
@@ -51,17 +56,21 @@ class AssignmentController extends Controller
         return redirect()->route('admin.assignments.index')->with('success', "Assignment \"{$assignment->title}\" created.");
     }
 
-    public function edit(Assignment $assignment): View
+    public function edit(Request $request, Assignment $assignment): View
     {
+        $this->authorizeCourseAccess($request, $assignment->course_id);
+
         return view('admin.assignments.form', [
             'assignment' => $assignment->load('attachments'),
-            'courses' => Course::with('lessons:id,course_id,title')->orderBy('title')->get(),
+            'courses' => $this->selectableCourses($request)->with('lessons:id,course_id,title')->get(),
         ]);
     }
 
     public function update(Request $request, Assignment $assignment): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $assignment->course_id);
         $data = $this->validated($request);
+        $this->authorizeCourseAccess($request, (int) $data['course_id']);
 
         $assignment->update(collect($data)->except('attachments')->all());
         $this->storeAttachments($request, $assignment);
@@ -69,17 +78,19 @@ class AssignmentController extends Controller
         return redirect()->route('admin.assignments.index')->with('success', "Assignment \"{$assignment->title}\" updated.");
     }
 
-    public function destroy(Assignment $assignment): RedirectResponse
+    public function destroy(Request $request, Assignment $assignment): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $assignment->course_id);
         $title = $assignment->title;
         $assignment->delete();
 
         return redirect()->route('admin.assignments.index')->with('success', "Assignment \"{$title}\" deleted.");
     }
 
-    public function destroyAttachment(Assignment $assignment, AssignmentAttachment $attachment): RedirectResponse
+    public function destroyAttachment(Request $request, Assignment $assignment, AssignmentAttachment $attachment): RedirectResponse
     {
         abort_unless($attachment->assignment_id === $assignment->id, 404);
+        $this->authorizeCourseAccess($request, $assignment->course_id);
 
         if ($attachment->file_path) {
             Storage::disk('public')->delete($attachment->file_path);
@@ -89,8 +100,9 @@ class AssignmentController extends Controller
         return back()->with('success', 'Attachment removed.');
     }
 
-    public function submissions(Assignment $assignment): View
+    public function submissions(Request $request, Assignment $assignment): View
     {
+        $this->authorizeCourseAccess($request, $assignment->course_id);
         $assignment->load('course');
 
         $submissions = $assignment->submissions()
@@ -108,6 +120,7 @@ class AssignmentController extends Controller
     public function grade(Request $request, AssignmentSubmission $submission): RedirectResponse
     {
         $submission->load('assignment');
+        $this->authorizeCourseAccess($request, $submission->assignment->course_id);
 
         $data = $request->validate([
             'score' => ['required', 'integer', 'min:0', 'max:'.($submission->assignment->max_score ?? 100)],

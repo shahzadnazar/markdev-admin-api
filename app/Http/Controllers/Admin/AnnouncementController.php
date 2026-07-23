@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Course;
@@ -12,11 +13,14 @@ use Illuminate\View\View;
 
 class AnnouncementController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function index(Request $request): View
     {
         $announcements = Announcement::query()
             ->with(['author', 'course'])
             ->withCount('reads')
+            ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('course_id', $mine))
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
             ->when($request->filled('course'), fn ($query) => $query->where('course_id', $request->integer('course')))
             ->orderByDesc('is_pinned')
@@ -26,15 +30,16 @@ class AnnouncementController extends Controller
 
         return view('admin.announcements.index', [
             'announcements' => $announcements,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('admin.announcements.form', [
             'announcement' => null,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
+            'requireCourse' => $this->managedCourseIds($request) !== null,
         ]);
     }
 
@@ -47,23 +52,28 @@ class AnnouncementController extends Controller
         return redirect()->route('admin.announcements.index')->with('success', 'Announcement published.');
     }
 
-    public function edit(Announcement $announcement): View
+    public function edit(Request $request, Announcement $announcement): View
     {
+        $this->authorizeCourseAccess($request, $announcement->course_id);
+
         return view('admin.announcements.form', [
             'announcement' => $announcement,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
+            'requireCourse' => $this->managedCourseIds($request) !== null,
         ]);
     }
 
     public function update(Request $request, Announcement $announcement): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $announcement->course_id);
         $announcement->update($this->validated($request));
 
         return redirect()->route('admin.announcements.index')->with('success', 'Announcement updated.');
     }
 
-    public function destroy(Announcement $announcement): RedirectResponse
+    public function destroy(Request $request, Announcement $announcement): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $announcement->course_id);
         $announcement->delete();
 
         return redirect()->route('admin.announcements.index')->with('success', 'Announcement deleted.');
@@ -81,6 +91,17 @@ class AnnouncementController extends Controller
         ]);
 
         $data['course_id'] = $data['course_id'] ?? null;
+
+        // Instructors always post to one of their own courses — never globally.
+        if ($this->managedCourseIds($request) !== null) {
+            if ($data['course_id'] === null) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'course_id' => 'Select one of your courses — instructors cannot post academy-wide announcements.',
+                ]);
+            }
+            $this->authorizeCourseAccess($request, (int) $data['course_id']);
+        }
+
         $data['is_pinned'] = $request->boolean('is_pinned');
         $data['published_at'] = $data['published_at'] ?? now();
 

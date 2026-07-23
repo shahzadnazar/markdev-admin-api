@@ -25,6 +25,7 @@ class RolePermissionSeeder extends Seeder
         'assignments' => ['view', 'create', 'update', 'delete', 'grade'],
         'quizzes' => ['view', 'create', 'update', 'delete'],
         'attendance' => ['view', 'manage'],
+        'devices' => ['view', 'manage'],
         'certificates' => ['view', 'issue', 'delete'],
         'announcements' => ['view', 'create', 'update', 'delete'],
         'media' => ['view', 'upload', 'delete'],
@@ -83,6 +84,8 @@ class RolePermissionSeeder extends Seeder
             'quizzes.view',
             'attendance.view',
             'attendance.manage',
+            'devices.view',
+            'devices.manage',
             'announcements.view',
             'announcements.create',
             'announcements.update',
@@ -114,9 +117,10 @@ class RolePermissionSeeder extends Seeder
             'attendance.manage',
             'announcements.view',
             'announcements.create',
+            'announcements.update',
+            'announcements.delete',
             'media.view',
             'media.upload',
-            'reports.view',
         ]);
 
         // Students act through the API with ownership checks; no admin panel access.

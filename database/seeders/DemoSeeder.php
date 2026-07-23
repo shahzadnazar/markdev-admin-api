@@ -47,6 +47,7 @@ class DemoSeeder extends Seeder
         $instructor = User::factory()->create([
             'name' => 'Mark Instructor',
             'email' => 'instructor@markdev.test',
+            'phone' => '+92 300 1234501',
             'headline' => 'Principal Engineer & Lead Instructor',
             'bio' => 'Full-stack engineer with 12 years of shipping production systems.',
         ]);
@@ -55,9 +56,19 @@ class DemoSeeder extends Seeder
         $instructor2 = User::factory()->create([
             'name' => 'Ayesha Instructor',
             'email' => 'instructor2@markdev.test',
+            'phone' => '+92 300 1234502',
             'headline' => 'Frontend Architect',
         ]);
         $instructor2->assignRole('instructor');
+
+        // A departed teacher, so the inactive filter on the instructors screen has data.
+        $formerInstructor = User::factory()->create([
+            'name' => 'Bilal Farooq',
+            'email' => 'instructor3@markdev.test',
+            'headline' => 'DevOps Coach',
+            'is_active' => false,
+        ]);
+        $formerInstructor->assignRole('instructor');
 
         $student = User::factory()->create([
             'name' => 'Shahzad Student',

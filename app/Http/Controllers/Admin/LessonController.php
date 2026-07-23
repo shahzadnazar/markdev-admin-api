@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use App\Models\LessonResource;
@@ -14,8 +15,11 @@ use Illuminate\View\View;
 
 class LessonController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function store(Request $request, Module $module): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $module->course_id);
         $data = $this->validated($request);
 
         $lesson = $module->lessons()->create([
@@ -33,6 +37,7 @@ class LessonController extends Controller
 
     public function edit(Lesson $lesson): View
     {
+        $this->authorizeCourseAccess(request(), $lesson->course_id);
         return view('admin.courses.lesson', [
             'lesson' => $lesson->load(['module', 'course', 'video', 'resources']),
         ]);
@@ -40,6 +45,7 @@ class LessonController extends Controller
 
     public function update(Request $request, Lesson $lesson): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $lesson->course_id);
         $data = $this->validated($request);
 
         $lesson->update(collect($data)->except(['provider', 'url', 'embed_url'])->all());
@@ -72,6 +78,7 @@ class LessonController extends Controller
 
     public function destroy(Lesson $lesson): RedirectResponse
     {
+        $this->authorizeCourseAccess(request(), $lesson->course_id);
         $courseId = $lesson->course_id;
         $title = $lesson->title;
         $lesson->delete();

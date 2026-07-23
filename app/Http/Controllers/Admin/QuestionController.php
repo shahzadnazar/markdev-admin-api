@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Question;
 use App\Models\Quiz;
@@ -11,8 +12,11 @@ use Illuminate\Validation\Rule;
 
 class QuestionController extends Controller
 {
+    use RestrictsToInstructor;
+
     public function store(Request $request, Quiz $quiz): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $quiz->course_id);
         $data = $this->validated($request);
 
         $question = $quiz->questions()->create([
@@ -30,6 +34,7 @@ class QuestionController extends Controller
 
     public function update(Request $request, Question $question): RedirectResponse
     {
+        $this->authorizeCourseAccess($request, $question->quiz?->course_id);
         $data = $this->validated($request);
 
         $question->update([
@@ -46,6 +51,7 @@ class QuestionController extends Controller
 
     public function destroy(Question $question): RedirectResponse
     {
+        $this->authorizeCourseAccess(request(), $question->quiz?->course_id);
         $question->options()->delete();
         $question->delete();
 

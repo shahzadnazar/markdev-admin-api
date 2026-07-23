@@ -24,8 +24,11 @@
                 hint="Basic HTML is allowed (paragraphs, lists, links)." />
 
             <div class="grid gap-5 sm:grid-cols-2">
-                <x-form.select label="Audience" name="course_id" hint="Leave empty to reach every student.">
-                    <option value="">Everyone</option>
+                <x-form.select label="Audience" name="course_id" :required="$requireCourse ?? false"
+                    :hint="($requireCourse ?? false) ? 'Announcements go to the students of one of your courses.' : 'Leave empty to reach every student.'">
+                    @unless ($requireCourse ?? false)
+                        <option value="">Everyone</option>
+                    @endunless
                     @foreach ($courses as $course)
                         <option value="{{ $course->id }}" @selected(old('course_id', $announcement?->course_id) == $course->id)>
                             {{ $course->title }}

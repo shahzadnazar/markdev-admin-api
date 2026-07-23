@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\Course;
@@ -13,6 +14,8 @@ use Illuminate\View\View;
 
 class AttendanceController extends Controller
 {
+    use RestrictsToInstructor;
+
     /** Attendance sheet: enrolled students of a course on a given date. */
     public function index(Request $request): View
     {
@@ -21,8 +24,11 @@ class AttendanceController extends Controller
             'date' => ['nullable', 'date'],
         ]);
 
-        $courses = Course::orderBy('title')->get(['id', 'title']);
+        $courses = $this->selectableCourses($request)->get(['id', 'title']);
         $course = $request->filled('course') ? Course::find($request->integer('course')) : null;
+        if ($course) {
+            $this->authorizeCourseAccess($request, $course->id);
+        }
         $date = $request->filled('date') ? $request->date('date') : today();
 
         $students = collect();
@@ -63,6 +69,8 @@ class AttendanceController extends Controller
             'rows.*.notes' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $this->authorizeCourseAccess($request, (int) $data['course_id']);
+
         $saved = 0;
 
         foreach ($data['rows'] as $row) {
@@ -102,6 +110,7 @@ class AttendanceController extends Controller
     {
         $records = AttendanceRecord::query()
             ->with(['user', 'course', 'recorder'])
+            ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('course_id', $mine))
             ->when($request->filled('course'), fn ($query) => $query->where('course_id', $request->integer('course')))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->orderByDesc('date')
@@ -111,7 +120,7 @@ class AttendanceController extends Controller
 
         return view('admin.attendance.log', [
             'records' => $records,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
         ]);
     }
 }
