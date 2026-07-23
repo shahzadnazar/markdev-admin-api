@@ -1,5 +1,8 @@
 <x-admin.layout title="Courses">
-    <x-page-header eyebrow="Learning" title="Courses" description="The full catalog — draft, published and archived courses.">
+    <x-page-header eyebrow="Learning" title="Courses"
+        :description="auth()->user()->hasAnyRole(['super-admin', 'admin', 'manager'])
+            ? 'The full catalog — draft, published and archived courses.'
+            : 'Your courses — draft, published and archived.'">
         <x-slot:actions>
             @can('courses.create')
                 <x-btn :href="route('admin.courses.create')">
