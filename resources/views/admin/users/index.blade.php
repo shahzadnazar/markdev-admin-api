@@ -1,5 +1,5 @@
 <x-admin.layout title="Users">
-    <x-page-header eyebrow="People" title="Users" description="Manage every account on the platform — staff, instructors and students.">
+    <x-page-header eyebrow="People" title="Staff &amp; users" description="Administrators, managers and instructors. Students are managed in the Students module.">
         <x-slot:actions>
             @can('users.create')
                 <x-btn :href="route('admin.users.create')">

@@ -17,6 +17,7 @@ class RolePermissionSeeder extends Seeder
     protected array $matrix = [
         'dashboard' => ['view'],
         'users' => ['view', 'create', 'update', 'delete', 'restore'],
+        'students' => ['view', 'create', 'update', 'delete'],
         'roles' => ['view', 'create', 'update', 'delete'],
         'categories' => ['view', 'create', 'update', 'delete'],
         'courses' => ['view', 'create', 'update', 'delete', 'restore'],
@@ -71,6 +72,9 @@ class RolePermissionSeeder extends Seeder
             'users.view',
             'users.create',
             'users.update',
+            'students.view',
+            'students.create',
+            'students.update',
             'categories.view',
             'courses.view',
             'courses.create',

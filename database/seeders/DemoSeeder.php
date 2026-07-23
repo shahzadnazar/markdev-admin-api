@@ -79,6 +79,29 @@ class DemoSeeder extends Seeder
         ]);
         $student->assignRole('student');
 
+        \App\Models\StudentProfile::create([
+            'user_id' => $student->id,
+            'reg_no' => \App\Models\StudentProfile::nextRegNo(),
+            'father_name' => 'Nazar Muhammad',
+            'date_of_birth' => now()->subYears(21)->subMonths(3)->toDateString(),
+            'gender' => 'male',
+            'address' => 'House 12, Faisal Colony, Bahawalpur',
+            'cnic' => '31202-1234567-1',
+            'guardian_contact' => '+92 300 7654321',
+            'current_qualification' => 'BS Computer Science (in progress)',
+            'applied_course' => 'Advanced Web Development with Laravel 12',
+            'emergency_name' => 'Nazar Muhammad',
+            'emergency_contact' => '+92 300 7654321',
+            'emergency_relation' => 'Father',
+            'emergency_residence' => 'Bahawalpur',
+            'date_of_joining' => now()->subMonths(2)->toDateString(),
+            'reference' => 'Walk-in',
+            'total_fee' => 45000,
+            'submitted_fee' => 15000,
+            'registration_fee' => 2000,
+            'terms_accepted_at' => now()->subMonths(2),
+        ]);
+
         $peers = collect(range(1, 6))->map(function (int $i) {
             $peer = User::factory()->create([
                 'name' => fake()->name(),

@@ -67,6 +67,16 @@ Instructors log into the same `/admin` panel but see a classroom-scoped workspac
 
 Admins manage the faculty from **Admin → People → Instructors**: directory with active/inactive filters, per-instructor profile (courses, students, pending grading, upcoming schedule), and quick add via the user form with the role pre-selected.
 
+## Student management
+
+Students are managed in a dedicated module (**Admin → People → Students**), not the Users screen — Users now covers staff only:
+
+- **Registration form** mirroring the printed MarkDev admission form: personal information (father name, DOB, gender, address, CNIC, guardian contact, qualification, applied course), emergency contact, office-use section (joining date, fees, reference), and the terms & conditions block. Each admission gets a sequential `MD-<year>-0001` registration number.
+- **Documents** — profile picture, CNIC/B-Form copy and last degree/certificate (JPG/PNG/WEBP/PDF, **max 1 MB each**), with live client-side previews on upload and inline previews on the student profile. The profile picture doubles as the account avatar in the panel and the student portal.
+- **Directory** — search by name/email/reg #/CNIC, active/inactive tabs, course filter, cohort stats.
+- **Optional on registration**: enroll into a course right away and split the total fee into a monthly installment plan (reuses the billing engine's due-day / grace / daily-fine logic).
+- A portal account is created automatically; leave the password blank to auto-generate one (shown once in the success message).
+
 ## Biometric attendance devices
 
 Fingerprint/face terminals (ZKTeco, ESSL, Hikvision, or any bridge software) can mark attendance automatically:

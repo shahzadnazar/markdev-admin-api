@@ -1,0 +1,148 @@
+<x-admin.layout title="Students">
+    <x-page-header eyebrow="People" title="Student management"
+        description="Every registered student — admissions, documents, enrollments and status.">
+        <x-slot:actions>
+            @can('students.create')
+                <x-btn :href="route('admin.students.create')">
+                    <x-icon name="user-plus" class="size-4" /> Register student
+                </x-btn>
+            @endcan
+        </x-slot:actions>
+    </x-page-header>
+
+    {{-- Cohort stats --}}
+    <div class="mb-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <x-stat-widget label="Total students" :value="number_format($totals['students'])" icon="users" tone="primary" />
+        <x-stat-widget label="Active" :value="number_format($totals['active'])"
+            :sub="$totals['students'] - $totals['active'].' inactive'" icon="check" tone="success" />
+        <x-stat-widget label="New this month" :value="number_format($totals['new_month'])" icon="user-plus" tone="secondary" />
+        <x-stat-widget label="Course enrollments" :value="number_format($totals['enrollments'])" icon="tag" tone="primary" />
+    </div>
+
+    {{-- Filters --}}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="inline-flex rounded-lg bg-white p-1 shadow-card">
+            @foreach ([null => 'All students', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
+                <a href="{{ route('admin.students.index', array_filter(['status' => $key, 'search' => request('search'), 'course' => request('course')])) }}"
+                    class="rounded-md px-4 py-2 text-sm font-medium transition {{ $status === $key ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:text-on-surface' }}">
+                    {{ $label }}
+                </a>
+            @endforeach
+        </div>
+
+        <form method="GET" action="{{ route('admin.students.index') }}" class="flex flex-wrap items-center gap-2">
+            @if ($status)
+                <input type="hidden" name="status" value="{{ $status }}">
+            @endif
+            <select name="course" class="field w-56" onchange="this.form.submit()">
+                <option value="">All courses</option>
+                @foreach ($courses as $course)
+                    <option value="{{ $course->id }}" @selected(request('course') == $course->id)>{{ $course->title }}</option>
+                @endforeach
+            </select>
+            <input type="search" name="search" value="{{ request('search') }}"
+                placeholder="Name, email, reg #, CNIC…" class="field w-64">
+            <x-btn variant="secondary" size="md">Search</x-btn>
+        </form>
+    </div>
+
+    <x-table>
+        <thead class="bg-surface-ice/60">
+            <tr>
+                <th class="th">Student</th>
+                <th class="th">CNIC / Contact</th>
+                <th class="th">Courses</th>
+                <th class="th">Joined</th>
+                <th class="th">Status</th>
+                <th class="th text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($students as $student)
+                <tr class="row">
+                    <td class="td">
+                        <div class="flex items-center gap-3">
+                            @if ($student->avatar_url)
+                                <img src="{{ $student->avatar_url }}" alt="" class="size-10 shrink-0 rounded-full object-cover">
+                            @else
+                                <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-display text-sm font-semibold text-white">
+                                    {{ strtoupper(mb_substr($student->name, 0, 1)) }}
+                                </span>
+                            @endif
+                            <div class="min-w-0">
+                                <a href="{{ route('admin.students.show', $student) }}"
+                                    class="block truncate font-medium text-on-surface hover:text-primary">{{ $student->name }}</a>
+                                <p class="truncate font-mono text-[11px] text-outline">
+                                    {{ $student->studentProfile?->reg_no ?? $student->email }}
+                                </p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="td">
+                        <p class="font-mono text-xs text-on-surface">{{ $student->studentProfile?->cnic ?? '—' }}</p>
+                        <p class="font-mono text-xs text-outline">{{ $student->phone ?? $student->email }}</p>
+                    </td>
+                    <td class="td max-w-[16rem]">
+                        @if ($student->enrollments->isEmpty())
+                            <x-badge variant="neutral">not enrolled</x-badge>
+                        @else
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach ($student->enrollments->take(2) as $enrollment)
+                                    <x-badge :variant="$loop->odd ? 'primary' : 'secondary'" :title="$enrollment->course?->title">
+                                        <span class="inline-block max-w-36 truncate align-bottom normal-case">{{ $enrollment->course?->title }}</span>
+                                    </x-badge>
+                                @endforeach
+                                @if ($student->enrollments->count() > 2)
+                                    <x-badge variant="neutral">+{{ $student->enrollments->count() - 2 }}</x-badge>
+                                @endif
+                            </div>
+                        @endif
+                    </td>
+                    <td class="td font-mono text-xs text-on-surface-variant">
+                        {{ ($student->studentProfile?->date_of_joining ?? $student->created_at)?->format('M j, Y') }}
+                    </td>
+                    <td class="td">
+                        <x-badge :variant="$student->is_active ? 'success' : 'neutral'">
+                            {{ $student->is_active ? 'active' : 'inactive' }}
+                        </x-badge>
+                    </td>
+                    <td class="td text-right">
+                        <div class="inline-flex items-center gap-1">
+                            <x-btn variant="ghost" size="sm" :href="route('admin.students.show', $student)" title="View profile">
+                                <x-icon name="eye" class="size-4" />
+                            </x-btn>
+                            @can('students.update')
+                                <x-btn variant="ghost" size="sm" :href="route('admin.students.edit', $student)" title="Edit">
+                                    <x-icon name="pencil" class="size-4" />
+                                </x-btn>
+                            @endcan
+                            @can('students.delete')
+                                <x-confirm-form :action="route('admin.students.destroy', $student)" method="DELETE"
+                                    title="Move student to trash?"
+                                    :message="'Move '.$student->name.' to trash? They lose portal access; restore from Users → Trashed.'"
+                                    confirm-label="Move to trash"
+                                    class="rounded-lg p-2 text-on-surface-variant transition hover:bg-error/10 hover:text-error">
+                                    <x-icon name="trash" class="size-4" />
+                                </x-confirm-form>
+                            @endcan
+                        </div>
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="6"><x-empty-state icon="users" title="No students found"
+                    description="Register your first student, or adjust the filters." /></td></tr>
+            @endforelse
+        </tbody>
+        @if ($students->hasPages() || $students->total() > 0)
+            <x-slot:footer>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <p class="text-xs text-outline">
+                        Showing <span class="font-semibold text-on-surface">{{ $students->firstItem() ?? 0 }}–{{ $students->lastItem() ?? 0 }}</span>
+                        of <span class="font-semibold text-on-surface">{{ $students->total() }}</span> students
+                    </p>
+                    {{ $students->links() }}
+                </div>
+            </x-slot:footer>
+        @endif
+    </x-table>
+</x-admin.layout>

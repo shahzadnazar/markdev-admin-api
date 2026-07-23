@@ -17,6 +17,8 @@ class UserController extends Controller
     {
         $users = User::query()
             ->with('roles')
+            // Students are managed in the dedicated Students module.
+            ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'student'))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.trim($request->string('search')).'%';
                 $query->where(fn ($inner) => $inner
@@ -33,7 +35,7 @@ class UserController extends Controller
 
         return view('admin.users.index', [
             'users' => $users,
-            'roles' => Role::orderBy('name')->pluck('name'),
+            'roles' => Role::where('name', '!=', 'student')->orderBy('name')->pluck('name'),
         ]);
     }
 
@@ -137,6 +139,8 @@ class UserController extends Controller
     protected function assignableRoles()
     {
         return Role::orderBy('name')->get()
+            // Students are registered via the Students module, never from here.
+            ->reject(fn (Role $role) => $role->name === 'student')
             ->reject(fn (Role $role) => in_array($role->name, ['super-admin', 'admin'], true)
                 && ! auth()->user()->hasRole('super-admin'))
             ->values();

@@ -16,11 +16,14 @@
             </x-admin.nav-section>
         @endcan
 
-        @canany(['users.view'])
+        @canany(['users.view', 'students.view'])
             <x-admin.nav-section label="People">
+                @can('students.view')
+                    <x-admin.nav-item :href="route('admin.students.index')" icon="user-circle" :active="request()->routeIs('admin.students.*')">Students</x-admin.nav-item>
+                @endcan
                 @can('users.view')
-                    <x-admin.nav-item :href="route('admin.users.index')" icon="users" :active="request()->routeIs('admin.users.*')">Users</x-admin.nav-item>
                     <x-admin.nav-item :href="route('admin.instructors.index')" icon="academic-cap" :active="request()->routeIs('admin.instructors.*')">Instructors</x-admin.nav-item>
+                    <x-admin.nav-item :href="route('admin.users.index')" icon="users" :active="request()->routeIs('admin.users.*')">Staff &amp; Users</x-admin.nav-item>
                 @endcan
                 @role('super-admin')
                     <x-admin.nav-item :href="route('admin.roles.index')" icon="shield" :active="request()->routeIs('admin.roles.*')">Roles &amp; Permissions</x-admin.nav-item>

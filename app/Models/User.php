@@ -120,6 +120,11 @@ class User extends Authenticatable
         return $this->hasMany(Course::class, 'instructor_id');
     }
 
+    public function studentProfile(): HasOne
+    {
+        return $this->hasOne(StudentProfile::class);
+    }
+
     /* ------------------------------ Accessors ------------------------------ */
 
     public function getAvatarUrlAttribute(): ?string

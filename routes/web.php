@@ -66,6 +66,16 @@ Route::prefix('admin')
         Route::middleware('can:users.view')->group(function () {
             Route::get('instructors', [\App\Http\Controllers\Admin\InstructorController::class, 'index'])->name('instructors.index');
             Route::get('instructors/{instructor}', [\App\Http\Controllers\Admin\InstructorController::class, 'show'])->name('instructors.show');
+        });
+
+        Route::middleware('can:students.view')->group(function () {
+            Route::get('students', [\App\Http\Controllers\Admin\StudentController::class, 'index'])->name('students.index');
+            Route::get('students/register', [\App\Http\Controllers\Admin\StudentController::class, 'create'])->middleware('can:students.create')->name('students.create');
+            Route::post('students', [\App\Http\Controllers\Admin\StudentController::class, 'store'])->middleware('can:students.create')->name('students.store');
+            Route::get('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'show'])->name('students.show');
+            Route::get('students/{student}/edit', [\App\Http\Controllers\Admin\StudentController::class, 'edit'])->middleware('can:students.update')->name('students.edit');
+            Route::put('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'update'])->middleware('can:students.update')->name('students.update');
+            Route::delete('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'destroy'])->middleware('can:students.delete')->name('students.destroy');
 
             Route::get('users', [UserController::class, 'index'])->name('users.index');
             Route::get('users/create', [UserController::class, 'create'])->middleware('can:users.create')->name('users.create');
