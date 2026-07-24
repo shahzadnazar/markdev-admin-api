@@ -18,47 +18,67 @@
             : null;
     @endphp
 
-    <x-page-header eyebrow="Learning · Daily attendance" :title="$student->name"
-        :description="($student->studentProfile?->reg_no ? 'Reg # '.$student->studentProfile->reg_no.' · ' : '').'Attendance history — '.strtolower($rangeMeta[$range])">
-        <x-slot:actions>
-            <x-btn variant="ghost" :href="route('admin.attendance.daily')">
+    {{-- Compact header: identity left, actions pinned top-right --}}
+    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
+        <div class="flex min-w-0 items-center gap-3.5">
+            @if ($student->avatar_url)
+                <img src="{{ $student->avatar_url }}" alt="" class="size-12 shrink-0 rounded-xl object-cover ring-1 ring-outline/20">
+            @else
+                <span class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary font-display text-lg font-bold text-white">
+                    {{ strtoupper(mb_substr($student->name, 0, 1)) }}
+                </span>
+            @endif
+            <div class="min-w-0">
+                <p class="eyebrow mb-0.5">Daily attendance</p>
+                <div class="flex flex-wrap items-center gap-x-2.5">
+                    <h1 class="truncate font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">{{ $student->name }}</h1>
+                    @if ($student->studentProfile?->reg_no)
+                        <x-badge variant="primary">{{ $student->studentProfile->reg_no }}</x-badge>
+                    @endif
+                </div>
+                <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Attendance history — {{ strtolower($rangeMeta[$range]) }}{{ $statusFilter ? ', '.$statusFilter.' only' : '' }}</p>
+            </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+            <x-btn variant="ghost" size="sm" :href="route('admin.attendance.daily')">
                 <x-icon name="arrow-left" class="size-4" /> Register
             </x-btn>
             @can('students.view')
-                <x-btn variant="ghost" :href="route('admin.students.show', $student)">
+                <x-btn variant="ghost" size="sm" :href="route('admin.students.show', $student)">
                     <x-icon name="user-circle" class="size-4" /> Profile
                 </x-btn>
             @endcan
-            <x-btn variant="secondary" :href="route('admin.attendance.daily.show-print', array_merge(['student' => $student->id], request()->query()))" target="_blank">
+            <x-btn variant="secondary" size="sm" :href="route('admin.attendance.daily.show-print', array_merge(['student' => $student->id], request()->query()))" target="_blank">
                 <x-icon name="printer" class="size-4" /> Print PDF
             </x-btn>
-        </x-slot:actions>
-    </x-page-header>
-
-    {{-- Compact overview for the selected range --}}
-    <x-attendance.summary-strip :counts="$summary" :rate="$summary['rate']" class="mb-5" />
-
-    {{-- Range tabs + status filter --}}
-    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div class="inline-flex rounded-lg bg-white p-1 shadow-card">
-            @foreach ($rangeMeta as $key => $label)
-                <a href="{{ route('admin.attendance.daily.show', array_filter(['student' => $student->id, 'range' => $key, 'status' => $statusFilter])) }}"
-                    class="rounded-md px-3.5 py-1.5 text-sm font-medium transition {{ $range === $key ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:text-on-surface' }}">
-                    {{ $label }}
-                </a>
-            @endforeach
         </div>
-
-        <form method="GET" action="{{ route('admin.attendance.daily.show', $student) }}" class="flex items-center gap-2">
-            <input type="hidden" name="range" value="{{ $range }}">
-            <select name="status" class="field h-9 w-36 text-sm" onchange="this.form.submit()">
-                <option value="">All statuses</option>
-                @foreach ($statusMeta as $key => $meta)
-                    <option value="{{ $key }}" @selected($statusFilter === $key)>{{ $meta['label'] }}</option>
-                @endforeach
-            </select>
-        </form>
     </div>
+
+    {{-- Toolbar: range tabs + status filter + range overview in one card --}}
+    <x-card :padding="false" class="mb-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-ice px-4 py-2.5">
+            <div class="inline-flex rounded-lg bg-surface-ice/70 p-0.5">
+                @foreach ($rangeMeta as $key => $label)
+                    <a href="{{ route('admin.attendance.daily.show', array_filter(['student' => $student->id, 'range' => $key, 'status' => $statusFilter])) }}"
+                        class="rounded-md px-3 py-1.5 text-[13px] font-medium transition {{ $range === $key ? 'bg-white text-primary shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
+                        {{ $label }}
+                    </a>
+                @endforeach
+            </div>
+
+            <form method="GET" action="{{ route('admin.attendance.daily.show', $student) }}">
+                <input type="hidden" name="range" value="{{ $range }}">
+                <label class="sr-only" for="status">Status</label>
+                <select name="status" id="status" class="field h-9 w-36 text-sm" onchange="this.form.submit()">
+                    <option value="">All statuses</option>
+                    @foreach ($statusMeta as $key => $meta)
+                        <option value="{{ $key }}" @selected($statusFilter === $key)>{{ $meta['label'] }}</option>
+                    @endforeach
+                </select>
+            </form>
+        </div>
+        <x-attendance.summary-strip :counts="$summary" :rate="$summary['rate']" class="px-4 py-2.5" />
+    </x-card>
 
     <x-table>
         <thead class="bg-surface-ice/60">

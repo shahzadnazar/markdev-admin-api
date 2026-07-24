@@ -11,10 +11,18 @@
             : null;
     @endphp
 
-    <x-page-header eyebrow="Learning" title="Daily attendance"
-        :description="'Register for '.$date->format('l, F j, Y').($date->isToday() ? ' — today' : '').'. Every active student, marked once; corrections need the security PIN and a reason.'">
-        <x-slot:actions>
-            <x-btn variant="secondary" :href="route('admin.attendance.daily.print', request()->query())" target="_blank">
+    {{-- Compact header: title left, actions pinned top-right --}}
+    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
+        <div class="min-w-0">
+            <p class="eyebrow mb-1">Learning</p>
+            <div class="flex flex-wrap items-baseline gap-x-3">
+                <h1 class="font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">Daily attendance</h1>
+                <span class="font-mono text-xs text-on-surface-variant">{{ $date->format('D, M j, Y') }}{{ $date->isToday() ? ' · today' : '' }}</span>
+            </div>
+            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">One record per active student per day — corrections need the security PIN and a reason.</p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+            <x-btn variant="secondary" size="sm" :href="route('admin.attendance.daily.print', request()->query())" target="_blank">
                 <x-icon name="printer" class="size-4" /> Print PDF
             </x-btn>
             @if ($counts['unmarked'] > 0)
@@ -22,57 +30,52 @@
                     title="Mark remaining present?"
                     :message="$counts['unmarked'].' student(s) are still unmarked for '.$date->format('M j').'. Mark them all present now? Individual corrections stay possible via Update.'"
                     confirm-label="Mark all present"
-                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-card transition hover:bg-primary-deep">
-                    <x-icon name="check" class="size-4" /> Mark remaining present
+                    class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white shadow-card transition hover:bg-primary-deep">
+                    <x-icon name="check" class="size-3.5" /> Mark all present ({{ $counts['unmarked'] }})
                 </x-confirm-form>
             @endif
-        </x-slot:actions>
-    </x-page-header>
+        </div>
+    </div>
 
     @unless ($pinConfigured)
-        <div class="mb-5 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3.5 text-sm text-on-surface">
-            <x-icon name="warning" class="mt-0.5 size-4.5 shrink-0 text-warning" />
-            <p><span class="font-semibold">No attendance security PIN is set.</span> Marking works, but corrections stay locked until a Super Admin sets the PIN in System → Settings.</p>
+        <div class="mb-4 flex items-center gap-2.5 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-2 text-[13px] text-on-surface">
+            <x-icon name="warning" class="size-4 shrink-0 text-warning" />
+            <p><span class="font-semibold">No attendance security PIN is set</span> — corrections stay locked until a Super Admin sets one in System → Settings.</p>
         </div>
     @endunless
 
-    {{-- Compact day summary --}}
-    <x-attendance.summary-strip :counts="$counts" class="mb-5" />
-
-    {{-- Filters — compact, all optional except the date --}}
-    <form method="GET" action="{{ route('admin.attendance.daily') }}" class="mb-5 flex flex-wrap items-end gap-2.5">
-        <div>
-            <label class="mb-1 block text-xs font-medium text-on-surface-variant" for="date">Date</label>
-            <input type="date" name="date" id="date" value="{{ $date->toDateString() }}" max="{{ today()->toDateString() }}" class="field h-9 w-38 text-sm">
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-on-surface-variant" for="status">Status</label>
-            <select name="status" id="status" class="field h-9 w-32 text-sm">
-                <option value="">All</option>
+    {{-- Toolbar: filters + day summary in one card --}}
+    <x-card :padding="false" class="mb-4">
+        <form method="GET" action="{{ route('admin.attendance.daily') }}"
+            class="flex flex-wrap items-center gap-2 border-b border-surface-ice px-4 py-2.5">
+            <label class="sr-only" for="date">Attendance date</label>
+            <input type="date" name="date" id="date" value="{{ $date->toDateString() }}" max="{{ today()->toDateString() }}"
+                class="field h-9 w-38 text-sm" title="Attendance date">
+            <label class="sr-only" for="status">Status</label>
+            <select name="status" id="status" class="field h-9 w-36 text-sm" title="Status">
+                <option value="">All statuses</option>
                 <option value="unmarked" @selected($statusFilter === 'unmarked')>Not marked</option>
                 @foreach ($statusMeta as $key => $meta)
                     <option value="{{ $key }}" @selected($statusFilter === $key)>{{ $meta['label'] }}</option>
                 @endforeach
             </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-on-surface-variant" for="course">Course <span class="font-normal text-outline">(optional)</span></label>
-            <select name="course" id="course" class="field h-9 w-48 text-sm">
+            <label class="sr-only" for="course">Course (optional)</label>
+            <select name="course" id="course" class="field h-9 w-48 text-sm" title="Course — optional">
                 <option value="">All courses</option>
                 @foreach ($courses as $course)
                     <option value="{{ $course->id }}" @selected($courseId === $course->id)>{{ $course->title }}</option>
                 @endforeach
             </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-on-surface-variant" for="search">Search</label>
-            <input type="search" name="search" id="search" value="{{ request('search') }}" placeholder="Name, reg #, CNIC…" class="field h-9 w-52 text-sm">
-        </div>
-        <x-btn variant="secondary" size="sm" class="h-9"><x-icon name="funnel" class="size-3.5" /> Apply</x-btn>
-        @if (request()->hasAny(['status', 'course', 'search']))
-            <x-btn variant="ghost" size="sm" class="h-9" :href="route('admin.attendance.daily', ['date' => $date->toDateString()])">Clear</x-btn>
-        @endif
-    </form>
+            <label class="sr-only" for="search">Search</label>
+            <input type="search" name="search" id="search" value="{{ request('search') }}"
+                placeholder="Name, reg #, CNIC…" class="field h-9 w-44 min-w-0 flex-1 text-sm sm:max-w-56">
+            <x-btn variant="secondary" size="sm" class="h-9"><x-icon name="funnel" class="size-3.5" /> Apply</x-btn>
+            @if (request()->hasAny(['status', 'course', 'search']))
+                <x-btn variant="ghost" size="sm" class="h-9" :href="route('admin.attendance.daily', ['date' => $date->toDateString()])">Clear</x-btn>
+            @endif
+        </form>
+        <x-attendance.summary-strip :counts="$counts" class="px-4 py-2.5" />
+    </x-card>
 
     <div x-data="dailyAttendance()">
         <x-table>
