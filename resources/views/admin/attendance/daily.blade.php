@@ -249,15 +249,12 @@
                             <input type="hidden" name="user_id" :value="student.id">
 
                             <div>
-                                <p class="mb-2 text-[13px] font-medium text-on-surface">Status</p>
-                                <div class="grid grid-cols-4 gap-1.5">
+                                <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="mark-status">Status</label>
+                                <select name="status" id="mark-status" class="field w-full text-sm" required>
                                     @foreach ($statusMeta as $key => $meta)
-                                        <label class="choice-pill flex cursor-pointer items-center justify-center rounded-lg border border-outline/30 px-1.5 py-2 text-[13px] font-medium text-on-surface-variant transition hover:border-primary/50 hover:text-primary">
-                                            <input type="radio" name="status" value="{{ $key }}" class="sr-only" required @checked($key === 'present')>
-                                            {{ $meta['label'] }}
-                                        </label>
+                                        <option value="{{ $key }}" @selected($key === 'present')>{{ $meta['label'] }}</option>
                                     @endforeach
-                                </div>
+                                </select>
                             </div>
 
                             <div>
@@ -305,15 +302,12 @@
 
                             <div x-show="pin.length >= 4" x-transition class="space-y-4">
                                 <div>
-                                    <p class="mb-2 text-[13px] font-medium text-on-surface">New status</p>
-                                    <div class="grid grid-cols-4 gap-1.5">
+                                    <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="update-status">New status</label>
+                                    <select name="status" id="update-status" class="field w-full text-sm" x-model="newStatus" required>
                                         @foreach ($statusMeta as $key => $meta)
-                                            <label class="choice-pill flex cursor-pointer items-center justify-center rounded-lg border border-outline/30 px-1.5 py-2 text-[13px] font-medium text-on-surface-variant transition hover:border-primary/50 hover:text-primary">
-                                                <input type="radio" name="status" value="{{ $key }}" class="sr-only" x-model="newStatus">
-                                                {{ $meta['label'] }}
-                                            </label>
+                                            <option value="{{ $key }}">{{ $meta['label'] }}</option>
                                         @endforeach
-                                    </div>
+                                    </select>
                                 </div>
 
                                 <div>
