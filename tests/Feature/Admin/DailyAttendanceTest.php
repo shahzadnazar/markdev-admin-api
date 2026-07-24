@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Course;
 use App\Models\DailyAttendance;
+use App\Models\Enrollment;
 use App\Models\User;
 use App\Support\AttendanceConfig;
 use Database\Seeders\RolePermissionSeeder;
@@ -220,5 +222,106 @@ class DailyAttendanceTest extends TestCase
             ->assertJsonPath('data.0.remarks', 'Traffic')
             ->assertJsonPath('data.0.corrected', false)
             ->assertJsonPath('meta.total', 1);
+    }
+
+    protected function courseWithEnrollment(User $student, string $title = 'Laravel Bootcamp'): Course
+    {
+        $course = Course::create([
+            'title' => $title,
+            'slug' => \Illuminate\Support\Str::slug($title.'-'.\Illuminate\Support\Str::random(4)),
+            'excerpt' => 'x',
+            'level' => 'beginner',
+            'status' => 'published',
+            'published_at' => now(),
+            'is_free' => true,
+        ]);
+
+        Enrollment::create([
+            'user_id' => $student->id,
+            'course_id' => $course->id,
+            'enrolled_at' => now(),
+        ]);
+
+        return $course;
+    }
+
+    public function test_course_filter_narrows_the_register(): void
+    {
+        $enrolled = User::factory()->create(['name' => 'Enrolled Ali']);
+        $enrolled->assignRole('student');
+        $course = $this->courseWithEnrollment($enrolled);
+
+        $this->actingAs($this->admin)
+            ->get('/admin/attendance/daily?course='.$course->id)
+            ->assertOk()
+            ->assertSee('Enrolled Ali')
+            ->assertDontSee('Aliya Khan');
+    }
+
+    public function test_register_prints_to_pdf_with_filters(): void
+    {
+        $this->mark(['status' => 'late']);
+
+        $response = $this->actingAs($this->admin)
+            ->get('/admin/attendance/daily/print?date='.today()->toDateString());
+
+        $response->assertOk();
+        $this->assertSame('application/pdf', $response->headers->get('content-type'));
+    }
+
+    public function test_student_attendance_page_shows_history_with_ranges(): void
+    {
+        $this->mark(['status' => 'late', 'remarks' => 'Traffic']);
+        DailyAttendance::create([
+            'user_id' => $this->student->id,
+            'date' => today()->subDay()->toDateString(),
+            'status' => 'present',
+            'source' => 'manual',
+            'marked_by' => $this->admin->id,
+            'marked_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get('/admin/attendance/daily/'.$this->student->id.'?range=all')
+            ->assertOk()
+            ->assertSee('Aliya Khan')
+            ->assertSee('Traffic')
+            ->assertSee('Attendance history');
+
+        // "Yesterday" excludes today's late record.
+        $this->actingAs($this->admin)
+            ->get('/admin/attendance/daily/'.$this->student->id.'?range=yesterday')
+            ->assertOk()
+            ->assertDontSee('Traffic');
+    }
+
+    public function test_student_attendance_page_rejects_non_students(): void
+    {
+        $this->actingAs($this->admin)
+            ->get('/admin/attendance/daily/'.$this->admin->id)
+            ->assertNotFound();
+    }
+
+    public function test_student_history_prints_to_pdf(): void
+    {
+        $this->mark();
+
+        $response = $this->actingAs($this->admin)
+            ->get('/admin/attendance/daily/'.$this->student->id.'/print?range=all');
+
+        $response->assertOk();
+        $this->assertSame('application/pdf', $response->headers->get('content-type'));
+    }
+
+    public function test_register_shows_marker_role_and_course_column(): void
+    {
+        $this->courseWithEnrollment($this->student, 'React Patterns');
+        $this->mark();
+
+        $this->actingAs($this->admin)
+            ->get('/admin/attendance/daily')
+            ->assertOk()
+            ->assertSee('React Patterns')
+            ->assertSee('Admin'); // marker shown by role
     }
 }

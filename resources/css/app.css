@@ -119,3 +119,20 @@
     background: #c2c6d5;
     border-radius: 9999px;
 }
+
+/* Buttons should always read as clickable. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
+/* Selectable status/gender pills: solid, unmistakable checked state.
+   Un-layered on purpose so it outranks utility classes on the same label. */
+.choice-pill:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--color-primary) 35%, transparent);
+}

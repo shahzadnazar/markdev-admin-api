@@ -117,6 +117,7 @@ class DemoSeeder extends Seeder
         \App\Support\AttendanceConfig::setEditPin('1234');
 
         // A few days of daily-register history for the main demo student.
+        $frontDesk = User::where('email', 'admin@markdev.test')->first();
         foreach ([[2, 'present'], [1, 'present'], [0, 'late']] as [$back, $status]) {
             \App\Models\DailyAttendance::create([
                 'user_id' => $student->id,
@@ -124,6 +125,7 @@ class DemoSeeder extends Seeder
                 'status' => $status,
                 'remarks' => $status === 'late' ? 'Arrived 20 minutes late' : null,
                 'source' => 'manual',
+                'marked_by' => $frontDesk?->id,
                 'marked_at' => now()->subDays($back)->setTime(9, 5),
             ]);
         }

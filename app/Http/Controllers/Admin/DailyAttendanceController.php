@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Course;
 use App\Models\DailyAttendance;
 use App\Models\User;
 use App\Support\AttendanceConfig;
 use App\Support\AuditLogger;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -20,26 +23,16 @@ use Illuminate\View\View;
  */
 class DailyAttendanceController extends Controller
 {
+    public const RANGES = ['today', 'yesterday', 'week', 'month', 'all'];
+
     public function index(Request $request): View
     {
         $date = $this->date($request);
+        $statusFilter = $this->statusFilter($request);
+        $courseId = $request->filled('course') ? $request->integer('course') : null;
 
-        $statusFilter = in_array($request->query('status'), [...DailyAttendance::STATUSES, 'unmarked'], true)
-            ? $request->query('status')
-            : null;
-
-        $students = User::role('student')
-            ->where('is_active', true)
-            ->with(['studentProfile:id,user_id,reg_no,cnic'])
-            ->when($request->filled('search'), function ($query) use ($request) {
-                $term = '%'.trim($request->string('search')).'%';
-                $query->where(fn ($inner) => $inner
-                    ->where('name', 'like', $term)
-                    ->orWhere('email', 'like', $term))
-                    ->orWhereHas('studentProfile', fn ($profile) => $profile
-                        ->where('reg_no', 'like', $term)
-                        ->orWhere('cnic', 'like', $term));
-            })
+        $students = $this->cohort($request, $courseId)
+            ->with(['studentProfile:id,user_id,reg_no,cnic', 'enrollments.course:id,title'])
             ->when($statusFilter === 'unmarked', fn ($query) => $query
                 ->whereDoesntHave('dailyAttendance', fn ($inner) => $inner->whereDate('date', $date)))
             ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn ($query) => $query
@@ -50,31 +43,98 @@ class DailyAttendanceController extends Controller
 
         $records = DailyAttendance::whereDate('date', $date)
             ->whereIn('user_id', $students->pluck('id'))
-            ->with(['marker:id,name', 'updater:id,name'])
+            ->with(['marker:id,name', 'marker.roles:id,name', 'updater:id,name'])
             ->get()
             ->keyBy('user_id');
-
-        $activeTotal = User::role('student')->where('is_active', true)->count();
-        $counts = DailyAttendance::whereDate('date', $date)
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
 
         return view('admin.attendance.daily', [
             'students' => $students,
             'records' => $records,
             'date' => $date,
             'statusFilter' => $statusFilter,
-            'counts' => [
-                'present' => (int) ($counts['present'] ?? 0),
-                'late' => (int) ($counts['late'] ?? 0),
-                'absent' => (int) ($counts['absent'] ?? 0),
-                'leave' => (int) ($counts['leave'] ?? 0),
-                'unmarked' => max(0, $activeTotal - (int) $counts->sum()),
-                'total' => $activeTotal,
-            ],
+            'courseId' => $courseId,
+            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'counts' => $this->dayCounts($request, $date, $courseId),
             'pinConfigured' => AttendanceConfig::hasEditPin(),
         ]);
+    }
+
+    /** Print the currently loaded register (same filters) as a PDF. */
+    public function print(Request $request): Response
+    {
+        $date = $this->date($request);
+        $statusFilter = $this->statusFilter($request);
+        $courseId = $request->filled('course') ? $request->integer('course') : null;
+
+        $students = $this->cohort($request, $courseId)
+            ->with(['studentProfile:id,user_id,reg_no', 'enrollments.course:id,title'])
+            ->when($statusFilter === 'unmarked', fn ($query) => $query
+                ->whereDoesntHave('dailyAttendance', fn ($inner) => $inner->whereDate('date', $date)))
+            ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn ($query) => $query
+                ->whereHas('dailyAttendance', fn ($inner) => $inner->whereDate('date', $date)->where('status', $statusFilter)))
+            ->orderBy('name')
+            ->limit(1000)
+            ->get();
+
+        $records = DailyAttendance::whereDate('date', $date)
+            ->whereIn('user_id', $students->pluck('id'))
+            ->with(['marker:id,name', 'marker.roles:id,name'])
+            ->get()
+            ->keyBy('user_id');
+
+        $pdf = Pdf::loadView('admin.attendance.pdf.register', [
+            'students' => $students,
+            'records' => $records,
+            'date' => $date,
+            'counts' => $this->dayCounts($request, $date, $courseId),
+            'course' => $courseId ? Course::find($courseId) : null,
+            'statusFilter' => $statusFilter,
+            'search' => trim((string) $request->query('search')),
+            'generatedBy' => $request->user()->name,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('daily-attendance-'.$date->toDateString().'.pdf');
+    }
+
+    /** Per-student attendance history with range filters. */
+    public function show(Request $request, User $student): View
+    {
+        abort_unless($student->hasRole('student'), 404);
+
+        [$range, $statusFilter, $query] = $this->studentQuery($request, $student);
+
+        $records = (clone $query)
+            ->with(['marker:id,name', 'marker.roles:id,name', 'updater:id,name'])
+            ->orderByDesc('date')
+            ->paginate(31)
+            ->withQueryString();
+
+        return view('admin.attendance.student', [
+            'student' => $student->load('studentProfile:id,user_id,reg_no', 'enrollments.course:id,title'),
+            'records' => $records,
+            'range' => $range,
+            'statusFilter' => $statusFilter,
+            'summary' => $this->studentSummary($request, $student),
+        ]);
+    }
+
+    /** Print one student's filtered history as a PDF. */
+    public function printStudent(Request $request, User $student): Response
+    {
+        abort_unless($student->hasRole('student'), 404);
+
+        [$range, $statusFilter, $query] = $this->studentQuery($request, $student);
+
+        $pdf = Pdf::loadView('admin.attendance.pdf.student', [
+            'student' => $student->load('studentProfile:id,user_id,reg_no'),
+            'records' => (clone $query)->with(['marker:id,name', 'marker.roles:id,name'])->orderByDesc('date')->limit(1000)->get(),
+            'range' => $range,
+            'statusFilter' => $statusFilter,
+            'summary' => $this->studentSummary($request, $student),
+            'generatedBy' => $request->user()->name,
+        ])->setPaper('a4');
+
+        return $pdf->stream('attendance-'.($student->studentProfile?->reg_no ?? $student->id).'.pdf');
     }
 
     /** First-time marking — no PIN, but only once per student per day. */
@@ -203,6 +263,89 @@ class DailyAttendanceController extends Controller
         ]);
 
         return back()->with('success', 'Attendance updated — correction logged with your reason.');
+    }
+
+    /* ------------------------------- Helpers ------------------------------- */
+
+    /** Active students matching the shared search + course filters. */
+    protected function cohort(Request $request, ?int $courseId)
+    {
+        return User::role('student')
+            ->where('is_active', true)
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $term = '%'.trim($request->string('search')).'%';
+                $query->where(fn ($inner) => $inner
+                    ->where('name', 'like', $term)
+                    ->orWhere('email', 'like', $term)
+                    ->orWhereHas('studentProfile', fn ($profile) => $profile
+                        ->where('reg_no', 'like', $term)
+                        ->orWhere('cnic', 'like', $term)));
+            })
+            ->when($courseId, fn ($query) => $query
+                ->whereHas('enrollments', fn ($inner) => $inner->where('course_id', $courseId)));
+    }
+
+    /** Day summary for the filtered cohort (search + course aware). */
+    protected function dayCounts(Request $request, \Illuminate\Support\Carbon $date, ?int $courseId): array
+    {
+        $cohortIds = $this->cohort($request, $courseId)->pluck('id');
+
+        $counts = DailyAttendance::whereDate('date', $date)
+            ->whereIn('user_id', $cohortIds)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return [
+            'present' => (int) ($counts['present'] ?? 0),
+            'late' => (int) ($counts['late'] ?? 0),
+            'absent' => (int) ($counts['absent'] ?? 0),
+            'leave' => (int) ($counts['leave'] ?? 0),
+            'unmarked' => max(0, $cohortIds->count() - (int) $counts->sum()),
+            'total' => $cohortIds->count(),
+        ];
+    }
+
+    /** @return array{0: string, 1: ?string, 2: \Illuminate\Database\Eloquent\Builder} */
+    protected function studentQuery(Request $request, User $student): array
+    {
+        $range = in_array($request->query('range'), self::RANGES, true) ? $request->query('range') : 'month';
+        $statusFilter = in_array($request->query('status'), DailyAttendance::STATUSES, true) ? $request->query('status') : null;
+
+        $query = DailyAttendance::where('user_id', $student->id)
+            ->when($range === 'today', fn ($inner) => $inner->whereDate('date', today()))
+            ->when($range === 'yesterday', fn ($inner) => $inner->whereDate('date', today()->subDay()))
+            ->when($range === 'week', fn ($inner) => $inner->whereDate('date', '>=', today()->startOfWeek()))
+            ->when($range === 'month', fn ($inner) => $inner->whereDate('date', '>=', today()->startOfMonth()))
+            ->when($statusFilter !== null, fn ($inner) => $inner->where('status', $statusFilter));
+
+        return [$range, $statusFilter, $query];
+    }
+
+    /** Range-filtered overview counts for one student (status filter excluded). */
+    protected function studentSummary(Request $request, User $student): array
+    {
+        [, , $query] = $this->studentQuery($request->duplicate(array_merge($request->query(), ['status' => null])), $student);
+
+        $counts = (clone $query)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $total = (int) $counts->sum();
+        $attended = (int) ($counts['present'] ?? 0) + (int) ($counts['late'] ?? 0);
+
+        return [
+            'present' => (int) ($counts['present'] ?? 0),
+            'late' => (int) ($counts['late'] ?? 0),
+            'absent' => (int) ($counts['absent'] ?? 0),
+            'leave' => (int) ($counts['leave'] ?? 0),
+            'total' => $total,
+            'rate' => $total > 0 ? round($attended / $total * 100, 1) : null,
+        ];
+    }
+
+    protected function statusFilter(Request $request): ?string
+    {
+        return in_array($request->query('status'), [...DailyAttendance::STATUSES, 'unmarked'], true)
+            ? $request->query('status')
+            : null;
     }
 
     protected function date(Request $request): \Illuminate\Support\Carbon

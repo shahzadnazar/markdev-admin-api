@@ -36,9 +36,7 @@
                                 <x-form.label for="gender" value="Gender" />
                                 <div class="mt-1 grid grid-cols-2 gap-2">
                                     @foreach (['male' => 'Male', 'female' => 'Female'] as $value => $label)
-                                        <label class="flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition
-                                            has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary
-                                            border-outline/30 text-on-surface-variant hover:border-outline/60">
+                                        <label class="choice-pill flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline/30 px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-outline/60">
                                             <input type="radio" name="gender" value="{{ $value }}" class="sr-only"
                                                 @checked(old('gender', $profile?->gender) === $value) required>
                                             {{ $label }}
