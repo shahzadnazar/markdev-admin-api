@@ -80,8 +80,8 @@
                     <td class="td">
                         <x-badge :variant="$statusMeta[$record->status]['badge'] ?? 'neutral'">{{ $statusMeta[$record->status]['label'] ?? $record->status }}</x-badge>
                     </td>
-                    <td class="td max-w-[14rem]">
-                        <p class="truncate text-sm text-on-surface-variant" title="{{ $record->remarks }}">{{ $record->remarks ?? '—' }}</p>
+                    <td class="td max-w-[16rem]">
+                        <p class="whitespace-pre-line break-words text-sm text-on-surface-variant">{{ $record->remarks ?? '—' }}</p>
                     </td>
                     <td class="td">
                         <p class="font-mono text-xs text-on-surface">{{ $record->marked_at->format('g:i A') }}</p>
@@ -95,7 +95,7 @@
                     </td>
                     <td class="td max-w-[16rem]">
                         @if ($record->last_updated_at)
-                            <p class="text-xs text-on-surface">{{ $record->last_update_reason }}</p>
+                            <p class="whitespace-pre-line break-words text-xs text-on-surface">{{ $record->last_update_reason }}</p>
                             <p class="mt-0.5 font-mono text-[11px] text-outline">
                                 {{ $record->last_updated_at->format('M j · g:i A') }} · {{ $record->updater?->name ?? '—' }}
                             </p>

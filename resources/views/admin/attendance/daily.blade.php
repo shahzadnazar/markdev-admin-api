@@ -157,8 +157,10 @@
                                 <x-badge variant="neutral">Not marked</x-badge>
                             @endif
                         </td>
-                        <td class="td max-w-[12rem]">
-                            <p class="truncate text-sm text-on-surface-variant" title="{{ $record?->remarks }}">{{ $record?->remarks ?? '—' }}</p>
+                        <td class="td">
+                            <p class="text-sm text-on-surface-variant" title="{{ $record?->remarks }}">
+                                {{ $record?->remarks ? \Illuminate\Support\Str::limit($record->remarks, 20, '…') : '—' }}
+                            </p>
                         </td>
                         <td class="td">
                             @if ($record)
