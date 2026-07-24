@@ -137,4 +137,21 @@ class BiometricPunchTest extends ApiTestCase
         $this->assertSame(1, $count);
         $this->assertSame('present', AttendanceRecord::where('user_id', $student->id)->value('status'));
     }
+
+    public function test_a_punch_also_fills_the_daily_register(): void
+    {
+        $device = $this->device();
+        $student = $this->student(['biometric_id' => '7007']);
+        $this->enroll($student, $device->course);
+
+        $this->punch($device, [
+            ['biometric_id' => '7007', 'punched_at' => now()->setTime(9, 5)->toDateTimeString()],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('daily_attendance_records', [
+            'user_id' => $student->id,
+            'status' => 'present',
+            'source' => 'biometric',
+        ]);
+    }
 }

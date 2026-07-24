@@ -125,6 +125,11 @@ class User extends Authenticatable
         return $this->hasOne(StudentProfile::class);
     }
 
+    public function dailyAttendance(): HasMany
+    {
+        return $this->hasMany(DailyAttendance::class);
+    }
+
     /* ------------------------------ Accessors ------------------------------ */
 
     public function getAvatarUrlAttribute(): ?string

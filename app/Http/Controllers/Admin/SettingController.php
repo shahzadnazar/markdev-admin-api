@@ -27,6 +27,7 @@ class SettingController extends Controller
                 'billing_activation_days' => $settings['billing_activation_days'] ?? 5,
                 'timezone' => $settings['timezone'] ?? config('app.timezone'),
                 'maintenance_mode' => (bool) ($settings['maintenance_mode'] ?? false),
+                'attendance_pin_set' => \App\Support\AttendanceConfig::hasEditPin(),
             ],
             'backups' => $this->backups(),
             'timezones' => \DateTimeZone::listIdentifiers(),
@@ -44,9 +45,17 @@ class SettingController extends Controller
             'billing_activation_days' => ['required', 'integer', 'min:0', 'max:28'],
             'timezone' => ['required', 'timezone:all'],
             'maintenance_mode' => ['nullable', 'boolean'],
+            'attendance_edit_pin' => ['nullable', 'digits_between:4,8'],
         ]);
 
         $data['maintenance_mode'] = $request->boolean('maintenance_mode');
+
+        // The PIN is stored hashed and only replaced when a new one is typed.
+        if (! empty($data['attendance_edit_pin'])) {
+            \App\Support\AttendanceConfig::setEditPin($data['attendance_edit_pin']);
+            AuditLogger::log('updated', 'settings', null, null, ['key' => 'attendance_edit_pin']);
+        }
+        unset($data['attendance_edit_pin']);
 
         foreach ($data as $key => $value) {
             Setting::updateOrCreate(['key' => $key], ['value' => $value, 'group' => 'general']);

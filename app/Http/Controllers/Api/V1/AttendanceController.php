@@ -41,6 +41,33 @@ class AttendanceController extends ApiController
         return AttendanceRecordResource::collection($records);
     }
 
+    /** The student's own daily-register history (date, status, remarks). */
+    public function daily(Request $request): JsonResponse
+    {
+        $records = \App\Models\DailyAttendance::where('user_id', $request->user()->id)
+            ->orderByDesc('date')
+            ->paginate($this->perPage($request))
+            ->withQueryString();
+
+        return response()->json([
+            'data' => collect($records->items())->map(fn ($record) => [
+                'id' => $record->id,
+                'date' => $record->date->toDateString(),
+                'status' => $record->status,
+                'remarks' => $record->remarks,
+                'source' => $record->source,
+                'marked_at' => $record->marked_at?->toIso8601String(),
+                'corrected' => $record->last_updated_at !== null,
+            ])->all(),
+            'meta' => [
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'per_page' => $records->perPage(),
+                'total' => $records->total(),
+            ],
+        ]);
+    }
+
     public function summary(Request $request): JsonResponse
     {
         $counts = AttendanceRecord::where('user_id', $request->user()->id)

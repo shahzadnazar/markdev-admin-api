@@ -34,6 +34,12 @@
                         hint="How many days before the due date an installment opens." />
                 </div>
 
+                <div class="border-t border-surface-ice pt-5">
+                    <x-form.input type="password" label="Attendance correction PIN" name="attendance_edit_pin"
+                        autocomplete="new-password" inputmode="numeric"
+                        :hint="($settings['attendance_pin_set'] ? 'A PIN is set — type a new 4-8 digit PIN to replace it.' : 'Not set yet — daily attendance corrections stay locked until you set one.').' Staff must enter it to change an already-marked day.'" />
+                </div>
+
                 <x-form.toggle label="Maintenance mode" name="maintenance_mode" :checked="(bool) old('maintenance_mode', $settings['maintenance_mode'])"
                     hint="Shows a maintenance banner to admin users; plan portal downtime with your team." />
 

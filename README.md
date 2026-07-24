@@ -77,6 +77,16 @@ Students are managed in a dedicated module (**Admin → People → Students**), 
 - **Optional on registration**: enroll into a course right away and split the total fee into a monthly installment plan (reuses the billing engine's due-day / grace / daily-fine logic).
 - A portal account is created automatically; leave the password blank to auto-generate one (shown once in the success message).
 
+## Daily attendance register
+
+**Admin → Learning → Daily Attendance** tracks every active student once per day (separate from per-course Class Attendance):
+
+- Each row starts **Not marked** with a green **Mark** button — pick Present / Late / Absent / Leave plus optional remarks. Marking stores the exact date-time and who marked it.
+- Once marked, the row switches to **View** and **Update**. Corrections require the **attendance security PIN** (stored hashed; set in System → Settings, demo seed uses `1234`) and a **compulsory written reason** — all corrections are stamped (by whom, when, why), shown in the View dialog and recorded in the audit log. Wrong PINs are rate-limited (5/minute).
+- **Mark remaining present** fills in everyone still unmarked for the day; biometric punches auto-fill the daily register too (first punch = present/late, never overwriting staff entries).
+- Gated by the `attendance.daily` permission (super admin, admin, manager — not instructors).
+- Students see their own history on the portal's Attendance page via `GET /api/v1/attendance/daily`.
+
 ## Biometric attendance devices
 
 Fingerprint/face terminals (ZKTeco, ESSL, Hikvision, or any bridge software) can mark attendance automatically:

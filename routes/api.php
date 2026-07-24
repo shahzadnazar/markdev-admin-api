@@ -84,6 +84,7 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard', DashboardController::class);
         Route::get('attendance', [AttendanceController::class, 'index']);
         Route::get('attendance/summary', [AttendanceController::class, 'summary']);
+        Route::get('attendance/daily', [AttendanceController::class, 'daily']);
         Route::get('certificates', [CertificateController::class, 'index']);
         Route::get('progress', ProgressController::class);
         Route::get('leaderboard', LeaderboardController::class);

@@ -49,7 +49,10 @@
                     <x-admin.nav-item :href="route('admin.quizzes.index')" icon="quiz" :active="request()->routeIs('admin.quizzes.*') || request()->routeIs('admin.questions.*')">Quizzes</x-admin.nav-item>
                 @endcan
                 @can('attendance.view')
-                    <x-admin.nav-item :href="route('admin.attendance.index')" icon="calendar" :active="request()->routeIs('admin.attendance.*')">Attendance</x-admin.nav-item>
+                    @can('attendance.daily')
+                        <x-admin.nav-item :href="route('admin.attendance.daily')" icon="check" :active="request()->routeIs('admin.attendance.daily')">Daily Attendance</x-admin.nav-item>
+                    @endcan
+                    <x-admin.nav-item :href="route('admin.attendance.index')" icon="calendar" :active="request()->routeIs('admin.attendance.index') || request()->routeIs('admin.attendance.log')">Class Attendance</x-admin.nav-item>
                 @endcan
                 @can('devices.view')
                     <x-admin.nav-item :href="route('admin.biometric.devices')" icon="server" :active="request()->routeIs('admin.biometric.*')">Biometric</x-admin.nav-item>

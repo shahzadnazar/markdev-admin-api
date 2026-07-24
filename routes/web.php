@@ -169,6 +169,13 @@ Route::prefix('admin')
             Route::delete('questions/{question}', [QuestionController::class, 'destroy'])->middleware('can:quizzes.update')->name('questions.destroy');
         });
 
+        Route::middleware('can:attendance.daily')->group(function () {
+            Route::get('attendance/daily', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'index'])->name('attendance.daily');
+            Route::post('attendance/daily', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'mark'])->name('attendance.daily.mark');
+            Route::post('attendance/daily/bulk-present', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'bulkPresent'])->name('attendance.daily.bulk');
+            Route::put('attendance/daily/{record}', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'update'])->name('attendance.daily.update');
+        });
+
         Route::middleware('can:attendance.view')->group(function () {
             Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
             Route::get('attendance/log', [AttendanceController::class, 'log'])->name('attendance.log');

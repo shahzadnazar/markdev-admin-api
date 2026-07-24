@@ -78,6 +78,23 @@ class BiometricAttendanceService
 
         $status = $this->resolveStatus($device, $punch->punched_at);
 
+        // A punch also proves daily presence at the academy - fill the daily
+        // register (never overwriting an already-marked day).
+        $dailyMarked = \App\Models\DailyAttendance::where('user_id', $user->id)
+            ->whereDate('date', $punch->punched_at->toDateString())
+            ->exists();
+
+        if (! $dailyMarked) {
+            \App\Models\DailyAttendance::create([
+                'user_id' => $user->id,
+                'date' => $punch->punched_at->toDateString(),
+                'status' => $status,
+                'remarks' => 'Biometric punch at '.$punch->punched_at->format('H:i'),
+                'source' => 'biometric',
+                'marked_at' => now(),
+            ]);
+        }
+
         $record = DB::transaction(function () use ($punch, $device, $user, $status) {
             $existing = AttendanceRecord::where('user_id', $user->id)
                 ->where('course_id', $device->course_id)

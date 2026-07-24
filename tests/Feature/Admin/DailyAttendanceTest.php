@@ -1,0 +1,224 @@
+<?php
+
+namespace Tests\Feature\Admin;
+
+use App\Models\DailyAttendance;
+use App\Models\User;
+use App\Support\AttendanceConfig;
+use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\RateLimiter;
+use Tests\TestCase;
+
+class DailyAttendanceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected User $admin;
+
+    protected User $student;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(RolePermissionSeeder::class);
+
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('admin');
+        RateLimiter::clear('attendance-pin:'.$this->admin->id);
+
+        $this->student = User::factory()->create(['name' => 'Aliya Khan']);
+        $this->student->assignRole('student');
+
+        AttendanceConfig::setEditPin('4321');
+    }
+
+    protected function mark(array $overrides = []): \Illuminate\Testing\TestResponse
+    {
+        return $this->actingAs($this->admin)->post('/admin/attendance/daily', array_merge([
+            'user_id' => $this->student->id,
+            'date' => today()->toDateString(),
+            'status' => 'present',
+        ], $overrides));
+    }
+
+    public function test_register_lists_active_students_as_unmarked(): void
+    {
+        $inactive = User::factory()->create(['name' => 'Gone Student', 'is_active' => false]);
+        $inactive->assignRole('student');
+
+        $this->actingAs($this->admin)->get('/admin/attendance/daily')
+            ->assertOk()
+            ->assertSee('Daily attendance')
+            ->assertSee('Aliya Khan')
+            ->assertSee('Not marked')
+            ->assertDontSee('Gone Student');
+    }
+
+    public function test_marking_creates_the_record_with_time_and_marker(): void
+    {
+        $this->mark(['status' => 'late', 'remarks' => 'Traffic'])->assertRedirect();
+
+        $record = DailyAttendance::first();
+        $this->assertSame('late', $record->status);
+        $this->assertSame('Traffic', $record->remarks);
+        $this->assertSame($this->admin->id, $record->marked_by);
+        $this->assertNotNull($record->marked_at);
+        $this->assertNull($record->last_updated_at);
+    }
+
+    public function test_a_day_cannot_be_marked_twice(): void
+    {
+        $this->mark();
+        $this->mark(['status' => 'absent'])->assertSessionHas('error');
+
+        $this->assertSame(1, DailyAttendance::count());
+        $this->assertSame('present', DailyAttendance::first()->status);
+    }
+
+    public function test_future_dates_cannot_be_marked(): void
+    {
+        $this->mark(['date' => today()->addDay()->toDateString()])
+            ->assertSessionHasErrors('date');
+    }
+
+    public function test_update_rejects_a_wrong_pin(): void
+    {
+        $this->mark();
+        $record = DailyAttendance::first();
+
+        $this->actingAs($this->admin)
+            ->put("/admin/attendance/daily/{$record->id}", [
+                'pin' => '9999',
+                'status' => 'absent',
+                'reason' => 'Was actually absent',
+            ])
+            ->assertSessionHasErrors('pin');
+
+        $this->assertSame('present', $record->fresh()->status);
+    }
+
+    public function test_update_requires_a_reason(): void
+    {
+        $this->mark();
+        $record = DailyAttendance::first();
+
+        $this->actingAs($this->admin)
+            ->put("/admin/attendance/daily/{$record->id}", [
+                'pin' => '4321',
+                'status' => 'absent',
+            ])
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame('present', $record->fresh()->status);
+    }
+
+    public function test_update_with_pin_and_reason_corrects_and_logs(): void
+    {
+        $this->mark();
+        $record = DailyAttendance::first();
+
+        $this->actingAs($this->admin)
+            ->put("/admin/attendance/daily/{$record->id}", [
+                'pin' => '4321',
+                'status' => 'leave',
+                'remarks' => 'Family emergency',
+                'reason' => 'Guardian called in the morning',
+            ])
+            ->assertSessionHas('success');
+
+        $record->refresh();
+        $this->assertSame('leave', $record->status);
+        $this->assertSame('Family emergency', $record->remarks);
+        $this->assertSame($this->admin->id, $record->last_updated_by);
+        $this->assertSame('Guardian called in the morning', $record->last_update_reason);
+        $this->assertNotNull($record->last_updated_at);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'attendance_corrected',
+            'module' => 'daily_attendance',
+        ]);
+    }
+
+    public function test_pin_attempts_are_rate_limited(): void
+    {
+        $this->mark();
+        $record = DailyAttendance::first();
+
+        foreach (range(1, 5) as $i) {
+            $this->actingAs($this->admin)->put("/admin/attendance/daily/{$record->id}", [
+                'pin' => '0000',
+                'status' => 'absent',
+                'reason' => 'attempt '.$i,
+            ]);
+        }
+
+        $this->actingAs($this->admin)
+            ->put("/admin/attendance/daily/{$record->id}", [
+                'pin' => '4321', // correct, but throttled now
+                'status' => 'absent',
+                'reason' => 'should be blocked',
+            ])
+            ->assertSessionHas('error');
+
+        $this->assertSame('present', $record->fresh()->status);
+    }
+
+    public function test_bulk_present_marks_only_unmarked_students(): void
+    {
+        $second = User::factory()->create();
+        $second->assignRole('student');
+
+        $this->mark(['status' => 'leave']); // Aliya already marked
+
+        $this->actingAs($this->admin)
+            ->post('/admin/attendance/daily/bulk-present?date='.today()->toDateString())
+            ->assertSessionHas('success');
+
+        $this->assertSame(2, DailyAttendance::count());
+        $this->assertSame('leave', DailyAttendance::where('user_id', $this->student->id)->first()->status);
+        $this->assertSame('present', DailyAttendance::where('user_id', $second->id)->first()->status);
+    }
+
+    public function test_instructor_cannot_open_the_daily_register(): void
+    {
+        $instructor = User::factory()->create();
+        $instructor->assignRole('instructor');
+
+        $this->actingAs($instructor)->get('/admin/attendance/daily')->assertForbidden();
+        $this->actingAs($instructor)->post('/admin/attendance/daily', [
+            'user_id' => $this->student->id,
+            'date' => today()->toDateString(),
+            'status' => 'present',
+        ])->assertForbidden();
+    }
+
+    public function test_manager_can_mark(): void
+    {
+        $manager = User::factory()->create();
+        $manager->assignRole('manager');
+
+        $this->actingAs($manager)->post('/admin/attendance/daily', [
+            'user_id' => $this->student->id,
+            'date' => today()->toDateString(),
+            'status' => 'present',
+        ])->assertRedirect();
+
+        $this->assertSame(1, DailyAttendance::count());
+    }
+
+    public function test_student_sees_their_daily_history_via_api(): void
+    {
+        $this->mark(['status' => 'late', 'remarks' => 'Traffic']);
+
+        \Laravel\Sanctum\Sanctum::actingAs($this->student);
+
+        $this->getJson('/api/v1/attendance/daily')
+            ->assertOk()
+            ->assertJsonPath('data.0.status', 'late')
+            ->assertJsonPath('data.0.remarks', 'Traffic')
+            ->assertJsonPath('data.0.corrected', false)
+            ->assertJsonPath('meta.total', 1);
+    }
+}
