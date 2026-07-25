@@ -4,15 +4,21 @@ Applies to both applications: **Student Portal** (`markdev-student-portal`, Reac
 
 ## 1. Color
 
-**Brand decision:** the system keeps the established MarkDev brand — professional blue `#0C5ABD` — as the primary. It already meets WCAG AA on white (contrast 5.9:1) and is used consistently across ~80 screens in both apps. Replacing the hue mid-project would repaint every screen for no functional gain; instead the semantic *structure* below is enforced.
+**Brand decision:** both apps use the approved MarkDev palette below (migrated from the earlier `#0C5ABD` at the token level — no per-screen edits). All ratios were computed during the migration; the main primary reaches 9.59:1 on white.
 
 ### Brand
-| Token | Value | Use |
-| --- | --- | --- |
-| `--color-primary` | `#0C5ABD` | main actions, active nav, focus, selected tabs, links, primary charts |
-| `--color-primary-deep` | darker blue | hover on primary |
-| `--color-secondary` | `#6B53C4` | admission/registration accents, secondary chips — never for buttons |
-| Tints | `primary/10`, `primary/5` | active-nav backgrounds, selected states, info surfaces |
+| Token | Value | Contrast | Use |
+| --- | --- | --- | --- |
+| `--color-primary` (primary-600) | `#124389` | 9.59:1 on white | main actions, active nav, focus rings, selected tabs, links, primary charts |
+| `--color-primary-deep` (primary-700) | `#0F376F` | 11.69:1 white-on | hover/pressed on primary |
+| `--color-primary-bright` (primary-500) | `#1D5AA6` | 6.85:1 on white | secondary emphasis, chart accents |
+| `--color-primary-container` (primary-100) | `#DCE9F7` | 9.49:1 w/ `#0F376F` text | selected/active soft surfaces |
+| `--color-surface-ice` (primary-50) | `#EEF4FB` | 15.44:1 w/ body text | page canvas, hover rows |
+| `--color-accent` | `#1FBBEB` | 2.24:1 on white | **decorative only** — chart lines, tiny indicators. Never a filled button, never white text on it. |
+| `--color-secondary` | `#6B53C4` | — | admission/registration accents, secondary chips — never for buttons |
+| Tints | `primary/10`, `primary/5` | — | active-nav backgrounds, selected states, info surfaces |
+
+Shadows are tinted `rgba(18,67,137,…)`; the brand gradient is `#124389 → #6B53C4`. DomPDF templates carry the same values as literals (PDF renderers cannot read CSS variables).
 
 ### Neutrals
 Token names: `--color-on-surface` (headings/body, ≈ gray-950), `--color-on-surface-variant` (secondary text, ≥ 4.5:1), `--color-outline` / `--color-outline-variant` (borders, muted metadata), `--color-surface-ice` / `surface-container*` (page + card fills), white cards on a `#F5F7FB`-family canvas.

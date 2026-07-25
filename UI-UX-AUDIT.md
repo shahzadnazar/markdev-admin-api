@@ -5,6 +5,8 @@ Method: full-codebase inspection of both frontends (layouts, routes, shared comp
 
 Severity scale: **Critical** (breaks usability/accessibility or shows wrong data) · **High** (materially hurts daily operation) · **Medium** (inconsistency/debt that compounds) · **Low** (polish).
 
+> Note: this document records the state **as found**. Colour references to `#0C5ABD` describe the pre-migration brand; the approved palette (`#124389` family) was applied during implementation — see `DESIGN-SYSTEM.md` §1 and `UI-UX-IMPLEMENTATION-LOG.md` Checkpoint 1.
+
 Overall assessment: both portals already share one design language (brand blue `#0C5ABD`, tokenized type scale, shared component kits that are genuinely used) and have near-complete loading/empty/error coverage. This audit therefore focuses on the gaps: accessibility of focus/drawers, a handful of remaining marketing-style sections, status-map duplication, and missing primitives (Table, ConfirmDialog, Breadcrumbs).
 
 ---
