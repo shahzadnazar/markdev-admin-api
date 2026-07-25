@@ -113,7 +113,7 @@
                 <th class="th">Date</th>
                 <th class="th">Status</th>
                 <th class="th">Remarks</th>
-                <th class="th">Marked</th>
+                <th class="th">Time</th>
                 <th class="th">Correction</th>
             </tr>
         </thead>
@@ -126,17 +126,15 @@
                     </td>
                     <td class="td">
                         <x-badge :variant="$statusMeta[$record->status]['badge'] ?? 'neutral'">{{ $statusMeta[$record->status]['label'] ?? $record->status }}</x-badge>
-                        @if ($record->arrived_at)
-                            <p class="mt-1 font-mono text-[10px] {{ $record->status === 'late' ? 'text-warning' : 'text-outline' }}">
-                                arr. {{ \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') }}
-                            </p>
-                        @endif
+
                     </td>
                     <td class="td max-w-[16rem]">
                         <p class="whitespace-pre-line break-words text-sm text-on-surface-variant">{{ $record->remarks ?? '—' }}</p>
                     </td>
                     <td class="td">
-                        <p class="font-mono text-xs text-on-surface">{{ $record->marked_at->format('g:i A') }}</p>
+                        <p class="font-mono text-xs {{ $record->status === 'late' ? 'font-semibold text-warning' : 'text-on-surface' }}">
+                            {{ $record->arrived_at ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') : $record->marked_at->format('g:i A') }}
+                        </p>
                         <p class="font-mono text-[11px] text-outline">
                             @if ($record->source === 'biometric')
                                 Biometric device

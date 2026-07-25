@@ -51,7 +51,7 @@
                 <th style="width: 17%">Date</th>
                 <th style="width: 10%">Status</th>
                 <th style="width: 28%">Remarks</th>
-                <th style="width: 22%">Marked</th>
+                <th style="width: 22%">Time · By</th>
                 <th style="width: 23%">Correction</th>
             </tr>
         </thead>
@@ -62,7 +62,7 @@
                     <td><span class="status {{ $record->status }}">{{ $record->status }}</span></td>
                     <td class="muted">{{ $record->remarks ?? '' }}</td>
                     <td class="muted">
-                        {{ $record->arrived_at ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A').' · ' : '' }}{{ $record->marked_at->format('g:i A') }} ·
+                        {{ $record->arrived_at ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') : $record->marked_at->format('g:i A') }} ·
                         @if ($record->source === 'biometric')
                             Biometric
                         @else

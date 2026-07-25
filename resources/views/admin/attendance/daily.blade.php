@@ -85,7 +85,7 @@
                     <th class="th">Course</th>
                     <th class="th">Attendance</th>
                     <th class="th">Remarks</th>
-                    <th class="th">Marked</th>
+                    <th class="th">Time</th>
                     <th class="th text-right">Action</th>
                 </tr>
             </thead>
@@ -136,30 +136,22 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="td max-w-[13rem]">
+                        <td class="td" style="max-width: 12rem;">
                             @if ($student->enrollments->isEmpty())
                                 <span class="font-mono text-xs text-outline">—</span>
                             @else
-                                <div class="flex flex-wrap gap-1">
-                                    <x-badge variant="primary" :title="$student->enrollments->first()->course?->title">
-                                        <span class="inline-block max-w-32 truncate align-bottom normal-case">{{ $student->enrollments->first()->course?->title }}</span>
-                                    </x-badge>
-                                    @if ($student->enrollments->count() > 1)
-                                        <x-badge variant="neutral" :title="$student->enrollments->skip(1)->map(fn ($enrollment) => $enrollment->course?->title)->filter()->implode(', ')">
-                                            +{{ $student->enrollments->count() - 1 }}
-                                        </x-badge>
-                                    @endif
-                                </div>
+                                <p class="truncate text-sm text-on-surface"
+                                    title="{{ $student->enrollments->map(fn ($enrollment) => $enrollment->course?->title)->filter()->implode(', ') }}">
+                                    {{ \Illuminate\Support\Str::limit($student->enrollments->first()->course?->title ?? '—', 24, '…') }}
+                                </p>
+                                @if ($student->enrollments->count() > 1)
+                                    <p class="mt-0.5 font-mono text-[11px] text-primary">+{{ $student->enrollments->count() - 1 }} more</p>
+                                @endif
                             @endif
                         </td>
                         <td class="td">
                             @if ($record)
                                 <x-badge :variant="$statusMeta[$record->status]['badge'] ?? 'neutral'">{{ $statusMeta[$record->status]['label'] ?? $record->status }}</x-badge>
-                                @if ($record->arrived_at)
-                                    <p class="mt-1 font-mono text-[10px] {{ $record->status === 'late' ? 'text-warning' : 'text-outline' }}">
-                                        arr. {{ \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') }}
-                                    </p>
-                                @endif
                                 @if ($record->last_updated_at)
                                     <p class="mt-1 font-mono text-[10px] uppercase tracking-wide text-outline">corrected</p>
                                 @endif
@@ -174,7 +166,9 @@
                         </td>
                         <td class="td">
                             @if ($record)
-                                <p class="font-mono text-xs text-on-surface">{{ $record->marked_at->format('g:i A') }}</p>
+                                <p class="font-mono text-xs {{ $record->status === 'late' ? 'font-semibold text-warning' : 'text-on-surface' }}">
+                                    {{ $record->arrived_at ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') : $record->marked_at->format('g:i A') }}
+                                </p>
                                 <p class="truncate font-mono text-[11px] text-outline" title="{{ $record->source === 'biometric' ? 'Biometric device' : $record->marker?->name }}">
                                     @if ($record->source === 'biometric')
                                         Biometric
@@ -297,7 +291,7 @@
                             {{-- Current state, for context --}}
                             <div class="flex items-center gap-2.5 rounded-lg bg-surface-ice/70 px-3 py-2 text-xs text-on-surface-variant">
                                 <span class="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase" :class="badgeClass(record.status)" x-text="record.status"></span>
-                                <span class="truncate" x-text="(record.arrived_label ? 'arrived ' + record.arrived_label + ' · ' : '') + 'marked ' + (record.marked_at || '') + ' · ' + (record.marked_by || '')"></span>
+                                <span class="truncate" x-text="(record.arrived_label ? record.arrived_label : (record.marked_at || '')) + ' · ' + (record.marked_by || '')"></span>
                             </div>
                             <template x-if="record.updated_at">
                                 <p class="rounded-lg bg-warning/10 px-3 py-2 text-xs text-on-surface-variant"

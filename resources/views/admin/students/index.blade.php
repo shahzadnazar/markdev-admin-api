@@ -22,10 +22,15 @@
     {{-- Filters --}}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div class="inline-flex rounded-lg bg-white p-1 shadow-card">
-            @foreach ([null => 'All students', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
+            @php
+                $tabCounts = [null => $totals['students'], 'active' => $totals['active'], 'inactive' => $totals['students'] - $totals['active']];
+            @endphp
+            @foreach (['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
+                @php $isActive = ($status ?? '') === $key; @endphp
                 <a href="{{ route('admin.students.index', array_filter(['status' => $key, 'search' => request('search'), 'course' => request('course')])) }}"
-                    class="rounded-md px-4 py-2 text-sm font-medium transition {{ $status === $key ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:text-on-surface' }}">
+                    class="inline-flex items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium transition {{ $isActive ? 'bg-primary text-white shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
                     {{ $label }}
+                    <span class="rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none {{ $isActive ? 'bg-white/20 text-white' : 'bg-surface-ice text-on-surface-variant' }}">{{ number_format($tabCounts[$key]) }}</span>
                 </a>
             @endforeach
         </div>
@@ -82,23 +87,20 @@
                         <p class="font-mono text-xs text-on-surface">{{ $student->studentProfile?->cnic ?? '—' }}</p>
                         <p class="font-mono text-xs text-outline">{{ $student->phone ?? $student->email }}</p>
                     </td>
-                    <td class="td max-w-[16rem]">
+                    <td class="td" style="max-width: 14rem;">
                         @if ($student->enrollments->isEmpty())
-                            <x-badge variant="neutral">not enrolled</x-badge>
+                            <span class="font-mono text-xs text-outline">not enrolled</span>
                         @else
-                            <div class="flex flex-wrap gap-1.5">
-                                @foreach ($student->enrollments->take(2) as $enrollment)
-                                    <x-badge :variant="$loop->odd ? 'primary' : 'secondary'" :title="$enrollment->course?->title">
-                                        <span class="inline-block max-w-36 truncate align-bottom normal-case">{{ $enrollment->course?->title }}</span>
-                                    </x-badge>
-                                @endforeach
-                                @if ($student->enrollments->count() > 2)
-                                    <x-badge variant="neutral">+{{ $student->enrollments->count() - 2 }}</x-badge>
-                                @endif
-                            </div>
+                            <p class="truncate text-sm font-medium text-on-surface"
+                                title="{{ $student->enrollments->map(fn ($enrollment) => $enrollment->course?->title)->filter()->implode(', ') }}">
+                                {{ \Illuminate\Support\Str::limit($student->enrollments->first()->course?->title ?? '—', 26, '…') }}
+                            </p>
+                            @if ($student->enrollments->count() > 1)
+                                <p class="mt-0.5 font-mono text-[11px] text-primary">+{{ $student->enrollments->count() - 1 }} more course{{ $student->enrollments->count() > 2 ? 's' : '' }}</p>
+                            @endif
                         @endif
                     </td>
-                    <td class="td font-mono text-xs text-on-surface-variant">
+                    <td class="td font-mono text-xs text-on-surface-variant" style="white-space: nowrap;">
                         {{ ($student->studentProfile?->date_of_joining ?? $student->created_at)?->format('M j, Y') }}
                     </td>
                     <td class="td">

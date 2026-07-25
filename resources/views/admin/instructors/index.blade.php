@@ -22,9 +22,9 @@
     {{-- Filters --}}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div class="inline-flex rounded-lg bg-white p-1 shadow-card">
-            @foreach ([null => 'All instructors', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
+            @foreach (['' => 'All instructors', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
                 <a href="{{ route('admin.instructors.index', array_filter(['status' => $key, 'search' => request('search')])) }}"
-                    class="rounded-md px-4 py-2 text-sm font-medium transition {{ $status === $key ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:text-on-surface' }}">
+                    class="rounded-md px-4 py-2 text-sm font-medium transition {{ ($status ?? '') === $key ? 'bg-primary text-white shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
                     {{ $label }}
                 </a>
             @endforeach
