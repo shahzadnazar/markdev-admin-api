@@ -66,7 +66,7 @@
                         @if ($record->source === 'biometric')
                             Biometric
                         @else
-                            {{ $record->marker?->name ?? 'System' }}{{ $record->marker?->roles?->first() ? ' ('.\Illuminate\Support\Str::headline($record->marker->roles->first()->name).')' : '' }}
+                            {{ $record->marker?->name ?? 'System' }}{{ $record->marker?->roles?->first() && \Illuminate\Support\Str::headline($record->marker->roles->first()->name) !== $record->marker?->name ? ' ('.\Illuminate\Support\Str::headline($record->marker->roles->first()->name).')' : '' }}
                         @endif
                     </td>
                     <td class="muted">

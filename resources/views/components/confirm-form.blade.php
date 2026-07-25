@@ -12,7 +12,7 @@
     The trigger button is the default slot.
 --}}
 <div x-data="{ confirming: false }" class="inline-flex">
-    <button type="button" x-on:click="confirming = true" {{ $attributes }}>
+    <button type="button" x-on:click="confirming = true" {{ $attributes->merge(['class' => 'cursor-pointer']) }}>
         {{ $slot }}
     </button>
 

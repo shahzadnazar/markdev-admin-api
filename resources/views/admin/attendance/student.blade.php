@@ -25,9 +25,11 @@
     <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
         <div class="flex min-w-0 items-center gap-3.5">
             @if ($student->avatar_url)
-                <img src="{{ $student->avatar_url }}" alt="" class="size-12 shrink-0 rounded-xl object-cover ring-1 ring-outline/20">
+                <img src="{{ $student->avatar_url }}" alt="" style="width: 3rem; height: 3rem;"
+                    class="shrink-0 rounded-xl object-cover ring-1 ring-outline/20">
             @else
-                <span class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary font-display text-lg font-bold text-white">
+                <span style="width: 3rem; height: 3rem;"
+                    class="flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary font-display text-lg font-bold text-white">
                     {{ strtoupper(mb_substr($student->name, 0, 1)) }}
                 </span>
             @endif
@@ -60,11 +62,13 @@
     {{-- Toolbar: range tabs + status filter + range overview in one card --}}
     <x-card :padding="false" class="mb-4">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-surface-ice px-4 py-2.5">
-            {{-- Range buttons — the active one is filled --}}
-            <div class="inline-flex rounded-lg bg-surface-ice/70 p-0.5">
+            {{-- Range buttons — real buttons, the active one filled --}}
+            <div class="flex flex-wrap items-center gap-1.5">
                 @foreach ($rangeMeta as $key => $label)
                     <a href="{{ route('admin.attendance.daily.show', array_filter(['student' => $student->id, 'range' => $key, 'status' => $statusFilter])) }}"
-                        class="rounded-md px-3 py-1.5 text-[13px] font-medium transition {{ $range === $key ? 'bg-primary text-white shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
+                        class="cursor-pointer rounded-lg border px-3 py-1.5 text-[13px] font-medium transition {{ $range === $key
+                            ? 'border-primary bg-primary text-white shadow-card'
+                            : 'border-outline/30 bg-white text-on-surface-variant hover:border-primary/50 hover:text-primary' }}">
                         {{ $label }}
                     </a>
                 @endforeach
@@ -72,7 +76,7 @@
 
             {{-- Custom from → to range --}}
             <form method="GET" action="{{ route('admin.attendance.daily.show', $student) }}"
-                class="flex items-center gap-1.5 rounded-lg p-1 {{ $range === 'custom' ? 'bg-primary/[0.06] ring-1 ring-primary/30' : 'bg-surface-ice/70' }}">
+                class="flex items-center gap-1.5 rounded-lg border p-1 {{ $range === 'custom' ? 'border-primary bg-primary/[0.06]' : 'border-outline/30 bg-white' }}">
                 <input type="hidden" name="range" value="custom">
                 @if ($statusFilter)
                     <input type="hidden" name="status" value="{{ $statusFilter }}">
@@ -84,7 +88,9 @@
                 <label class="sr-only" for="to">To</label>
                 <input type="date" name="to" id="to" value="{{ request('to') }}" max="{{ today()->toDateString() }}" class="field h-8 w-34 text-xs">
                 <button type="submit"
-                    class="rounded-md px-2.5 py-1.5 text-xs font-medium transition {{ $range === 'custom' ? 'bg-primary text-white' : 'bg-white text-primary shadow-card hover:bg-primary/5' }}">
+                    class="cursor-pointer rounded-md border px-3 py-1.5 text-xs font-semibold transition {{ $range === 'custom'
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-primary/40 bg-white text-primary hover:bg-primary/5' }}">
                     Go
                 </button>
             </form>
@@ -139,7 +145,8 @@
                             @if ($record->source === 'biometric')
                                 Biometric device
                             @else
-                                {{ $record->marker?->name ?? '—' }}{{ $roleLabel($record->marker) ? ' — '.$roleLabel($record->marker) : '' }}
+                                @php $who = $record->marker?->name ?? '—'; $role = $roleLabel($record->marker); @endphp
+                                {{ $who }}{{ $role && $role !== $who ? ' — '.$role : '' }}
                             @endif
                         </p>
                     </td>

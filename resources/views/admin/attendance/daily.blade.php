@@ -110,7 +110,7 @@
                                 'marked_at' => $record->marked_at->format('D, M j · g:i A'),
                                 'marked_by' => $record->source === 'biometric'
                                     ? 'Biometric device'
-                                    : trim(($record->marker?->name ?? 'System').($roleLabel($record->marker) ? ' — '.$roleLabel($record->marker) : '')),
+                                    : trim(($record->marker?->name ?? 'System').(($role = $roleLabel($record->marker)) && $role !== $record->marker?->name ? ' — '.$role : '')),
                                 'updated_at' => $record->last_updated_at?->format('D, M j · g:i A'),
                                 'updated_by' => $record->updater?->name,
                                 'update_reason' => $record->last_update_reason,

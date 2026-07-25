@@ -1,7 +1,7 @@
 @props(['variant' => 'primary', 'href' => null, 'type' => 'submit', 'size' => 'md'])
 
 @php
-$base = 'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 disabled:opacity-50 disabled:pointer-events-none';
+$base = 'cursor-pointer inline-flex items-center justify-center gap-2 rounded-lg font-medium transition duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 disabled:opacity-50 disabled:pointer-events-none';
 
 $sizes = [
     'sm' => 'px-3 py-1.5 text-xs',
