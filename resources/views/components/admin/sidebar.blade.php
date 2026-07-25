@@ -1,8 +1,8 @@
-<aside class="flex h-full w-[280px] flex-col border-r border-primary/10 bg-white">
+<aside class="admin-sidebar flex h-full w-[280px] flex-col border-r border-primary/10 bg-white">
     {{-- Brand --}}
-    <div class="flex items-center gap-3 px-6 pb-6 pt-7">
+    <div class="sidebar-brand flex items-center gap-3 px-6 pb-6 pt-7">
         <x-brand-mark class="size-10 shrink-0" gradient-id="sidebar" />
-        <div class="min-w-0 leading-tight">
+        <div class="sidebar-brand-text min-w-0 leading-tight">
             <p class="font-display text-lg font-bold tracking-[-0.01em] text-on-surface">MarkDev</p>
             <p class="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-primary">Admin Portal</p>
         </div>
@@ -106,12 +106,12 @@
     </div>
 
     {{-- Current user --}}
-    <div class="border-t border-surface-ice px-6 py-4">
+    <div class="sidebar-footer border-t border-surface-ice px-6 py-4">
         <div class="flex items-center gap-3">
             <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-display text-sm font-semibold text-white">
                 {{ strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
             </div>
-            <div class="min-w-0 leading-tight">
+            <div class="sidebar-footer-meta min-w-0 leading-tight">
                 <p class="truncate text-[13px] font-semibold text-on-surface">{{ auth()->user()->name }}</p>
                 <p class="truncate font-mono text-[10px] uppercase tracking-[0.08em] text-outline">{{ auth()->user()->roles->pluck('name')->implode(', ') ?: 'member' }}</p>
             </div>

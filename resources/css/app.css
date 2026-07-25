@@ -89,6 +89,11 @@
         @apply px-4 py-3.5 text-sm text-on-surface;
     }
 
+    .td-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
     .row {
         @apply border-t border-surface-ice transition-colors hover:bg-surface-ice/60;
     }
@@ -138,4 +143,43 @@
   background: var(--color-primary);
   color: #ffffff;
   box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--color-primary) 35%, transparent);
+}
+
+/* Collapsible sidebar (desktop): icons + tooltips only when collapsed. */
+.admin-sidebar,
+.admin-main {
+    transition: width 200ms ease, padding-left 200ms ease;
+}
+
+@media (min-width: 1024px) {
+    .sidebar-collapsed .admin-sidebar {
+        width: 76px;
+    }
+
+    .sidebar-collapsed .admin-main {
+        padding-left: 76px;
+    }
+
+    .sidebar-collapsed .nav-label,
+    .sidebar-collapsed .nav-badge,
+    .sidebar-collapsed .nav-section-label,
+    .sidebar-collapsed .sidebar-brand-text,
+    .sidebar-collapsed .sidebar-footer-meta {
+        display: none;
+    }
+
+    .sidebar-collapsed .nav-link {
+        justify-content: center;
+    }
+
+    .sidebar-collapsed .sidebar-brand,
+    .sidebar-collapsed .sidebar-footer {
+        justify-content: center;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .sidebar-collapsed .sidebar-footer > div {
+        justify-content: center;
+    }
 }

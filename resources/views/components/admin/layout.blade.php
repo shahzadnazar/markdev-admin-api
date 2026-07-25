@@ -20,7 +20,9 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-surface-ice text-on-surface antialiased">
-    <div x-data="{ sidebarOpen: false }" class="min-h-screen">
+    <div x-data="{ sidebarOpen: false, collapsed: localStorage.getItem('mdv.sidebar.collapsed') === '1' }"
+        x-init="$watch('collapsed', value => localStorage.setItem('mdv.sidebar.collapsed', value ? '1' : '0'))"
+        :class="collapsed ? 'sidebar-collapsed' : ''" class="min-h-screen">
 
         {{-- Mobile off-canvas backdrop --}}
         <div x-show="sidebarOpen" x-cloak x-transition.opacity class="fixed inset-0 z-40 bg-primary-deep/25 backdrop-blur-[2px] lg:hidden" x-on:click="sidebarOpen = false"></div>
@@ -32,7 +34,7 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
         </div>
 
         {{-- Main column --}}
-        <div class="flex min-h-screen flex-col lg:pl-[280px]">
+        <div class="admin-main flex min-h-screen flex-col lg:pl-[280px]">
 
             {{-- Topbar --}}
             <header class="sticky top-0 z-30 border-b border-primary/5 bg-surface-ice/80 backdrop-blur">
@@ -42,6 +44,13 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
                         <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
                     </button>
 
+                    <button type="button" class="hidden rounded-lg p-2 text-on-surface-variant hover:bg-white hover:text-primary lg:inline-flex"
+                        x-on:click="collapsed = ! collapsed"
+                        :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+                        :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+                        <svg class="size-5 transition-transform duration-200" :class="collapsed ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5 12 12.75l6.75-6.75M11.25 19.5 4.5 12.75l6.75-6.75" /></svg>
+                    </button>
+
                     @if ($title)
                         <p class="hidden font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-outline sm:block">{{ $title }}</p>
                     @endif
@@ -49,8 +58,9 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
                     <div class="ml-auto flex items-center gap-2">
                         {{-- Notifications --}}
                         @php $unreadNotifications = auth()->user()->unreadNotifications()->latest()->limit(8)->get(); @endphp
-                        <div x-data="{ open: false }" class="relative">
-                            <button type="button" x-on:click="open = ! open"
+                        <div x-data="{ open: false }" x-on:keydown.escape.stop="open = false; $refs.notifTrigger.focus()" class="relative">
+                            <button type="button" x-ref="notifTrigger" x-on:click="open = ! open"
+                                :aria-expanded="open.toString()" aria-haspopup="true"
                                 class="relative rounded-full p-2 text-on-surface-variant transition hover:bg-white hover:text-primary hover:shadow-card"
                                 aria-label="Notifications{{ $unreadNotifications->count() ? ' ('.$unreadNotifications->count().' unread)' : '' }}">
                                 <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg>
@@ -86,8 +96,9 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
                         </div>
 
                         {{-- User menu --}}
-                        <div x-data="{ open: false }" class="relative">
-                            <button type="button" x-on:click="open = ! open"
+                        <div x-data="{ open: false }" x-on:keydown.escape.stop="open = false; $refs.userTrigger.focus()" class="relative">
+                            <button type="button" x-ref="userTrigger" x-on:click="open = ! open"
+                                :aria-expanded="open.toString()" aria-haspopup="true" aria-label="Account menu"
                                 class="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 transition hover:bg-white hover:shadow-card">
                                 <span class="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-display text-[13px] font-semibold text-white">
                                     {{ strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
@@ -139,35 +150,38 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
         </div>
     </div>
 
-    {{-- Flash toasts --}}
-    @if (session('success') || session('error'))
-        <div x-data="{ shown: true }" x-show="shown" x-cloak x-init="setTimeout(() => shown = false, 5000)"
-            x-transition:leave="transition ease-in duration-300"
-            x-transition:leave-start="opacity-100 translate-y-0"
-            x-transition:leave-end="opacity-0 translate-y-2"
-            class="fixed bottom-6 right-6 z-[60] w-full max-w-sm">
-            <div class="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-elevated">
-                @if (session('success'))
-                    <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-success-container text-success">
-                        <x-icon name="check" class="size-4.5" />
+    {{-- Flash toasts: success / warning / error, stackable, pause on hover --}}
+    @php
+        $flashes = collect([
+            'success' => ['label' => 'Success', 'icon' => 'check', 'chip' => 'bg-success-container text-success', 'text' => 'text-success'],
+            'warning' => ['label' => 'Warning', 'icon' => 'warning', 'chip' => 'bg-warning-container text-warning', 'text' => 'text-warning'],
+            'error' => ['label' => 'Error', 'icon' => 'warning', 'chip' => 'bg-error-container text-error', 'text' => 'text-error'],
+        ])->filter(fn ($meta, $key) => session()->has($key));
+    @endphp
+    @if ($flashes->isNotEmpty())
+        <div class="fixed bottom-6 right-6 z-[60] flex w-full max-w-sm flex-col gap-2">
+            @foreach ($flashes as $key => $meta)
+                <div x-data="{ shown: true, timer: null }" x-show="shown" x-cloak role="status"
+                    x-init="timer = setTimeout(() => shown = false, 6000)"
+                    x-on:mouseenter="clearTimeout(timer)"
+                    x-on:mouseleave="timer = setTimeout(() => shown = false, 3000)"
+                    x-transition:leave="transition ease-in duration-300"
+                    x-transition:leave-start="opacity-100 translate-y-0"
+                    x-transition:leave-end="opacity-0 translate-y-2">
+                    <div class="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-elevated">
+                        <div class="flex size-9 shrink-0 items-center justify-center rounded-full {{ $meta['chip'] }}">
+                            <x-icon :name="$meta['icon']" class="size-4.5" />
+                        </div>
+                        <div class="min-w-0 pt-1">
+                            <p class="font-mono text-[10px] font-medium uppercase tracking-[0.14em] {{ $meta['text'] }}">{{ $meta['label'] }}</p>
+                            <p class="mt-0.5 text-sm text-on-surface">{{ session($key) }}</p>
+                        </div>
+                        <button type="button" class="ml-auto rounded-lg p-1 text-outline hover:bg-surface-ice hover:text-on-surface" x-on:click="shown = false" aria-label="Dismiss notification">
+                            <x-icon name="x-mark" class="size-4" />
+                        </button>
                     </div>
-                    <div class="min-w-0 pt-1">
-                        <p class="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-success">Success</p>
-                        <p class="mt-0.5 text-sm text-on-surface">{{ session('success') }}</p>
-                    </div>
-                @else
-                    <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-error-container text-error">
-                        <x-icon name="warning" class="size-4.5" />
-                    </div>
-                    <div class="min-w-0 pt-1">
-                        <p class="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-error">Error</p>
-                        <p class="mt-0.5 text-sm text-on-surface">{{ session('error') }}</p>
-                    </div>
-                @endif
-                <button type="button" class="ml-auto rounded-lg p-1 text-outline hover:bg-surface-ice hover:text-on-surface" x-on:click="shown = false">
-                    <x-icon name="x-mark" class="size-4" />
-                </button>
-            </div>
+                </div>
+            @endforeach
         </div>
     @endif
 </body>
