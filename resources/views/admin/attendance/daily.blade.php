@@ -85,7 +85,7 @@
                     <th class="th">Course</th>
                     <th class="th">Attendance</th>
                     <th class="th">Remarks</th>
-                    <th class="th">Time</th>
+                    <th class="th">Marked</th>
                     <th class="th text-right">Action</th>
                 </tr>
             </thead>

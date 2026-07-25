@@ -51,7 +51,7 @@
                 <th style="width: 17%">Date</th>
                 <th style="width: 10%">Status</th>
                 <th style="width: 28%">Remarks</th>
-                <th style="width: 22%">Time · By</th>
+                <th style="width: 22%">Marked</th>
                 <th style="width: 23%">Correction</th>
             </tr>
         </thead>

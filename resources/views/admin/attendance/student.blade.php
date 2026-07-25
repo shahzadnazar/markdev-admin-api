@@ -119,7 +119,7 @@
                 <th class="th">Date</th>
                 <th class="th">Status</th>
                 <th class="th">Remarks</th>
-                <th class="th">Time</th>
+                <th class="th">Marked</th>
                 <th class="th">Correction</th>
             </tr>
         </thead>
