@@ -20,19 +20,67 @@ class BillingController extends Controller
 
     public function plans(Request $request): View
     {
+        $tab = in_array($request->query('tab'), ['defaulters', 'completed'], true) ? $request->query('tab') : 'all';
+
         $plans = FeePlan::query()
-            ->with(['user', 'course'])
-            ->withCount('invoices')
+            ->with(['user.studentProfile:id,user_id,reg_no', 'course:id,title'])
+            ->with(['invoices' => fn ($query) => $query->select('id', 'fee_plan_id', 'status', 'amount', 'fine_amount', 'due_at', 'sequence_no')])
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.trim($request->string('search')).'%';
-                $query->where('title', 'like', $term)
-                    ->orWhereHas('user', fn ($user) => $user->where('name', 'like', $term));
+                $query->where(fn ($inner) => $inner->where('title', 'like', $term)
+                    ->orWhereHas('user', fn ($user) => $user->where('name', 'like', $term)));
             })
+            ->when($tab === 'defaulters', fn ($query) => $query->whereHas('invoices', fn ($inner) => $inner->where('status', 'past_due')))
+            ->when($tab === 'completed', fn ($query) => $query
+                ->whereDoesntHave('invoices', fn ($inner) => $inner->whereIn('status', ['upcoming', 'open', 'pending', 'past_due']))
+                ->whereHas('invoices'))
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        return view('admin.billing.plans.index', ['plans' => $plans]);
+        $outstanding = Invoice::whereIn('status', ['open', 'pending', 'past_due'])
+            ->whereNotNull('fee_plan_id')
+            ->selectRaw('coalesce(sum(amount + fine_amount), 0) as total')
+            ->value('total');
+
+        return view('admin.billing.plans.index', [
+            'plans' => $plans,
+            'tab' => $tab,
+            'stats' => [
+                'plans' => FeePlan::count(),
+                'active' => FeePlan::where('is_active', true)->count(),
+                'defaulters' => FeePlan::whereHas('invoices', fn ($query) => $query->where('status', 'past_due'))->count(),
+                'outstanding' => (float) $outstanding,
+            ],
+        ]);
+    }
+
+    /** Full installment schedule of one plan. */
+    public function showPlan(FeePlan $plan): View
+    {
+        $plan->load([
+            'user.studentProfile:id,user_id,reg_no',
+            'course:id,title',
+            'invoices' => fn ($query) => $query->orderBy('sequence_no')->orderBy('due_at')->with('latestSubmission'),
+        ]);
+
+        $invoices = $plan->invoices;
+        $paid = $invoices->where('status', 'paid');
+        $openLike = $invoices->whereIn('status', ['open', 'pending', 'past_due']);
+
+        return view('admin.billing.plans.show', [
+            'plan' => $plan,
+            'invoices' => $invoices,
+            'summary' => [
+                'paid_count' => $paid->count(),
+                'total_count' => $invoices->count(),
+                'collected' => $paid->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
+                'outstanding' => $openLike->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
+                'fines' => $invoices->sum(fn ($invoice) => (float) $invoice->fine_amount),
+                'next_due' => $invoices->whereIn('status', ['upcoming', 'open', 'pending', 'past_due'])->sortBy('due_at')->first()?->due_at,
+            ],
+            'graceDays' => \App\Support\BillingConfig::graceDays(),
+        ]);
     }
 
     public function createPlan(): View

@@ -44,7 +44,12 @@
                 <tr class="row">
                     <td class="td">
                         <a href="{{ route('admin.billing.invoices.show', $invoice) }}" class="font-mono text-xs font-medium text-primary hover:underline">{{ $invoice->number }}</a>
-                        @if ($invoice->title)
+                        @if ($invoice->fee_plan_id && $invoice->sequence_no)
+                            <a href="{{ route('admin.billing.plans.show', $invoice->fee_plan_id) }}"
+                                class="mt-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-primary hover:bg-primary/15">
+                                installment {{ $invoice->sequence_no }}{{ $invoice->feePlan?->installment_months ? '/'.$invoice->feePlan->installment_months : '' }}
+                            </a>
+                        @elseif ($invoice->title)
                             <p class="truncate text-xs text-outline">{{ $invoice->title }}</p>
                         @endif
                     </td>
@@ -52,7 +57,7 @@
                         <p class="font-medium text-on-surface">{{ $invoice->user?->name ?? 'Deleted user' }}</p>
                     </td>
                     <td class="td font-mono text-sm text-on-surface">
-                        {{ $invoice->currency }} {{ number_format((float) $invoice->amount, 2) }}
+                        {{ $invoice->currency === 'PKR' ? 'Rs' : $invoice->currency }} {{ number_format((float) $invoice->amount) }}
                         @if ((float) $invoice->fine_amount > 0)
                             <span class="block text-[11px] text-error">+{{ number_format((float) $invoice->fine_amount, 0) }} fine ({{ $invoice->fine_days }}d)</span>
                         @endif

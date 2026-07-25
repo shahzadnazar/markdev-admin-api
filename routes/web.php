@@ -241,6 +241,7 @@ Route::prefix('admin')
             Route::get('billing/plans', [BillingController::class, 'plans'])->name('billing.plans.index');
             Route::get('billing/plans/create', [BillingController::class, 'createPlan'])->middleware('can:billing.manage')->name('billing.plans.create');
             Route::post('billing/plans', [BillingController::class, 'storePlan'])->middleware('can:billing.manage')->name('billing.plans.store');
+            Route::get('billing/plans/{plan}', [BillingController::class, 'showPlan'])->whereNumber('plan')->name('billing.plans.show');
             Route::get('billing/plans/{plan}/edit', [BillingController::class, 'editPlan'])->middleware('can:billing.manage')->name('billing.plans.edit');
             Route::put('billing/plans/{plan}', [BillingController::class, 'updatePlan'])->middleware('can:billing.manage')->name('billing.plans.update');
 
