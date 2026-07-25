@@ -76,7 +76,7 @@
                         @endif
                     </td>
                     <td class="muted">{{ $record?->remarks ?? '' }}</td>
-                    <td class="muted">{{ $record?->marked_at?->format('g:i A') ?? '' }}</td>
+                    <td class="muted">{{ $record?->arrived_at ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') : ($record?->marked_at?->format('g:i A') ?? '') }}</td>
                     <td class="muted">
                         @if ($record)
                             @if ($record->source === 'biometric')

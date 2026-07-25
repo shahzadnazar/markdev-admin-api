@@ -13,6 +13,9 @@
             'month' => 'This month',
             'all' => 'All time',
         ];
+        $rangeLabel = $range === 'custom'
+            ? 'custom · '.(request('from') ?: '…').' → '.(request('to') ?: '…')
+            : strtolower($rangeMeta[$range]);
         $roleLabel = fn ($user) => $user?->roles?->first()
             ? \Illuminate\Support\Str::headline($user->roles->first()->name)
             : null;
@@ -36,7 +39,7 @@
                         <x-badge variant="primary">{{ $student->studentProfile->reg_no }}</x-badge>
                     @endif
                 </div>
-                <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Attendance history — {{ strtolower($rangeMeta[$range]) }}{{ $statusFilter ? ', '.$statusFilter.' only' : '' }}</p>
+                <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Attendance history — {{ $rangeLabel }}{{ $statusFilter ? ', '.$statusFilter.' only' : '' }}</p>
             </div>
         </div>
         <div class="flex shrink-0 items-center gap-2 pt-1.5">
@@ -56,18 +59,42 @@
 
     {{-- Toolbar: range tabs + status filter + range overview in one card --}}
     <x-card :padding="false" class="mb-4">
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-ice px-4 py-2.5">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-surface-ice px-4 py-2.5">
+            {{-- Range buttons — the active one is filled --}}
             <div class="inline-flex rounded-lg bg-surface-ice/70 p-0.5">
                 @foreach ($rangeMeta as $key => $label)
                     <a href="{{ route('admin.attendance.daily.show', array_filter(['student' => $student->id, 'range' => $key, 'status' => $statusFilter])) }}"
-                        class="rounded-md px-3 py-1.5 text-[13px] font-medium transition {{ $range === $key ? 'bg-white text-primary shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
+                        class="rounded-md px-3 py-1.5 text-[13px] font-medium transition {{ $range === $key ? 'bg-primary text-white shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
                         {{ $label }}
                     </a>
                 @endforeach
             </div>
 
-            <form method="GET" action="{{ route('admin.attendance.daily.show', $student) }}">
+            {{-- Custom from → to range --}}
+            <form method="GET" action="{{ route('admin.attendance.daily.show', $student) }}"
+                class="flex items-center gap-1.5 rounded-lg p-1 {{ $range === 'custom' ? 'bg-primary/[0.06] ring-1 ring-primary/30' : 'bg-surface-ice/70' }}">
+                <input type="hidden" name="range" value="custom">
+                @if ($statusFilter)
+                    <input type="hidden" name="status" value="{{ $statusFilter }}">
+                @endif
+                <span class="pl-1.5 font-mono text-[10px] uppercase tracking-[0.08em] {{ $range === 'custom' ? 'text-primary' : 'text-on-surface-variant' }}">Range</span>
+                <label class="sr-only" for="from">From</label>
+                <input type="date" name="from" id="from" value="{{ request('from') }}" max="{{ today()->toDateString() }}" class="field h-8 w-34 text-xs">
+                <span class="text-xs text-outline">→</span>
+                <label class="sr-only" for="to">To</label>
+                <input type="date" name="to" id="to" value="{{ request('to') }}" max="{{ today()->toDateString() }}" class="field h-8 w-34 text-xs">
+                <button type="submit"
+                    class="rounded-md px-2.5 py-1.5 text-xs font-medium transition {{ $range === 'custom' ? 'bg-primary text-white' : 'bg-white text-primary shadow-card hover:bg-primary/5' }}">
+                    Go
+                </button>
+            </form>
+
+            <form method="GET" action="{{ route('admin.attendance.daily.show', $student) }}" class="ml-auto">
                 <input type="hidden" name="range" value="{{ $range }}">
+                @if ($range === 'custom')
+                    <input type="hidden" name="from" value="{{ request('from') }}">
+                    <input type="hidden" name="to" value="{{ request('to') }}">
+                @endif
                 <label class="sr-only" for="status">Status</label>
                 <select name="status" id="status" class="field h-9 w-36 text-sm" onchange="this.form.submit()">
                     <option value="">All statuses</option>
@@ -99,6 +126,11 @@
                     </td>
                     <td class="td">
                         <x-badge :variant="$statusMeta[$record->status]['badge'] ?? 'neutral'">{{ $statusMeta[$record->status]['label'] ?? $record->status }}</x-badge>
+                        @if ($record->arrived_at)
+                            <p class="mt-1 font-mono text-[10px] {{ $record->status === 'late' ? 'text-warning' : 'text-outline' }}">
+                                arr. {{ \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') }}
+                            </p>
+                        @endif
                     </td>
                     <td class="td max-w-[16rem]">
                         <p class="whitespace-pre-line break-words text-sm text-on-surface-variant">{{ $record->remarks ?? '—' }}</p>

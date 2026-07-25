@@ -85,11 +85,21 @@ class BiometricAttendanceService
             ->exists();
 
         if (! $dailyMarked) {
+            // The daily register judges late against the ACADEMY day start
+            // (Settings), independent of any per-device class session.
+            $dailyStatus = \App\Support\AttendanceConfig::statusForArrival($punch->punched_at);
+            $dayStart = \App\Support\AttendanceConfig::lateThreshold($punch->punched_at)
+                ->subMinutes(\App\Support\AttendanceConfig::lateAfterMinutes());
+            $minutesLate = (int) $dayStart->diffInMinutes($punch->punched_at, false);
+
             \App\Models\DailyAttendance::create([
                 'user_id' => $user->id,
                 'date' => $punch->punched_at->toDateString(),
-                'status' => $status,
-                'remarks' => 'Biometric punch at '.$punch->punched_at->format('H:i'),
+                'status' => $dailyStatus,
+                'arrived_at' => $punch->punched_at->format('H:i:s'),
+                'remarks' => $dailyStatus === 'late'
+                    ? 'Arrived '.$punch->punched_at->format('g:i A').' — '.max(1, $minutesLate).' min after '.\App\Support\AttendanceConfig::dayStart()
+                    : 'Punched at '.$punch->punched_at->format('g:i A'),
                 'source' => 'biometric',
                 'marked_at' => now(),
             ]);

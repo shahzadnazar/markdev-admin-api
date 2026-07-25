@@ -104,6 +104,8 @@
                                 'id' => $record->id,
                                 'status' => $record->status,
                                 'remarks' => $record->remarks,
+                                'arrived' => $record->arrived_at ? substr($record->arrived_at, 0, 5) : null,
+                                'arrived_label' => $record->arrived_at ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') : null,
                                 'source' => $record->source,
                                 'marked_at' => $record->marked_at->format('D, M j · g:i A'),
                                 'marked_by' => $record->source === 'biometric'
@@ -153,6 +155,11 @@
                         <td class="td">
                             @if ($record)
                                 <x-badge :variant="$statusMeta[$record->status]['badge'] ?? 'neutral'">{{ $statusMeta[$record->status]['label'] ?? $record->status }}</x-badge>
+                                @if ($record->arrived_at)
+                                    <p class="mt-1 font-mono text-[10px] {{ $record->status === 'late' ? 'text-warning' : 'text-outline' }}">
+                                        arr. {{ \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A') }}
+                                    </p>
+                                @endif
                                 @if ($record->last_updated_at)
                                     <p class="mt-1 font-mono text-[10px] uppercase tracking-wide text-outline">corrected</p>
                                 @endif
@@ -251,13 +258,19 @@
                             <input type="hidden" name="date" value="{{ $date->toDateString() }}">
                             <input type="hidden" name="user_id" :value="student.id">
 
-                            <div>
-                                <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="mark-status">Status</label>
-                                <select name="status" id="mark-status" class="field w-full text-sm" required>
-                                    @foreach ($statusMeta as $key => $meta)
-                                        <option value="{{ $key }}" @selected($key === 'present')>{{ $meta['label'] }}</option>
-                                    @endforeach
-                                </select>
+                            <div class="grid grid-cols-[1fr_8.5rem] gap-3">
+                                <div>
+                                    <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="mark-status">Status</label>
+                                    <select name="status" id="mark-status" class="field w-full text-sm" required>
+                                        @foreach ($statusMeta as $key => $meta)
+                                            <option value="{{ $key }}" @selected($key === 'present')>{{ $meta['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="mark-arrived">Arrival <span class="font-normal text-outline">(opt.)</span></label>
+                                    <input type="time" name="arrived_at" id="mark-arrived" class="field w-full text-sm">
+                                </div>
                             </div>
 
                             <div>
@@ -284,7 +297,7 @@
                             {{-- Current state, for context --}}
                             <div class="flex items-center gap-2.5 rounded-lg bg-surface-ice/70 px-3 py-2 text-xs text-on-surface-variant">
                                 <span class="rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase" :class="badgeClass(record.status)" x-text="record.status"></span>
-                                <span class="truncate" x-text="'marked ' + (record.marked_at || '') + ' · ' + (record.marked_by || '')"></span>
+                                <span class="truncate" x-text="(record.arrived_label ? 'arrived ' + record.arrived_label + ' · ' : '') + 'marked ' + (record.marked_at || '') + ' · ' + (record.marked_by || '')"></span>
                             </div>
                             <template x-if="record.updated_at">
                                 <p class="rounded-lg bg-warning/10 px-3 py-2 text-xs text-on-surface-variant"
@@ -304,13 +317,19 @@
                             </div>
 
                             <div x-show="pin.length >= 4" x-transition class="space-y-4">
-                                <div>
-                                    <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="update-status">New status</label>
-                                    <select name="status" id="update-status" class="field w-full text-sm" x-model="newStatus" required>
-                                        @foreach ($statusMeta as $key => $meta)
-                                            <option value="{{ $key }}">{{ $meta['label'] }}</option>
-                                        @endforeach
-                                    </select>
+                                <div class="grid grid-cols-[1fr_8.5rem] gap-3">
+                                    <div>
+                                        <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="update-status">New status</label>
+                                        <select name="status" id="update-status" class="field w-full text-sm" x-model="newStatus" required>
+                                            @foreach ($statusMeta as $key => $meta)
+                                                <option value="{{ $key }}">{{ $meta['label'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="update-arrived">Arrival <span class="font-normal text-outline">(opt.)</span></label>
+                                        <input type="time" name="arrived_at" id="update-arrived" class="field w-full text-sm" x-model="arrived">
+                                    </div>
                                 </div>
 
                                 <div>
@@ -353,6 +372,7 @@
                 pin: '',
                 newStatus: 'present',
                 remarks: '',
+                arrived: '',
                 openMark(payload) {
                     this.student = payload.student;
                     this.record = {};
@@ -365,6 +385,7 @@
                     this.pin = '';
                     this.newStatus = this.record.status || 'present';
                     this.remarks = this.record.remarks || '';
+                    this.arrived = this.record.arrived || '';
                     this.mode = 'update';
                     this.open = true;
                 },

@@ -124,6 +124,7 @@ class DemoSeeder extends Seeder
                 'date' => now()->subDays($back)->toDateString(),
                 'status' => $status,
                 'remarks' => $status === 'late' ? 'Arrived 20 minutes late' : null,
+                'arrived_at' => $status === 'late' ? '09:35:00' : '08:55:00',
                 'source' => 'manual',
                 'marked_by' => $frontDesk?->id,
                 'marked_at' => now()->subDays($back)->setTime(9, 5),

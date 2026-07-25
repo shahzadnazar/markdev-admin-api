@@ -23,6 +23,7 @@ class DailyAttendance extends Model
         'date',
         'status',
         'remarks',
+        'arrived_at',
         'source',
         'marked_by',
         'marked_at',

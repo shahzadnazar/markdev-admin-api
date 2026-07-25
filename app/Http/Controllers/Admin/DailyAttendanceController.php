@@ -23,7 +23,7 @@ use Illuminate\View\View;
  */
 class DailyAttendanceController extends Controller
 {
-    public const RANGES = ['today', 'yesterday', 'week', 'month', 'all'];
+    public const RANGES = ['today', 'yesterday', 'week', 'month', 'all', 'custom'];
 
     public function index(Request $request): View
     {
@@ -145,6 +145,7 @@ class DailyAttendanceController extends Controller
             'date' => ['required', 'date', 'before_or_equal:today'],
             'status' => ['required', Rule::in(DailyAttendance::STATUSES)],
             'remarks' => ['nullable', 'string', 'max:500'],
+            'arrived_at' => ['nullable', 'date_format:H:i'],
         ]);
 
         $student = User::findOrFail($data['user_id']);
@@ -163,6 +164,7 @@ class DailyAttendanceController extends Controller
             'date' => $data['date'],
             'status' => $data['status'],
             'remarks' => $data['remarks'] ?? null,
+            'arrived_at' => $data['arrived_at'] ?? null,
             'source' => 'manual',
             'marked_by' => $request->user()->id,
             'marked_at' => now(),
@@ -218,6 +220,7 @@ class DailyAttendanceController extends Controller
             'pin' => ['required', 'string', 'max:20'],
             'status' => ['required', Rule::in(DailyAttendance::STATUSES)],
             'remarks' => ['nullable', 'string', 'max:500'],
+            'arrived_at' => ['nullable', 'date_format:H:i'],
             'reason' => ['required', 'string', 'min:3', 'max:500'],
         ], [
             'reason.required' => 'A reason is required for every attendance correction.',
@@ -249,6 +252,7 @@ class DailyAttendanceController extends Controller
         $record->update([
             'status' => $data['status'],
             'remarks' => $data['remarks'] ?? null,
+            'arrived_at' => $data['arrived_at'] ?? $record->arrived_at,
             'last_updated_by' => $request->user()->id,
             'last_update_reason' => $data['reason'],
             'last_updated_at' => now(),
@@ -312,11 +316,19 @@ class DailyAttendanceController extends Controller
         $range = in_array($request->query('range'), self::RANGES, true) ? $request->query('range') : 'month';
         $statusFilter = in_array($request->query('status'), DailyAttendance::STATUSES, true) ? $request->query('status') : null;
 
+        $from = $range === 'custom' && $request->filled('from') ? $request->date('from') : null;
+        $to = $range === 'custom' && $request->filled('to') ? $request->date('to') : null;
+        if ($range === 'custom' && $from === null && $to === null) {
+            $range = 'month'; // custom without dates falls back
+        }
+
         $query = DailyAttendance::where('user_id', $student->id)
             ->when($range === 'today', fn ($inner) => $inner->whereDate('date', today()))
             ->when($range === 'yesterday', fn ($inner) => $inner->whereDate('date', today()->subDay()))
             ->when($range === 'week', fn ($inner) => $inner->whereDate('date', '>=', today()->startOfWeek()))
             ->when($range === 'month', fn ($inner) => $inner->whereDate('date', '>=', today()->startOfMonth()))
+            ->when($from !== null, fn ($inner) => $inner->whereDate('date', '>=', $from))
+            ->when($to !== null, fn ($inner) => $inner->whereDate('date', '<=', $to))
             ->when($statusFilter !== null, fn ($inner) => $inner->where('status', $statusFilter));
 
         return [$range, $statusFilter, $query];

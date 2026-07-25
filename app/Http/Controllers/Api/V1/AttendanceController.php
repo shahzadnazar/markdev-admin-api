@@ -55,6 +55,7 @@ class AttendanceController extends ApiController
                 'date' => $record->date->toDateString(),
                 'status' => $record->status,
                 'remarks' => $record->remarks,
+                'arrived_at' => $record->arrived_at ? substr($record->arrived_at, 0, 5) : null,
                 'source' => $record->source,
                 'marked_at' => $record->marked_at?->toIso8601String(),
                 'corrected' => $record->last_updated_at !== null,

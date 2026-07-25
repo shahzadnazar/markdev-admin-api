@@ -29,7 +29,7 @@
         <div class="title">Attendance Report — {{ $student->name }}</div>
         <div class="meta">
             {{ $student->studentProfile?->reg_no ? 'Reg # '.$student->studentProfile->reg_no.' · ' : '' }}{{ $student->email }}
-            · Range: {{ ['today' => 'today', 'yesterday' => 'yesterday', 'week' => 'this week', 'month' => 'this month', 'all' => 'all time'][$range] }}
+            · Range: {{ $range === 'custom' ? (request('from') ?: '…').' to '.(request('to') ?: '…') : ['today' => 'today', 'yesterday' => 'yesterday', 'week' => 'this week', 'month' => 'this month', 'all' => 'all time'][$range] }}
             · {{ $statusFilter ? 'status '.$statusFilter : 'all statuses' }}
         </div>
     </div>
@@ -62,7 +62,7 @@
                     <td><span class="status {{ $record->status }}">{{ $record->status }}</span></td>
                     <td class="muted">{{ $record->remarks ?? '' }}</td>
                     <td class="muted">
-                        {{ $record->marked_at->format('g:i A') }} ·
+                        {{ $record->arrived_at ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A').' · ' : '' }}{{ $record->marked_at->format('g:i A') }} ·
                         @if ($record->source === 'biometric')
                             Biometric
                         @else

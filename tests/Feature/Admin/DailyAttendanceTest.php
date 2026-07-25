@@ -324,4 +324,37 @@ class DailyAttendanceTest extends TestCase
             ->assertSee('React Patterns')
             ->assertSee('Admin'); // marker shown by role
     }
+
+    public function test_manual_mark_stores_arrival_time(): void
+    {
+        $this->mark(['status' => 'late', 'arrived_at' => '09:40']);
+
+        $record = DailyAttendance::first();
+        $this->assertSame('09:40', substr($record->arrived_at, 0, 5));
+    }
+
+    public function test_custom_range_filters_between_from_and_to(): void
+    {
+        foreach ([5, 3, 1] as $back) {
+            DailyAttendance::create([
+                'user_id' => $this->student->id,
+                'date' => today()->subDays($back)->toDateString(),
+                'status' => 'present',
+                'remarks' => 'day-'.$back,
+                'source' => 'manual',
+                'marked_by' => $this->admin->id,
+                'marked_at' => now(),
+            ]);
+        }
+
+        $from = today()->subDays(4)->toDateString();
+        $to = today()->subDays(2)->toDateString();
+
+        $this->actingAs($this->admin)
+            ->get("/admin/attendance/daily/{$this->student->id}?range=custom&from={$from}&to={$to}")
+            ->assertOk()
+            ->assertSee('day-3')
+            ->assertDontSee('day-5')
+            ->assertDontSee('day-1');
+    }
 }

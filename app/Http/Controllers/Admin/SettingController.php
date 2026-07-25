@@ -28,6 +28,8 @@ class SettingController extends Controller
                 'timezone' => $settings['timezone'] ?? config('app.timezone'),
                 'maintenance_mode' => (bool) ($settings['maintenance_mode'] ?? false),
                 'attendance_pin_set' => \App\Support\AttendanceConfig::hasEditPin(),
+                'attendance_day_start' => \App\Support\AttendanceConfig::dayStart(),
+                'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
             ],
             'backups' => $this->backups(),
             'timezones' => \DateTimeZone::listIdentifiers(),
@@ -46,6 +48,8 @@ class SettingController extends Controller
             'timezone' => ['required', 'timezone:all'],
             'maintenance_mode' => ['nullable', 'boolean'],
             'attendance_edit_pin' => ['nullable', 'digits_between:4,8'],
+            'attendance_day_start' => ['required', 'date_format:H:i'],
+            'attendance_late_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
         ]);
 
         $data['maintenance_mode'] = $request->boolean('maintenance_mode');

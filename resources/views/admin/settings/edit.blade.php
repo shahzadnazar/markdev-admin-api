@@ -34,6 +34,15 @@
                         hint="How many days before the due date an installment opens." />
                 </div>
 
+                <div class="grid gap-5 border-t border-surface-ice pt-5 sm:grid-cols-2">
+                    <x-form.input type="time" label="Attendance day starts at" name="attendance_day_start"
+                        :value="$settings['attendance_day_start']" required
+                        hint="Biometric punches after start + grace are auto-marked late." />
+                    <x-form.input type="number" label="Late after (minutes)" name="attendance_late_after_minutes"
+                        :value="$settings['attendance_late_after_minutes']" required min="0" max="240"
+                        hint="Grace window after the day starts." />
+                </div>
+
                 <div class="border-t border-surface-ice pt-5">
                     <x-form.input type="password" label="Attendance correction PIN" name="attendance_edit_pin"
                         autocomplete="new-password" inputmode="numeric"

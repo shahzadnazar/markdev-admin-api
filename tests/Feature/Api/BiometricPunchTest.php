@@ -154,4 +154,24 @@ class BiometricPunchTest extends ApiTestCase
             'source' => 'biometric',
         ]);
     }
+
+    public function test_daily_register_marks_late_after_academy_grace_with_arrival_time(): void
+    {
+        // Academy day: starts 09:00, 15 min grace (settings-driven).
+        \App\Models\Setting::updateOrCreate(['key' => 'attendance_day_start'], ['value' => '09:00', 'group' => 'general']);
+        \App\Models\Setting::updateOrCreate(['key' => 'attendance_late_after_minutes'], ['value' => 15, 'group' => 'general']);
+
+        $device = $this->device();
+        $student = $this->student(['biometric_id' => '7008']);
+        $this->enroll($student, $device->course);
+
+        $this->punch($device, [
+            ['biometric_id' => '7008', 'punched_at' => now()->setTime(9, 40)->toDateTimeString()],
+        ])->assertCreated();
+
+        $record = \App\Models\DailyAttendance::where('user_id', $student->id)->first();
+        $this->assertSame('late', $record->status);
+        $this->assertSame('09:40', substr($record->arrived_at, 0, 5));
+        $this->assertStringContainsString('min after 09:00', $record->remarks);
+    }
 }
