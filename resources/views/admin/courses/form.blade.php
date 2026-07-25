@@ -18,6 +18,7 @@
 
     <form method="POST" action="{{ $course ? route('admin.courses.update', $course) : route('admin.courses.store') }}" enctype="multipart/form-data" class="max-w-4xl" x-data="{ free: {{ old('is_free', $course?->is_free ?? false) ? 'true' : 'false' }} }">
         @csrf
+        <x-form.errors-summary />
         @if ($course) @method('PUT') @endif
 
         <div class="grid gap-6">
@@ -92,12 +93,11 @@
             </x-card>
         </div>
 
-        <div class="mt-6 flex items-center gap-3">
+        <x-form.actions :cancel="route('admin.courses.index')">
             <x-btn>
                 <x-icon name="check" class="size-4" />
                 {{ $course ? 'Save changes' : 'Create course' }}
             </x-btn>
-            <x-btn variant="ghost" :href="$course ? route('admin.courses.show', $course) : route('admin.courses.index')">Cancel</x-btn>
-        </div>
+        </x-form.actions>
     </form>
 </x-admin.layout>

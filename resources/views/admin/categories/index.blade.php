@@ -21,7 +21,7 @@
             <tr>
                 <th class="th">Category</th>
                 <th class="th">Slug</th>
-                <th class="th">Courses</th>
+                <th class="th td-num">Courses</th>
                 <th class="th text-right">Actions</th>
             </tr>
         </thead>
@@ -35,8 +35,8 @@
                         @endif
                     </td>
                     <td class="td"><span class="font-mono text-xs text-on-surface-variant">{{ $category->slug }}</span></td>
-                    <td class="td"><x-badge variant="primary">{{ $category->courses_count }}</x-badge></td>
-                    <td class="td">
+                    <td class="td td-num"><x-badge variant="primary">{{ $category->courses_count }}</x-badge></td>
+                    <td class="td text-right">
                         <div class="flex items-center justify-end gap-1">
                             @can('categories.update')
                                 <a href="{{ route('admin.categories.edit', $category) }}" aria-label="Edit category" title="Edit category" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">

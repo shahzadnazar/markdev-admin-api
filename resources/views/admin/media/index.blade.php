@@ -73,4 +73,13 @@
             @endforeach
         </div>
     @endif
+    @if ($files->hasPages() || $files->total() > 0)
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs text-outline">
+                Showing <span class="font-semibold text-on-surface">{{ $files->firstItem() ?? 0 }}–{{ $files->lastItem() ?? 0 }}</span>
+                of <span class="font-semibold text-on-surface">{{ $files->total() }}</span> files
+            </p>
+            {{ $files->links() }}
+        </div>
+    @endif
 </x-admin.layout>

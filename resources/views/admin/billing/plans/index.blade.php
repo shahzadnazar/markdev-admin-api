@@ -1,12 +1,8 @@
 <x-admin.layout title="Fee plans">
-    {{-- Compact header --}}
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
-        <div class="min-w-0">
-            <p class="eyebrow mb-1">Finance</p>
-            <h1 class="font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">Fee plans</h1>
-            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Every installment plan — progress, outstanding balance and defaulters at a glance.</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+    <x-page-header title="Fee plans"
+        description="Every installment plan — progress, outstanding balance and defaulters at a glance."
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Finance' => null, 'Fee plans' => null]">
+        <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.invoices.index')">Invoices</x-btn>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.transactions.index')">Transactions</x-btn>
             @can('billing.manage')
@@ -14,8 +10,8 @@
                     <x-icon name="plus" class="size-4" /> New fee plan
                 </x-btn>
             @endcan
-        </div>
-    </div>
+        </x-slot:actions>
+    </x-page-header>
 
     {{-- Tabs + search + finance strip in one card --}}
     <x-card :padding="false" class="mb-4">
@@ -69,7 +65,7 @@
                 <th class="th">Plan</th>
                 <th class="th">Terms</th>
                 <th class="th">Progress</th>
-                <th class="th">Outstanding</th>
+                <th class="th td-num">Outstanding</th>
                 <th class="th">State</th>
                 <th class="th text-right">Actions</th>
             </tr>
@@ -116,7 +112,7 @@
                             <span class="font-mono text-[11px] text-on-surface">{{ $paidCount }}/{{ $total }}</span>
                         </div>
                     </td>
-                    <td class="td font-mono text-xs {{ $outstanding > 0 ? 'text-on-surface' : 'text-outline' }}" style="white-space: nowrap;">
+                    <td class="td td-num font-mono text-xs {{ $outstanding > 0 ? 'text-on-surface' : 'text-outline' }}" style="white-space: nowrap;">
                         Rs {{ number_format($outstanding) }}
                     </td>
                     <td class="td"><x-badge :variant="$stateBadge">{{ $state }}</x-badge></td>
@@ -140,13 +136,7 @@
         </tbody>
         @if ($plans->hasPages() || $plans->total() > 0)
             <x-slot:footer>
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <p class="text-xs text-outline">
-                        Showing <span class="font-semibold text-on-surface">{{ $plans->firstItem() ?? 0 }}–{{ $plans->lastItem() ?? 0 }}</span>
-                        of <span class="font-semibold text-on-surface">{{ $plans->total() }}</span> plans
-                    </p>
-                    {{ $plans->links() }}
-                </div>
+                {{ $plans->links() }}
             </x-slot:footer>
         @endif
     </x-table>

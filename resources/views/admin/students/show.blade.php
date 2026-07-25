@@ -1,5 +1,6 @@
 <x-admin.layout :title="$student->name">
     <x-page-header eyebrow="People" :title="$student->name"
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Students' => route('admin.students.index'), $student->name => null]"
         :description="$profile ? 'Reg # '.$profile->reg_no.($profile->applied_course ? ' · applied for '.$profile->applied_course : '') : 'No admission record on file yet.'">
         <x-slot:actions>
             <x-btn variant="ghost" :href="route('admin.students.index')">

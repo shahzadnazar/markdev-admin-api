@@ -15,6 +15,8 @@
         @csrf
         @if ($student) @method('PUT') @endif
 
+
+        <x-form.errors-summary />
         <div class="grid items-start gap-6 xl:grid-cols-[1fr_24rem]">
             <div class="space-y-6">
                 {{-- ····························· Personal information ····························· --}}

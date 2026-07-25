@@ -12,12 +12,12 @@
             <tr>
                 <th class="th">Role</th>
                 <th class="th">Permissions</th>
-                <th class="th">Users</th>
+                <th class="th td-num">Users</th>
                 <th class="th text-right">Actions</th>
             </tr>
         </thead>
         <tbody>
-            @foreach ($roles as $role)
+            @forelse ($roles as $role)
                 <tr class="row">
                     <td class="td">
                         <div class="flex items-center gap-3">
@@ -35,8 +35,8 @@
                     <td class="td">
                         <x-badge variant="primary">{{ $role->permissions_count }} permission{{ $role->permissions_count === 1 ? '' : 's' }}</x-badge>
                     </td>
-                    <td class="td font-mono text-xs">{{ $role->users_count }}</td>
-                    <td class="td">
+                    <td class="td td-num font-mono text-xs">{{ $role->users_count }}</td>
+                    <td class="td text-right">
                         <div class="flex items-center justify-end gap-1">
                             <a href="{{ route('admin.roles.edit', $role) }}" aria-label="Edit role" title="Edit role" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
                                 <x-icon name="pencil" class="size-4" />
@@ -51,7 +51,21 @@
                         </div>
                     </td>
                 </tr>
-            @endforeach
+            @empty
+                <tr><td colspan="4"><x-empty-state icon="shield" title="No roles yet"
+                    description="Create a role to group permissions for a team." /></td></tr>
+            @endforelse
         </tbody>
+        @if ($roles->total() > 0)
+            <x-slot:footer>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <p class="text-xs text-outline">
+                        Showing <span class="font-semibold text-on-surface">{{ $roles->firstItem() ?? 0 }}–{{ $roles->lastItem() ?? 0 }}</span>
+                        of <span class="font-semibold text-on-surface">{{ $roles->total() }}</span> roles
+                    </p>
+                    {{ $roles->links() }}
+                </div>
+            </x-slot:footer>
+        @endif
     </x-table>
 </x-admin.layout>

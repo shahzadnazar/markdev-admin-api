@@ -110,21 +110,6 @@
                                 @endcan
                             </td>
                         </tr>
-
-                        @can('attendance.manage')
-                            <x-modal :name="'edit-device-'.$device->id" max-width="lg">
-                                <form method="POST" action="{{ route('admin.biometric.devices.update', $device) }}" class="space-y-4 p-6">
-                                    @csrf
-                                    @method('PUT')
-                                    <h3 class="font-display text-lg font-semibold text-on-surface">Edit device</h3>
-                                    @include('admin.biometric.partials.device-fields', ['device' => $device])
-                                    <div class="flex justify-end gap-3">
-                                        <x-btn type="button" variant="ghost" x-on:click="$dispatch('close-modal', 'edit-device-{{ $device->id }}')">Cancel</x-btn>
-                                        <x-btn><x-icon name="check" class="size-4" /> Save device</x-btn>
-                                    </div>
-                                </form>
-                            </x-modal>
-                        @endcan
                     @empty
                         <tr><td colspan="6"><x-empty-state icon="server" title="No devices registered" description="Register your first fingerprint or face terminal to start collecting check-ins." /></td></tr>
                     @endforelse
@@ -133,6 +118,24 @@
                     <x-slot:footer>{{ $devices->links() }}</x-slot:footer>
                 @endif
             </x-table>
+
+    {{-- Edit modals — rendered outside the table so <tbody> stays valid HTML --}}
+    @can('attendance.manage')
+        @foreach ($devices as $device)
+            <x-modal :name="'edit-device-'.$device->id" max-width="lg">
+                <form method="POST" action="{{ route('admin.biometric.devices.update', $device) }}" class="space-y-4 p-6">
+                    @csrf
+                    @method('PUT')
+                    <h3 class="font-display text-lg font-semibold text-on-surface">Edit device</h3>
+                    @include('admin.biometric.partials.device-fields', ['device' => $device])
+                    <div class="flex justify-end gap-3">
+                        <x-btn type="button" variant="ghost" x-on:click="$dispatch('close-modal', 'edit-device-{{ $device->id }}')">Cancel</x-btn>
+                        <x-btn><x-icon name="check" class="size-4" /> Save device</x-btn>
+                    </div>
+                </form>
+            </x-modal>
+        @endforeach
+    @endcan
         </div>
 
         @can('attendance.manage')

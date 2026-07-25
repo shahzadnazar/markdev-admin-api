@@ -35,6 +35,16 @@ class MediaController extends Controller
             ->sortByDesc('modified')
             ->values();
 
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 24;
+        $files = new \Illuminate\Pagination\LengthAwarePaginator(
+            $files->forPage($page, $perPage)->values(),
+            $files->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
         $counts = collect($this->folders)->mapWithKeys(fn (string $dir) => [
             $dir => count($disk->exists($dir) ? $disk->files($dir) : []),
         ]);

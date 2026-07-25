@@ -11,17 +11,13 @@
             : null;
     @endphp
 
-    {{-- Compact header: title left, actions pinned top-right --}}
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
-        <div class="min-w-0">
-            <p class="eyebrow mb-1">Learning</p>
-            <div class="flex flex-wrap items-baseline gap-x-3">
-                <h1 class="font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">Daily attendance</h1>
-                <span class="font-mono text-xs text-on-surface-variant">{{ $date->format('D, M j, Y') }}{{ $date->isToday() ? ' · today' : '' }}</span>
-            </div>
-            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">One record per active student per day — corrections need the security PIN and a reason.</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+    <x-page-header title="Daily attendance"
+        description="One record per active student per day — corrections need the security PIN and a reason."
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Attendance' => null, 'Daily register' => null]">
+        <x-slot:meta>
+            <span class="font-mono text-xs text-on-surface-variant">{{ $date->format('D, M j, Y') }}{{ $date->isToday() ? ' · today' : '' }}</span>
+        </x-slot:meta>
+        <x-slot:actions>
             <x-btn variant="secondary" size="sm" :href="route('admin.attendance.daily.print', request()->query())" target="_blank">
                 <x-icon name="printer" class="size-4" /> Print PDF
             </x-btn>
@@ -34,8 +30,8 @@
                     <x-icon name="check" class="size-3.5" /> Mark all present ({{ $counts['unmarked'] }})
                 </x-confirm-form>
             @endif
-        </div>
-    </div>
+        </x-slot:actions>
+    </x-page-header>
 
     @unless ($pinConfigured)
         <div class="mb-4 flex items-center gap-2.5 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-2 text-[13px] text-on-surface">
@@ -207,13 +203,7 @@
             </tbody>
             @if ($students->hasPages() || $students->total() > 0)
                 <x-slot:footer>
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                        <p class="text-xs text-outline">
-                            Showing <span class="font-semibold text-on-surface">{{ $students->firstItem() ?? 0 }}–{{ $students->lastItem() ?? 0 }}</span>
-                            of <span class="font-semibold text-on-surface">{{ $students->total() }}</span> active students
-                        </p>
-                        {{ $students->links() }}
-                    </div>
+                    {{ $students->links() }}
                 </x-slot:footer>
             @endif
         </x-table>

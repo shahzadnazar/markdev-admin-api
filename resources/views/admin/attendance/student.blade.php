@@ -21,42 +21,39 @@
             : null;
     @endphp
 
-    {{-- Compact header: identity left, actions pinned top-right --}}
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
-        <div class="flex min-w-0 items-center gap-3.5">
-            @if ($student->avatar_url)
-                <img src="{{ $student->avatar_url }}" alt="" style="width: 3rem; height: 3rem;"
-                    class="shrink-0 rounded-xl object-cover ring-1 ring-outline/20">
-            @else
-                <span style="width: 3rem; height: 3rem;"
-                    class="flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary font-display text-lg font-bold text-white">
-                    {{ strtoupper(mb_substr($student->name, 0, 1)) }}
-                </span>
-            @endif
-            <div class="min-w-0">
-                <p class="eyebrow mb-0.5">Daily attendance</p>
-                <div class="flex flex-wrap items-center gap-x-2.5">
-                    <h1 class="truncate font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">{{ $student->name }}</h1>
-                    @if ($student->studentProfile?->reg_no)
-                        <x-badge variant="primary">{{ $student->studentProfile->reg_no }}</x-badge>
-                    @endif
-                </div>
-                <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Attendance history — {{ $rangeLabel }}{{ $statusFilter ? ', '.$statusFilter.' only' : '' }}</p>
-            </div>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 pt-1.5">
-            <x-btn variant="ghost" size="sm" :href="route('admin.attendance.daily')">
-                <x-icon name="arrow-left" class="size-4" /> Register
-            </x-btn>
-            @can('students.view')
-                <x-btn variant="ghost" size="sm" :href="route('admin.students.show', $student)">
-                    <x-icon name="user-circle" class="size-4" /> Profile
+    {{-- Compact header: avatar + identity left, actions pinned top-right --}}
+    <div class="flex items-start gap-3.5">
+        @if ($student->avatar_url)
+            <img src="{{ $student->avatar_url }}" alt="" style="width: 3rem; height: 3rem;"
+                class="shrink-0 rounded-xl object-cover ring-1 ring-outline/20">
+        @else
+            <span style="width: 3rem; height: 3rem;"
+                class="flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary font-display text-lg font-bold text-white">
+                {{ strtoupper(mb_substr($student->name, 0, 1)) }}
+            </span>
+        @endif
+        <x-page-header class="min-w-0 flex-1" :title="$student->name"
+            :description="'Attendance history — '.$rangeLabel.($statusFilter ? ', '.$statusFilter.' only' : '')"
+            :crumbs="['Dashboard' => route('admin.dashboard'), 'Daily register' => route('admin.attendance.daily'), $student->name => null]">
+            <x-slot:meta>
+                @if ($student->studentProfile?->reg_no)
+                    <x-badge variant="primary">{{ $student->studentProfile->reg_no }}</x-badge>
+                @endif
+            </x-slot:meta>
+            <x-slot:actions>
+                <x-btn variant="ghost" size="sm" :href="route('admin.attendance.daily')">
+                    <x-icon name="arrow-left" class="size-4" /> Register
                 </x-btn>
-            @endcan
-            <x-btn variant="secondary" size="sm" :href="route('admin.attendance.daily.show-print', array_merge(['student' => $student->id], request()->query()))" target="_blank">
-                <x-icon name="printer" class="size-4" /> Print PDF
-            </x-btn>
-        </div>
+                @can('students.view')
+                    <x-btn variant="ghost" size="sm" :href="route('admin.students.show', $student)">
+                        <x-icon name="user-circle" class="size-4" /> Profile
+                    </x-btn>
+                @endcan
+                <x-btn variant="secondary" size="sm" :href="route('admin.attendance.daily.show-print', array_merge(['student' => $student->id], request()->query()))" target="_blank">
+                    <x-icon name="printer" class="size-4" /> Print PDF
+                </x-btn>
+            </x-slot:actions>
+        </x-page-header>
     </div>
 
     {{-- Toolbar: range tabs + status filter + range overview in one card --}}
@@ -168,13 +165,7 @@
         </tbody>
         @if ($records->hasPages() || $records->total() > 0)
             <x-slot:footer>
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <p class="text-xs text-outline">
-                        Showing <span class="font-semibold text-on-surface">{{ $records->firstItem() ?? 0 }}–{{ $records->lastItem() ?? 0 }}</span>
-                        of <span class="font-semibold text-on-surface">{{ $records->total() }}</span> day(s)
-                    </p>
-                    {{ $records->links() }}
-                </div>
+                {{ $records->links() }}
             </x-slot:footer>
         @endif
     </x-table>

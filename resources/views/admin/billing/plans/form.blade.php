@@ -17,6 +17,8 @@
         @csrf
         @if ($plan) @method('PUT') @endif
 
+
+        <x-form.errors-summary />
         <x-card class="space-y-5">
             <x-form.select label="Student" name="user_id" required>
                 <option value="">Choose a student…</option>
@@ -51,12 +53,11 @@
                 hint="Inactive plans stop appearing on the student's billing overview." />
         </x-card>
 
-        <div class="mt-6 flex items-center gap-3">
+        <x-form.actions :cancel="route('admin.billing.plans.index')">
             <x-btn>
                 <x-icon name="check" class="size-4" />
                 {{ $plan ? 'Save changes' : 'Create fee plan' }}
             </x-btn>
-            <x-btn variant="ghost" :href="route('admin.billing.plans.index')">Cancel</x-btn>
-        </div>
+        </x-form.actions>
     </form>
 </x-admin.layout>

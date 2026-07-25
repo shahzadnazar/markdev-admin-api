@@ -3,6 +3,7 @@
         eyebrow="Learning"
         :title="$quiz->title"
         :description="$quiz->course?->title.($quiz->lesson ? ' · '.$quiz->lesson->title : '')"
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Quizzes' => route('admin.quizzes.index'), $quiz->title => null]"
     >
         <x-slot:actions>
             <x-btn variant="ghost" :href="route('admin.quizzes.index')">

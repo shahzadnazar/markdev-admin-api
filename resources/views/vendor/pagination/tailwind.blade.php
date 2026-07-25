@@ -1,9 +1,9 @@
-@if ($paginator->hasPages())
-    <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="flex flex-wrap items-center justify-between gap-3">
-        <p class="font-mono text-[11px] uppercase tracking-[0.08em] text-outline">
-            {{ $paginator->firstItem() ?? 0 }}–{{ $paginator->lastItem() ?? 0 }} of {{ $paginator->total() }}
-        </p>
+<nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="flex flex-wrap items-center justify-between gap-3">
+    <p class="font-mono text-[11px] uppercase tracking-[0.08em] text-outline">
+        {{ $paginator->firstItem() ?? 0 }}–{{ $paginator->lastItem() ?? 0 }} of {{ $paginator->total() }}
+    </p>
 
+    @if ($paginator->hasPages())
         <div class="flex items-center gap-1">
             {{-- Previous --}}
             @if ($paginator->onFirstPage())
@@ -44,5 +44,5 @@
                 </span>
             @endif
         </div>
-    </nav>
-@endif
+    @endif
+</nav>

@@ -30,9 +30,9 @@
             <tr>
                 <th class="th">Quiz</th>
                 <th class="th">Course</th>
-                <th class="th">Questions</th>
-                <th class="th">Attempts</th>
-                <th class="th">Pass mark</th>
+                <th class="th td-num">Questions</th>
+                <th class="th td-num">Attempts</th>
+                <th class="th td-num">Pass mark</th>
                 <th class="th">Status</th>
                 <th class="th text-right">Actions</th>
             </tr>
@@ -47,13 +47,13 @@
                         @endif
                     </td>
                     <td class="td max-w-[16rem]"><p class="truncate text-on-surface-variant">{{ $quiz->course?->title }}</p></td>
-                    <td class="td font-mono text-xs">{{ $quiz->questions_count }}</td>
-                    <td class="td font-mono text-xs">{{ $quiz->attempts_count }}</td>
-                    <td class="td font-mono text-xs">{{ $quiz->passing_score !== null ? $quiz->passing_score.'%' : '—' }}</td>
+                    <td class="td td-num font-mono text-xs">{{ $quiz->questions_count }}</td>
+                    <td class="td td-num font-mono text-xs">{{ $quiz->attempts_count }}</td>
+                    <td class="td td-num font-mono text-xs">{{ $quiz->passing_score !== null ? $quiz->passing_score.'%' : '—' }}</td>
                     <td class="td">
                         <x-badge :variant="$quiz->is_published ? 'success' : 'warning'">{{ $quiz->is_published ? 'published' : 'draft' }}</x-badge>
                     </td>
-                    <td class="td">
+                    <td class="td text-right">
                         <div class="flex items-center justify-end gap-1">
                             <a href="{{ route('admin.quizzes.show', $quiz) }}" title="Question builder" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
                                 <x-icon name="eye" class="size-4" />

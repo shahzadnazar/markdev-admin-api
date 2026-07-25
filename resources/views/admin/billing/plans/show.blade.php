@@ -9,24 +9,18 @@
             'past_due' => ['label' => 'Past due', 'badge' => 'danger'],
             'void' => ['label' => 'Void', 'badge' => 'neutral'],
         ];
+        $planDescription = $plan->title.' — Rs '.number_format((float) $plan->total_amount).' over '.($plan->installment_months ?? $invoices->count()).' months, '
+            .'due day '.$plan->due_day.', fine Rs '.number_format((float) ($plan->fine_per_day ?? \App\Support\BillingConfig::finePerDay())).'/day after '.$graceDays.' grace day(s).';
     @endphp
 
-    {{-- Compact header --}}
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
-        <div class="min-w-0">
-            <p class="eyebrow mb-1">Finance · Fee plan</p>
-            <div class="flex flex-wrap items-center gap-x-2.5">
-                <h1 class="truncate font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">{{ $plan->user?->name ?? 'Deleted user' }}</h1>
-                @if ($plan->user?->studentProfile?->reg_no)
-                    <x-badge variant="primary">{{ $plan->user->studentProfile->reg_no }}</x-badge>
-                @endif
-            </div>
-            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">
-                {{ $plan->title }} — Rs {{ number_format((float) $plan->total_amount) }} over {{ $plan->installment_months ?? $invoices->count() }} months,
-                due day {{ $plan->due_day }}, fine Rs {{ number_format((float) ($plan->fine_per_day ?? \App\Support\BillingConfig::finePerDay())) }}/day after {{ $graceDays }} grace day(s).
-            </p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+    <x-page-header :title="$plan->user?->name ?? 'Deleted user'" :description="$planDescription"
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Fee plans' => route('admin.billing.plans.index'), ($plan->user?->name ?? 'Deleted user') => null]">
+        <x-slot:meta>
+            @if ($plan->user?->studentProfile?->reg_no)
+                <x-badge variant="primary">{{ $plan->user->studentProfile->reg_no }}</x-badge>
+            @endif
+        </x-slot:meta>
+        <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.plans.index')">
                 <x-icon name="arrow-left" class="size-4" /> Fee plans
             </x-btn>
@@ -42,8 +36,8 @@
                     <x-icon name="pencil" class="size-4" /> Edit plan
                 </x-btn>
             @endcan
-        </div>
-    </div>
+        </x-slot:actions>
+    </x-page-header>
 
     {{-- Plan summary strip --}}
     <x-card :padding="false" class="mb-4">
@@ -97,9 +91,9 @@
                 <th class="th">Installment</th>
                 <th class="th">Due</th>
                 <th class="th">Status</th>
-                <th class="th">Amount</th>
-                <th class="th">Fine</th>
-                <th class="th">Payable</th>
+                <th class="th td-num">Amount</th>
+                <th class="th td-num">Fine</th>
+                <th class="th td-num">Payable</th>
                 <th class="th">Paid</th>
                 <th class="th text-right">Actions</th>
             </tr>
@@ -144,11 +138,11 @@
                             <p class="mt-1 font-mono text-[10px] text-outline">receipt submitted</p>
                         @endif
                     </td>
-                    <td class="td font-mono text-xs text-on-surface" style="white-space: nowrap;">Rs {{ number_format((float) $invoice->amount) }}</td>
-                    <td class="td font-mono text-xs {{ (float) $invoice->fine_amount > 0 ? 'text-error' : 'text-outline' }}" style="white-space: nowrap;">
+                    <td class="td td-num font-mono text-xs text-on-surface" style="white-space: nowrap;">Rs {{ number_format((float) $invoice->amount) }}</td>
+                    <td class="td td-num font-mono text-xs {{ (float) $invoice->fine_amount > 0 ? 'text-error' : 'text-outline' }}" style="white-space: nowrap;">
                         {{ (float) $invoice->fine_amount > 0 ? 'Rs '.number_format((float) $invoice->fine_amount) : '—' }}
                     </td>
-                    <td class="td font-mono text-xs font-semibold text-on-surface" style="white-space: nowrap;">Rs {{ number_format($invoice->payable_total) }}</td>
+                    <td class="td td-num font-mono text-xs font-semibold text-on-surface" style="white-space: nowrap;">Rs {{ number_format($invoice->payable_total) }}</td>
                     <td class="td font-mono text-xs text-on-surface-variant" style="white-space: nowrap;">
                         {{ $invoice->paid_at?->format('M j, Y') ?? '—' }}
                     </td>

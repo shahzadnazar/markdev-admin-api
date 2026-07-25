@@ -1,17 +1,13 @@
 <x-admin.layout title="Enroll students">
-    {{-- Compact header: title left, action top-right --}}
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
-        <div class="min-w-0">
-            <p class="eyebrow mb-1">Learning</p>
-            <h1 class="font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">Enroll students</h1>
-            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Every active student — pick one, choose the course, and optionally split the fee into monthly installments.</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+    <x-page-header title="Enroll students"
+        description="Every active student — pick one, choose the course, and optionally split the fee into monthly installments."
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Enrollments' => route('admin.enrollments.index'), 'Enroll students' => null]">
+        <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.enrollments.index')">
                 <x-icon name="arrow-left" class="size-4" /> Enrollments
             </x-btn>
-        </div>
-    </div>
+        </x-slot:actions>
+    </x-page-header>
 
     <div x-data="enrollPicker()" x-effect="if (feeOnly) withPlan = true">
         {{-- Toolbar: tabs + filters in one card --}}
@@ -120,13 +116,7 @@
             </tbody>
             @if ($students->hasPages() || $students->total() > 0)
                 <x-slot:footer>
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                        <p class="text-xs text-outline">
-                            Showing <span class="font-semibold text-on-surface">{{ $students->firstItem() ?? 0 }}–{{ $students->lastItem() ?? 0 }}</span>
-                            of <span class="font-semibold text-on-surface">{{ $students->total() }}</span> active students
-                        </p>
-                        {{ $students->links() }}
-                    </div>
+                    {{ $students->links() }}
                 </x-slot:footer>
             @endif
         </x-table>

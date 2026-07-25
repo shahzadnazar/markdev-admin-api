@@ -137,13 +137,7 @@
         </tbody>
         @if ($students->hasPages() || $students->total() > 0)
             <x-slot:footer>
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <p class="text-xs text-outline">
-                        Showing <span class="font-semibold text-on-surface">{{ $students->firstItem() ?? 0 }}–{{ $students->lastItem() ?? 0 }}</span>
-                        of <span class="font-semibold text-on-surface">{{ $students->total() }}</span> students
-                    </p>
-                    {{ $students->links() }}
-                </div>
+                {{ $students->links() }}
             </x-slot:footer>
         @endif
     </x-table>

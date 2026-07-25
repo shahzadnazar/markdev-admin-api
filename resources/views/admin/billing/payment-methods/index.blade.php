@@ -1,20 +1,16 @@
 <x-admin.layout title="Payment methods">
-    {{-- Compact header --}}
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
-        <div class="min-w-0">
-            <p class="eyebrow mb-1">Finance</p>
-            <h1 class="font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">Payment methods</h1>
-            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Accounts students pay into — JazzCash, EasyPaisa, bank and more. Attach methods to courses; a method with no courses is available for every course.</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+    <x-page-header title="Payment methods"
+        description="Accounts students pay into — JazzCash, EasyPaisa, bank and more. Attach methods to courses; a method with no courses is available for every course."
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Finance' => null, 'Payment methods' => null]">
+        <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.plans.index')">Fee plans</x-btn>
             @can('billing.manage')
                 <x-btn size="sm" :href="route('admin.billing.payment-methods.create')">
                     <x-icon name="plus" class="size-4" /> Add method
                 </x-btn>
             @endcan
-        </div>
-    </div>
+        </x-slot:actions>
+    </x-page-header>
 
     <x-table>
         <thead class="bg-surface-ice/60">

@@ -1,21 +1,19 @@
 <x-admin.layout :title="$method ? 'Edit payment method' : 'Add payment method'">
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
-        <div class="min-w-0">
-            <p class="eyebrow mb-1">Finance · Payment methods</p>
-            <h1 class="font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">{{ $method ? 'Edit '.$method->name : 'Add payment method' }}</h1>
-            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">These details are shown to the student when they choose this method while paying.</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+    <x-page-header :title="$method ? 'Edit '.$method->name : 'Add payment method'"
+        description="These details are shown to the student when they choose this method while paying."
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Payment methods' => route('admin.billing.payment-methods.index'), ($method ? 'Edit' : 'Add') => null]">
+        <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.payment-methods.index')">
                 <x-icon name="arrow-left" class="size-4" /> Payment methods
             </x-btn>
-        </div>
-    </div>
+        </x-slot:actions>
+    </x-page-header>
 
     <form method="POST"
         action="{{ $method ? route('admin.billing.payment-methods.update', $method) : route('admin.billing.payment-methods.store') }}"
         class="max-w-3xl" x-data="{ channel: @js(old('channel', $method?->channel ?? 'jazzcash')) }">
         @csrf
+        <x-form.errors-summary />
         @if ($method) @method('PUT') @endif
 
         <x-card class="space-y-5">
@@ -74,9 +72,8 @@
             </label>
         </x-card>
 
-        <div class="mt-5 flex justify-end gap-2.5">
-            <x-btn variant="ghost" :href="route('admin.billing.payment-methods.index')">Cancel</x-btn>
+        <x-form.actions :cancel="route('admin.billing.payment-methods.index')">
             <x-btn type="submit"><x-icon name="check" class="size-4" /> {{ $method ? 'Save changes' : 'Add method' }}</x-btn>
-        </div>
+        </x-form.actions>
     </form>
 </x-admin.layout>

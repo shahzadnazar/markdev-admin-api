@@ -15,8 +15,10 @@
         @csrf
         @if ($user) @method('PUT') @endif
 
+        <x-form.errors-summary />
+
         <x-card class="space-y-5">
-            <p class="eyebrow">Identity</p>
+            <x-form.section title="Identity" description="Who this account belongs to and how to reach them.">
             <div class="grid gap-5 sm:grid-cols-2">
                 <x-form.input label="Full name" name="name" :value="$user?->name" required />
                 <x-form.input label="Email" name="email" type="email" :value="$user?->email" required />
@@ -26,13 +28,17 @@
                 <x-form.input label="Headline" name="headline" :value="$user?->headline" hint="Shown on instructor profiles." />
             </div>
 
-            <p class="eyebrow pt-2">Security</p>
+            </x-form.section>
+
+            <x-form.section title="Security" description="Password for portal sign-in.">
             <div class="grid gap-5 sm:grid-cols-2">
                 <x-form.input label="Password" name="password" type="password" :required="! $user" :hint="$user ? 'Leave blank to keep the current password.' : 'Minimum 8 characters.'" autocomplete="new-password" />
                 <x-form.input label="Confirm password" name="password_confirmation" type="password" :required="! $user" autocomplete="new-password" />
             </div>
 
-            <p class="eyebrow pt-2">Access</p>
+            </x-form.section>
+
+            <x-form.section title="Access & status" description="Roles decide what this user can see and do.">
             <div>
                 <x-form.label value="Roles" />
                 <div class="grid gap-2 sm:grid-cols-2">
@@ -52,14 +58,14 @@
             </div>
 
             <x-form.toggle label="Active account" name="is_active" :checked="$user?->is_active ?? true" hint="Inactive users cannot sign in." />
+            </x-form.section>
         </x-card>
 
-        <div class="mt-6 flex items-center gap-3">
+        <x-form.actions :cancel="route('admin.users.index')">
             <x-btn>
                 <x-icon name="check" class="size-4" />
                 {{ $user ? 'Save changes' : 'Create user' }}
             </x-btn>
-            <x-btn variant="ghost" :href="route('admin.users.index')">Cancel</x-btn>
-        </div>
+        </x-form.actions>
     </form>
 </x-admin.layout>

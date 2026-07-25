@@ -18,6 +18,8 @@
         @csrf
         @if ($role) @method('PUT') @endif
 
+
+        <x-form.errors-summary />
         <x-card class="space-y-6">
             <div class="max-w-sm">
                 <x-form.input label="Role name" name="name" :value="$role?->name" required
@@ -56,12 +58,11 @@
             </div>
         </x-card>
 
-        <div class="mt-6 flex items-center gap-3">
+        <x-form.actions :cancel="route('admin.roles.index')">
             <x-btn>
                 <x-icon name="check" class="size-4" />
                 {{ $role ? 'Save changes' : 'Create role' }}
             </x-btn>
-            <x-btn variant="ghost" :href="route('admin.roles.index')">Cancel</x-btn>
-        </div>
+        </x-form.actions>
     </form>
 </x-admin.layout>

@@ -32,7 +32,7 @@
             <tr>
                 <th class="th">Invoice</th>
                 <th class="th">Student</th>
-                <th class="th">Amount</th>
+                <th class="th td-num">Amount</th>
                 <th class="th">Issued</th>
                 <th class="th">Due</th>
                 <th class="th">Status</th>
@@ -56,7 +56,7 @@
                     <td class="td">
                         <p class="font-medium text-on-surface">{{ $invoice->user?->name ?? 'Deleted user' }}</p>
                     </td>
-                    <td class="td font-mono text-sm text-on-surface">
+                    <td class="td td-num font-mono text-sm text-on-surface">
                         {{ $invoice->currency === 'PKR' ? 'Rs' : $invoice->currency }} {{ number_format((float) $invoice->amount) }}
                         @if ((float) $invoice->fine_amount > 0)
                             <span class="block text-[11px] text-error">+{{ number_format((float) $invoice->fine_amount, 0) }} fine ({{ $invoice->fine_days }}d)</span>

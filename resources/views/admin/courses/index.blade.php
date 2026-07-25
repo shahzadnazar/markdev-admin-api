@@ -56,7 +56,7 @@
                 <th class="th">Course</th>
                 <th class="th">Instructor</th>
                 <th class="th">Level</th>
-                <th class="th">Fee</th>
+                <th class="th td-num">Fee</th>
                 <th class="th">Duration</th>
                 <th class="th">Enrolled</th>
                 <th class="th">Status</th>
@@ -87,7 +87,7 @@
                     </td>
                     <td class="td text-on-surface-variant">{{ $course->instructor?->name ?? '—' }}</td>
                     <td class="td"><x-badge variant="secondary">{{ $course->level }}</x-badge></td>
-                    <td class="td font-mono text-xs" style="white-space: nowrap;">{{ $course->is_free ? 'Free' : 'Rs '.number_format((float) $course->price) }}</td>
+                    <td class="td td-num font-mono text-xs" style="white-space: nowrap;">{{ $course->is_free ? 'Free' : 'Rs '.number_format((float) $course->price) }}</td>
                     <td class="td font-mono text-xs" style="white-space: nowrap;">
                         {{ $course->duration_label ?? ($course->duration_minutes ? intdiv($course->duration_minutes, 60).'h '.($course->duration_minutes % 60).'m' : '—') }}
                     </td>
@@ -99,7 +99,7 @@
                             <x-badge :variant="match($course->status) { 'published' => 'success', 'draft' => 'warning', default => 'neutral' }">{{ $course->status }}</x-badge>
                         @endif
                     </td>
-                    <td class="td">
+                    <td class="td text-right">
                         <div class="flex items-center justify-end gap-1">
                             @if ($course->trashed())
                                 @can('courses.restore')

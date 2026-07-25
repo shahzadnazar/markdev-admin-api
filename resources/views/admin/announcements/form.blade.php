@@ -17,6 +17,8 @@
         @csrf
         @if ($announcement) @method('PUT') @endif
 
+
+        <x-form.errors-summary />
         <x-card class="space-y-5">
             <x-form.input label="Title" name="title" :value="$announcement?->title" required />
 

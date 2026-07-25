@@ -29,7 +29,7 @@
                 <th class="th">Student</th>
                 <th class="th">Invoice</th>
                 <th class="th">Method</th>
-                <th class="th">Amount</th>
+                <th class="th td-num">Amount</th>
                 <th class="th">Status</th>
                 <th class="th">When</th>
             </tr>
@@ -49,7 +49,7 @@
                     <td class="td text-sm text-on-surface-variant">
                         {{ $transaction->method_brand ? $transaction->method_brand.' •••• '.$transaction->method_last4 : str_replace('_', ' ', ucfirst($transaction->method_type)) }}
                     </td>
-                    <td class="td font-mono text-sm text-on-surface">{{ $transaction->currency }} {{ number_format((float) $transaction->amount, 2) }}</td>
+                    <td class="td td-num font-mono text-sm text-on-surface">{{ $transaction->currency }} {{ number_format((float) $transaction->amount, 2) }}</td>
                     <td class="td">
                         <x-badge :variant="['success' => 'success', 'pending' => 'warning', 'rejected' => 'danger', 'failed' => 'danger', 'refunded' => 'neutral'][$transaction->status] ?? 'neutral'">
                             {{ $transaction->status }}

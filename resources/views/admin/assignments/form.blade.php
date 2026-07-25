@@ -20,6 +20,7 @@
     <form method="POST" action="{{ $assignment ? route('admin.assignments.update', $assignment) : route('admin.assignments.store') }}" enctype="multipart/form-data" class="max-w-3xl"
         x-data="{ course: '{{ old('course_id', $assignment?->course_id) }}', lessons: @js($lessonsByCourse), selected: '{{ old('lesson_id', $assignment?->lesson_id) }}' }">
         @csrf
+        <x-form.errors-summary />
         @if ($assignment) @method('PUT') @endif
 
         <x-card class="space-y-5">

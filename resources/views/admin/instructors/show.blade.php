@@ -1,5 +1,6 @@
 <x-admin.layout :title="$instructor->name">
-    <x-page-header eyebrow="People" :title="$instructor->name" :description="$instructor->headline">
+    <x-page-header eyebrow="People" :title="$instructor->name" :description="$instructor->headline"
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Instructors' => route('admin.instructors.index'), $instructor->name => null]">
         <x-slot:actions>
             <x-btn variant="ghost" :href="route('admin.instructors.index')">
                 <x-icon name="arrow-left" class="size-4" /> All instructors

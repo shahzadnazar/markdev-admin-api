@@ -66,7 +66,11 @@
             </thead>
             <tbody>
                 @forelse ($logs as $log)
-                    <tr class="row cursor-pointer" x-on:click="detail = {{ $log->id }}">
+                    <tr class="row cursor-pointer" tabindex="0" role="button"
+                        aria-label="Open audit entry #{{ $log->id }}"
+                        x-on:click="detail = {{ $log->id }}"
+                        x-on:keydown.enter.prevent="detail = {{ $log->id }}"
+                        x-on:keydown.space.prevent="detail = {{ $log->id }}">
                         <td class="td whitespace-nowrap font-mono text-xs text-outline">{{ $log->created_at->format('M j · H:i:s') }}</td>
                         <td class="td">
                             <p class="font-medium text-on-surface">{{ $log->user_name }}</p>

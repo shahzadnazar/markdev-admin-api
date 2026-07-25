@@ -7,6 +7,8 @@
             @csrf
             @method('PUT')
 
+
+        <x-form.errors-summary />
             <x-card class="space-y-5">
                 <h2 class="font-display text-lg font-semibold text-on-surface">General</h2>
 
@@ -55,12 +57,13 @@
                 <x-form.toggle label="Maintenance mode" name="maintenance_mode" :checked="(bool) old('maintenance_mode', $settings['maintenance_mode'])"
                     hint="Shows a maintenance banner to admin users; plan portal downtime with your team." />
 
-                @can('settings.update')
-                    <div class="pt-1">
-                        <x-btn><x-icon name="check" class="size-4" /> Save settings</x-btn>
-                    </div>
-                @endcan
             </x-card>
+
+            @can('settings.update')
+                <x-form.actions>
+                    <x-btn><x-icon name="check" class="size-4" /> Save settings</x-btn>
+                </x-form.actions>
+            @endcan
         </form>
 
         {{-- Backups --}}
