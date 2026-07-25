@@ -51,6 +51,7 @@ class BillingController extends ApiController
                         ->map(fn ($method) => $this->methodPayload($method))->values(),
                     'support_phone' => $supportPhone,
                     'installments' => null,
+                    'admission' => null,
                 ],
             ]);
         }
@@ -74,6 +75,18 @@ class BillingController extends ApiController
             ->orderBy('id')
             ->first();
 
+        // Unsettled admission charges: the registration fee and the advance
+        // first installment (the one due on the admission day itself).
+        $admissionInvoices = $plan->invoices()
+            ->with('latestSubmission')
+            ->whereIn('status', ['open', 'pending', 'past_due'])
+            ->where(function ($query) use ($plan) {
+                $query->where('type', 'registration')
+                    ->orWhere(fn ($inner) => $inner->where('sequence_no', 1)->whereDate('due_at', $plan->starts_at));
+            })
+            ->orderByRaw("type = 'registration' desc")
+            ->get();
+
         return response()->json([
             'data' => [
                 'plan_title' => $plan->title,
@@ -93,6 +106,11 @@ class BillingController extends ApiController
                 'payment_methods' => \App\Models\PaymentMethod::availableForCourse($plan->course_id)
                     ->map(fn ($method) => $this->methodPayload($method))->values(),
                 'support_phone' => $supportPhone,
+                'admission' => $admissionInvoices->isEmpty() ? null : [
+                    'invoices' => $admissionInvoices->map(fn ($invoice) => (new InvoiceResource($invoice))->resolve())->values(),
+                    'total_due' => round($admissionInvoices->whereIn('status', ['open', 'past_due'])
+                        ->sum(fn ($invoice) => $invoice->payable_total), 2),
+                ],
                 'installments' => $plan->installment_months ? [
                     'months' => $plan->installment_months,
                     'due_day' => $plan->due_day,

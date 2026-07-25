@@ -183,7 +183,7 @@ class BillingTest extends ApiTestCase
 
         $this->post("/api/v1/billing/invoices/{$open->id}/submissions", [], ['Accept' => 'application/json'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['channel', 'payer_name', 'reference_no', 'payment_date', 'receipt']);
+            ->assertJsonValidationErrors(['channel', 'receipt']);
     }
 
     public function test_cannot_submit_twice_or_for_settled_invoices(): void

@@ -34,7 +34,7 @@ class FeeSubmissionService
     ];
 
     /**
-     * @param array{channel: string, payer_name: string, reference_no: string, payment_date: string, notes?: string|null} $data
+     * @param array{channel?: string|null, payment_method_id?: int|null, payer_name?: string|null, reference_no?: string|null, payment_date?: string|null, notes?: string|null} $data
      */
     public function submit(User $student, Invoice $invoice, array $data, UploadedFile $receipt): Transaction
     {
@@ -70,10 +70,10 @@ class FeeSubmissionService
                 'currency' => $invoice->currency ?? 'PKR',
                 'status' => 'pending',
                 'receipt_path' => $receiptPath,
-                'payer_name' => $data['payer_name'],
+                'payer_name' => $data['payer_name'] ?? $student->name,
                 'bank_name' => $method?->bank_name ?? $channel['label'],
-                'reference_no' => $data['reference_no'],
-                'payment_date' => $data['payment_date'],
+                'reference_no' => $data['reference_no'] ?? null,
+                'payment_date' => $data['payment_date'] ?? now()->toDateString(),
                 'notes' => $data['notes'] ?? null,
                 'submitted_by_student' => true,
             ]);
@@ -87,7 +87,7 @@ class FeeSubmissionService
             'invoice' => $invoice->number,
             'amount' => (string) $transaction->amount,
             'channel' => $channel['label'],
-            'reference_no' => $data['reference_no'],
+            'reference_no' => $data['reference_no'] ?? null,
         ], $student);
 
         Notification::send($this->billingReviewers(), new FeeSubmissionReceived($transaction));

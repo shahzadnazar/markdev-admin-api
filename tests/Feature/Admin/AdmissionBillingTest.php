@@ -189,6 +189,63 @@ class AdmissionBillingTest extends TestCase
             ->assertSee('Payable now');
     }
 
+    public function test_overview_exposes_the_admission_block_until_settled(): void
+    {
+        Carbon::setTestNow('2026-07-25');
+
+        $this->actingAs($this->admin)->post('/admin/enrollments', [
+            'user_id' => $this->student->id,
+            'course_id' => $this->course->id,
+            'create_plan' => '1',
+            'registration_fee' => 2000,
+            'total_fee' => 48000,
+            'months' => 6,
+            'due_day' => 5,
+            'currency' => 'PKR',
+        ]);
+
+        $data = $this->actingAs($this->student)->getJson('/api/v1/billing')->assertOk()->json('data');
+
+        $this->assertNotNull($data['admission']);
+        $this->assertCount(2, $data['admission']['invoices']);
+        $this->assertSame('registration', $data['admission']['invoices'][0]['type']);
+        $this->assertEquals(10000.0, $data['admission']['total_due']);
+
+        // Once both admission invoices are paid the block disappears.
+        Invoice::whereDate('due_at', '2026-07-25')->update(['status' => 'paid', 'paid_at' => now()]);
+
+        $data = $this->actingAs($this->student)->getJson('/api/v1/billing')->assertOk()->json('data');
+        $this->assertNull($data['admission']);
+    }
+
+    public function test_submission_works_with_only_method_and_receipt(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $method = PaymentMethod::create([
+            'name' => 'JazzCash — MarkDev', 'channel' => 'jazzcash',
+            'account_title' => 'Mark Dev', 'account_number' => '0300-1111111', 'is_active' => true,
+        ]);
+
+        $plan = app(InstallmentPlanService::class)->create(
+            student: $this->student, course: $this->course, title: 'Plan',
+            totalFee: 48000, months: 6, dueDay: 5, advance: true,
+        );
+        $open = $plan->invoices()->where('status', 'open')->orderBy('sequence_no')->first();
+
+        $response = $this->actingAs($this->student)->post("/api/v1/billing/invoices/{$open->id}/submissions", [
+            'payment_method_id' => $method->id,
+            'receipt' => \Illuminate\Http\UploadedFile::fake()->image('slip.jpg'),
+        ], ['Accept' => 'application/json'])->assertStatus(201);
+
+        // Payer name and payment date fall back to sensible defaults.
+        $this->assertDatabaseHas('transactions', [
+            'id' => $response->json('data.id'),
+            'payer_name' => $this->student->name,
+            'reference_no' => null,
+        ]);
+    }
+
     public function test_registration_fee_setting_is_saved_and_used_as_default(): void
     {
         $superAdmin = User::factory()->create();
