@@ -4,7 +4,7 @@
 <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" {{ $attributes }}>
     <defs>
         <linearGradient id="mdw-{{ $gradientId ?? 'default' }}" x1="4" y1="40" x2="44" y2="8" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#0C5ABD" />
+            <stop stop-color="#124389" />
             <stop offset="1" stop-color="#6B53C4" />
         </linearGradient>
     </defs>

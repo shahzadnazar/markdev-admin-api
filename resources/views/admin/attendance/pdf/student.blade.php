@@ -6,8 +6,8 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 9.5px; color: #1a1c22; padding: 26px 30px; }
-        .head { border-bottom: 3px solid #0C5ABD; padding-bottom: 10px; margin-bottom: 12px; }
-        .brand { font-size: 16px; font-weight: 700; color: #0C5ABD; }
+        .head { border-bottom: 3px solid #124389; padding-bottom: 10px; margin-bottom: 12px; }
+        .brand { font-size: 16px; font-weight: 700; color: #124389; }
         .brand small { color: #6b7280; font-weight: 400; font-size: 8px; letter-spacing: 1px; }
         .title { font-size: 13px; font-weight: 700; margin-top: 5px; }
         .meta { color: #6b7280; font-size: 8.5px; margin-top: 2px; }
@@ -15,7 +15,7 @@
         .chip { display: inline-block; border: 1px solid #e5e7eb; border-radius: 10px; padding: 4px 10px; margin-right: 6px; font-size: 8.5px; }
         .chip b { font-size: 10.5px; }
         table { width: 100%; border-collapse: collapse; }
-        th { background: #F5F9FF; color: #374151; text-transform: uppercase; font-size: 7.5px; letter-spacing: 0.6px; text-align: left; padding: 6px; border-bottom: 1.5px solid #0C5ABD; }
+        th { background: #EEF4FB; color: #374151; text-transform: uppercase; font-size: 7.5px; letter-spacing: 0.6px; text-align: left; padding: 6px; border-bottom: 1.5px solid #124389; }
         td { padding: 5.5px 6px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
         .muted { color: #6b7280; }
         .status { font-weight: 700; text-transform: uppercase; font-size: 8.5px; }

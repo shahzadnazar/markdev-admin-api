@@ -50,19 +50,19 @@
             <svg viewBox="0 0 {{ $w }} {{ $h }}" class="mt-4 w-full" role="img" aria-label="Daily enrollments for the last 14 days">
                 <defs>
                     <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#0C5ABD" stop-opacity="0.14" />
-                        <stop offset="100%" stop-color="#0C5ABD" stop-opacity="0" />
+                        <stop offset="0%" stop-color="#124389" stop-opacity="0.14" />
+                        <stop offset="100%" stop-color="#124389" stop-opacity="0" />
                     </linearGradient>
                 </defs>
                 {{-- baseline --}}
                 <line x1="{{ $pad }}" y1="{{ $h - $pad }}" x2="{{ $w - $pad }}" y2="{{ $h - $pad }}" stroke="#c2c6d5" stroke-width="1" />
                 <polygon points="{{ $area }}" fill="url(#spark-fill)" />
-                <polyline points="{{ $polyline }}" fill="none" stroke="#0C5ABD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <polyline points="{{ $polyline }}" fill="none" stroke="#124389" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 @foreach ($points as $p)
                     <g>
                         <title>{{ $p['label'] }}: {{ $p['count'] }} enrollment{{ $p['count'] === 1 ? '' : 's' }}</title>
                         <circle cx="{{ $p['x'] }}" cy="{{ $p['y'] }}" r="8" fill="transparent" />
-                        <circle cx="{{ $p['x'] }}" cy="{{ $p['y'] }}" r="2.5" fill="#0C5ABD" stroke="#ffffff" stroke-width="1.5" />
+                        <circle cx="{{ $p['x'] }}" cy="{{ $p['y'] }}" r="2.5" fill="#124389" stroke="#ffffff" stroke-width="1.5" />
                     </g>
                 @endforeach
                 @if ($peak && $peak['count'] > 0)
