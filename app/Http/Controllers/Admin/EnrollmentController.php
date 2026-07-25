@@ -89,20 +89,32 @@ class EnrollmentController extends Controller
         $student = User::findOrFail($data['user_id']);
         abort_unless($student->hasRole('student') && $student->is_active, 422, 'Only active students can be enrolled.');
 
-        $exists = Enrollment::where('user_id', $data['user_id'])
+        // The unique index spans soft-deleted rows, so look those up too:
+        // a removed enrollment is restored instead of colliding on insert.
+        $existing = Enrollment::withTrashed()
+            ->where('user_id', $data['user_id'])
             ->where('course_id', $data['course_id'])
-            ->exists();
+            ->first();
 
-        if ($exists) {
+        if ($existing && ! $existing->trashed()) {
             return back()->with('error', "{$student->name} is already enrolled in that course.");
         }
 
-        Enrollment::create([
-            'user_id' => $data['user_id'],
-            'course_id' => $data['course_id'],
-            'enrolled_at' => now(),
-            'progress_percent' => 0,
-        ]);
+        if ($existing) {
+            $existing->restore();
+            $existing->update([
+                'enrolled_at' => now(),
+                'progress_percent' => 0,
+                'completed_at' => null,
+            ]);
+        } else {
+            Enrollment::create([
+                'user_id' => $data['user_id'],
+                'course_id' => $data['course_id'],
+                'enrolled_at' => now(),
+                'progress_percent' => 0,
+            ]);
+        }
 
         if ($withPlan) {
             $course = Course::findOrFail($data['course_id']);

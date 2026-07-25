@@ -122,6 +122,29 @@ class EnrollmentPickerTest extends TestCase
         $this->assertSame(1, Enrollment::count());
     }
 
+    public function test_re_enrolling_after_removal_restores_the_enrollment(): void
+    {
+        $enrollment = Enrollment::create([
+            'user_id' => $this->student->id,
+            'course_id' => $this->course->id,
+            'enrolled_at' => now()->subMonth(),
+            'progress_percent' => 40,
+        ]);
+        $enrollment->delete(); // soft delete — the unique index still holds the row
+
+        $this->actingAs($this->admin)->post('/admin/enrollments', [
+            'user_id' => $this->student->id,
+            'course_id' => $this->course->id,
+        ])->assertRedirect(route('admin.enrollments.create'))
+            ->assertSessionHas('success');
+
+        $enrollment->refresh();
+        $this->assertNull($enrollment->deleted_at);
+        $this->assertEquals(0, (float) $enrollment->progress_percent);
+        $this->assertTrue($enrollment->enrolled_at->isToday());
+        $this->assertSame(1, Enrollment::withTrashed()->count());
+    }
+
     public function test_inactive_students_cannot_be_enrolled(): void
     {
         $this->student->update(['is_active' => false]);

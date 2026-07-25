@@ -98,6 +98,23 @@ class CourseTest extends ApiTestCase
         $this->assertSame(1, $user->enrollments()->count());
     }
 
+    public function test_enrolling_again_after_removal_restores_the_soft_deleted_enrollment(): void
+    {
+        $user = $this->actingAsStudent();
+        [$course] = $this->makeCourse();
+
+        $enrollment = $this->enroll($user, $course, ['progress_percent' => 60]);
+        $enrollment->delete(); // soft delete — the unique index still holds the row
+
+        $this->postJson("/api/v1/courses/{$course->id}/enroll")->assertOk()
+            ->assertJsonPath('data.course_id', $course->id);
+
+        $enrollment->refresh();
+        $this->assertNull($enrollment->deleted_at);
+        $this->assertEquals(0, (float) $enrollment->progress_percent);
+        $this->assertSame(1, \App\Models\Enrollment::withTrashed()->count());
+    }
+
     public function test_modules_include_lesson_completion_flags(): void
     {
         $user = $this->actingAsStudent();

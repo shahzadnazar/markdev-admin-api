@@ -83,10 +83,21 @@ class CourseController extends ApiController
     {
         abort_unless($course->status === 'published', 404);
 
-        $enrollment = Enrollment::firstOrCreate(
+        // withTrashed: the unique index spans soft-deleted rows, so a removed
+        // enrollment must be restored rather than re-inserted.
+        $enrollment = Enrollment::withTrashed()->firstOrCreate(
             ['user_id' => $request->user()->id, 'course_id' => $course->id],
             ['enrolled_at' => now()],
         );
+
+        if ($enrollment->trashed()) {
+            $enrollment->restore();
+            $enrollment->update([
+                'enrolled_at' => now(),
+                'progress_percent' => 0,
+                'completed_at' => null,
+            ]);
+        }
 
         return (new EnrollmentResource($enrollment))
             ->response($request)
