@@ -14,7 +14,7 @@
 
     <form method="POST"
         action="{{ $method ? route('admin.billing.payment-methods.update', $method) : route('admin.billing.payment-methods.store') }}"
-        class="max-w-3xl">
+        class="max-w-3xl" x-data="{ channel: @js(old('channel', $method?->channel ?? 'jazzcash')) }">
         @csrf
         @if ($method) @method('PUT') @endif
 
@@ -22,23 +22,30 @@
             <div class="grid gap-5 sm:grid-cols-2">
                 <x-form.input label="Display name" name="name" :value="$method?->name" required
                     placeholder="e.g. JazzCash — MarkDev" hint="Shown in the student's method list." />
-                <x-form.select label="Channel" name="channel" required>
+                <x-form.select label="Channel" name="channel" required x-model="channel">
                     @foreach (\App\Models\PaymentMethod::CHANNELS as $value => $channel)
                         <option value="{{ $value }}" @selected(old('channel', $method?->channel) === $value)>{{ $channel['label'] }}</option>
                     @endforeach
                 </x-form.select>
             </div>
 
-            <div class="grid gap-5 sm:grid-cols-2">
-                <x-form.input label="Account title" name="account_title" :value="$method?->account_title" required
-                    placeholder="e.g. Mark Dev Solutions" />
-                <x-form.input label="Account number / IBAN" name="account_number" :value="$method?->account_number" required
-                    placeholder="e.g. 0300-1234567 or PK36…" />
+            <div x-show="channel !== 'cash_deposit'" class="grid gap-5 sm:grid-cols-2">
+                <x-form.input label="Account title" name="account_title" :value="$method?->account_title"
+                    placeholder="e.g. Mark Dev Solutions" x-bind:required="channel !== 'cash_deposit'" />
+                <x-form.input label="Account number / IBAN" name="account_number" :value="$method?->account_number"
+                    placeholder="e.g. 0300-1234567 or PK36…" x-bind:required="channel !== 'cash_deposit'" />
             </div>
 
+            <p x-show="channel === 'cash_deposit'" x-cloak class="rounded-lg bg-surface-ice px-3 py-2.5 text-xs leading-5 text-on-surface-variant">
+                Cash is collected at the counter — no account details are shown. When paying, the student is asked
+                for the <span class="font-semibold text-on-surface">receipt number</span> from the fee receipt you hand over, plus a photo of it.
+            </p>
+
             <div class="grid gap-5 sm:grid-cols-2">
-                <x-form.input label="Bank name" name="bank_name" :value="$method?->bank_name"
-                    placeholder="e.g. Meezan Bank" hint="Only for bank accounts — leave blank for wallets." />
+                <div x-show="channel !== 'cash_deposit'">
+                    <x-form.input label="Bank name" name="bank_name" :value="$method?->bank_name"
+                        placeholder="e.g. Meezan Bank" hint="Only for bank accounts — leave blank for wallets." />
+                </div>
                 <x-form.input type="number" label="Sort order" name="sort_order" :value="$method?->sort_order ?? 0" min="0" max="999"
                     hint="Lower numbers show first." />
             </div>

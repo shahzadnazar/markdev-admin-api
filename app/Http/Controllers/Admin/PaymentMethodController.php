@@ -69,8 +69,8 @@ class PaymentMethodController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'channel' => ['required', Rule::in(array_keys(PaymentMethod::CHANNELS))],
-            'account_title' => ['required', 'string', 'max:120'],
-            'account_number' => ['required', 'string', 'max:60'],
+            'account_title' => ['nullable', 'required_unless:channel,cash_deposit', 'string', 'max:120'],
+            'account_number' => ['nullable', 'required_unless:channel,cash_deposit', 'string', 'max:60'],
             'bank_name' => ['nullable', 'string', 'max:120'],
             'instructions' => ['nullable', 'string', 'max:500'],
             'is_active' => ['nullable', 'boolean'],
@@ -78,6 +78,13 @@ class PaymentMethodController extends Controller
             'courses' => ['nullable', 'array'],
             'courses.*' => [Rule::exists('courses', 'id')],
         ]);
+
+        // Cash is collected at the counter — there is no account to show.
+        if ($data['channel'] === 'cash_deposit') {
+            $data['account_title'] = null;
+            $data['account_number'] = null;
+            $data['bank_name'] = null;
+        }
 
         $data['is_active'] = $request->boolean('is_active');
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);

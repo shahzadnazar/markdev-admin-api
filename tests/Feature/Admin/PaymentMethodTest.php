@@ -71,6 +71,29 @@ class PaymentMethodTest extends TestCase
             ->assertSee('0300-1234567');
     }
 
+    public function test_cash_method_needs_no_account_details(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/billing/payment-methods', [
+            'name' => 'Cash — front desk',
+            'channel' => 'cash_deposit',
+            'is_active' => '1',
+        ])->assertRedirect(route('admin.billing.payment-methods.index'));
+
+        $method = PaymentMethod::first();
+        $this->assertSame('cash_deposit', $method->channel);
+        $this->assertNull($method->account_title);
+        $this->assertNull($method->account_number);
+
+        $this->actingAs($this->admin)->get('/admin/billing/payment-methods')
+            ->assertOk()
+            ->assertSee('cash at counter');
+
+        // Non-cash channels still demand the account details.
+        $this->actingAs($this->admin)->post('/admin/billing/payment-methods', [
+            'name' => 'JazzCash', 'channel' => 'jazzcash', 'is_active' => '1',
+        ])->assertSessionHasErrors(['account_title', 'account_number']);
+    }
+
     public function test_overview_scopes_methods_to_the_plan_course(): void
     {
         $courseMethod = PaymentMethod::create([

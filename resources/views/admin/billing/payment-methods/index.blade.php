@@ -34,8 +34,13 @@
                         <p class="font-mono text-[11px] text-outline">{{ $method->channelLabel() }}{{ $method->bank_name ? ' · '.$method->bank_name : '' }}</p>
                     </td>
                     <td class="td">
-                        <p class="font-mono text-xs text-on-surface" style="white-space: nowrap;">{{ $method->account_number }}</p>
-                        <p class="text-xs text-on-surface-variant">{{ $method->account_title }}</p>
+                        @if ($method->channel === 'cash_deposit')
+                            <p class="font-mono text-xs text-outline">cash at counter</p>
+                            <p class="text-xs text-on-surface-variant">receipt number required</p>
+                        @else
+                            <p class="font-mono text-xs text-on-surface" style="white-space: nowrap;">{{ $method->account_number }}</p>
+                            <p class="text-xs text-on-surface-variant">{{ $method->account_title }}</p>
+                        @endif
                     </td>
                     <td class="td" style="max-width: 16rem;">
                         @if ($method->courses->isEmpty())
