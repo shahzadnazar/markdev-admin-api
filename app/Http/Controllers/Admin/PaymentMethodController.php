@@ -17,7 +17,7 @@ class PaymentMethodController extends Controller
         return view('admin.billing.payment-methods.index', [
             'methods' => PaymentMethod::with('courses:id,title')
                 ->orderBy('sort_order')->orderBy('name')
-                ->get(),
+                ->paginate(25),
         ]);
     }
 

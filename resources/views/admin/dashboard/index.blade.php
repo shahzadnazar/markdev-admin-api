@@ -22,7 +22,26 @@
     </div>
 
     <div class="mt-5 grid gap-5 xl:grid-cols-3">
-        {{-- Enrollments sparkline --}}
+        @if ($attention->isNotEmpty())
+        <x-card :padding="false" class="mt-4 border-l-4 border-warning">
+            <div class="flex items-center justify-between px-4 pt-3">
+                <p class="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warning">Attention required</p>
+                <p class="text-xs text-outline">{{ $attention->sum('count') }} item(s)</p>
+            </div>
+            <ul class="divide-y divide-surface-ice px-1 py-1">
+                @foreach ($attention as $item)
+                    <li>
+                        <a href="{{ $item['url'] }}" class="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm text-on-surface transition hover:bg-surface-ice">
+                            <span>{{ $item['label'] }}</span>
+                            <span class="inline-flex min-w-7 items-center justify-center rounded-full bg-warning-container px-2 py-0.5 font-mono text-xs font-semibold text-warning">{{ $item['count'] }}</span>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </x-card>
+    @endif
+
+    {{-- Enrollments sparkline --}}
         <x-card class="xl:col-span-2">
             <div class="flex items-baseline justify-between gap-4">
                 <div>

@@ -74,5 +74,8 @@
                     description="Add JazzCash, EasyPaisa, SadaPay or bank accounts so students know where to pay." /></td></tr>
             @endforelse
         </tbody>
+        @if ($methods->total() > 0)
+            <x-slot:footer>{{ $methods->links() }}</x-slot:footer>
+        @endif
     </x-table>
 </x-admin.layout>

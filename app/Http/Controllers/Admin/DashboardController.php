@@ -39,8 +39,34 @@ class DashboardController extends Controller
             'attendance_rate' => $this->attendanceRate(),
         ];
 
+        // What needs an admin's action right now — each row links to the fix.
+        $attention = collect([
+            [
+                'label' => 'fee submissions awaiting review',
+                'count' => $stats['pending_fees'],
+                'url' => route('admin.billing.submissions'),
+            ],
+            [
+                'label' => 'installments past due (defaulters)',
+                'count' => \App\Models\Invoice::where('status', 'past_due')->count(),
+                'url' => route('admin.billing.plans.index', ['tab' => 'defaulters']),
+            ],
+            [
+                'label' => 'assignment submissions to grade',
+                'count' => $stats['pending_submissions'],
+                'url' => route('admin.assignments.index'),
+            ],
+            [
+                'label' => "students unmarked in today's register",
+                'count' => max(0, User::role('student')->where('is_active', true)->count()
+                    - \App\Models\DailyAttendance::whereDate('date', today())->count()),
+                'url' => route('admin.attendance.daily'),
+            ],
+        ])->filter(fn ($item) => $item['count'] > 0)->values();
+
         return view('admin.dashboard.index', [
             'stats' => $stats,
+            'attention' => $attention,
             'sparkline' => $this->enrollmentSparkline(),
             'recentEnrollments' => Enrollment::with(['user', 'course'])->latest('enrolled_at')->take(5)->get(),
             'latestLogs' => AuditLog::latest('created_at')->take(8)->get(),
