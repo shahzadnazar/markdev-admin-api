@@ -38,12 +38,37 @@ class EnrollmentController extends Controller
         ]);
     }
 
-    public function create(): View
+    /** Student picker: every active student, filterable, with Enroll now. */
+    public function create(Request $request): View
     {
+        $courseId = $request->filled('course') ? $request->integer('course') : null;
+        $tab = $request->query('tab') === 'unenrolled' ? 'unenrolled' : 'all';
+
+        $students = User::role('student')
+            ->where('is_active', true)
+            ->with(['studentProfile:id,user_id,reg_no,cnic', 'enrollments.course:id,title'])
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $term = '%'.trim($request->string('search')).'%';
+                $query->where(fn ($inner) => $inner
+                    ->where('name', 'like', $term)
+                    ->orWhere('email', 'like', $term)
+                    ->orWhereHas('studentProfile', fn ($profile) => $profile
+                        ->where('reg_no', 'like', $term)
+                        ->orWhere('cnic', 'like', $term)));
+            })
+            ->when($courseId, fn ($query) => $query
+                ->whereHas('enrollments', fn ($inner) => $inner->where('course_id', $courseId)))
+            ->when($tab === 'unenrolled', fn ($query) => $query->whereDoesntHave('enrollments'))
+            ->orderBy('name')
+            ->paginate(25)
+            ->withQueryString();
+
         return view('admin.enrollments.create', [
-            'students' => User::role('student')->orderBy('name')->get(['id', 'name', 'email']),
+            'students' => $students,
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'defaultFinePerDay' => BillingConfig::finePerDay(),
+            'courseId' => $courseId,
+            'tab' => $tab,
         ]);
     }
 
@@ -61,12 +86,15 @@ class EnrollmentController extends Controller
             'currency' => [$withPlan ? 'required' : 'nullable', 'string', 'size:3'],
         ]);
 
+        $student = User::findOrFail($data['user_id']);
+        abort_unless($student->hasRole('student') && $student->is_active, 422, 'Only active students can be enrolled.');
+
         $exists = Enrollment::where('user_id', $data['user_id'])
             ->where('course_id', $data['course_id'])
             ->exists();
 
         if ($exists) {
-            return back()->withInput()->withErrors(['user_id' => 'This student is already enrolled in that course.']);
+            return back()->with('error', "{$student->name} is already enrolled in that course.");
         }
 
         Enrollment::create([
@@ -77,7 +105,6 @@ class EnrollmentController extends Controller
         ]);
 
         if ($withPlan) {
-            $student = User::findOrFail($data['user_id']);
             $course = Course::findOrFail($data['course_id']);
 
             $installments->create(
@@ -91,13 +118,13 @@ class EnrollmentController extends Controller
                 currency: strtoupper($data['currency'] ?? 'PKR'),
             );
 
-            return redirect()->route('admin.enrollments.index')->with(
+            return redirect()->route('admin.enrollments.create')->with(
                 'success',
-                "Student enrolled — {$data['months']} monthly installments created (due day {$data['due_day']})."
+                "{$student->name} enrolled — {$data['months']} monthly installments created (due day {$data['due_day']})."
             );
         }
 
-        return redirect()->route('admin.enrollments.index')->with('success', 'Student enrolled.');
+        return redirect()->route('admin.enrollments.create')->with('success', "{$student->name} enrolled.");
     }
 
     public function destroy(Enrollment $enrollment): RedirectResponse

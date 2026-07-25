@@ -1,108 +1,260 @@
-<x-admin.layout title="Enroll a student">
-    <x-page-header eyebrow="Learning" title="Enroll a student"
-        description="Place a student into a course — optionally with a monthly installment plan.">
-        <x-slot:actions>
-            <x-btn variant="ghost" :href="route('admin.enrollments.index')">
-                <x-icon name="arrow-left" class="size-4" /> Back to enrollments
+<x-admin.layout title="Enroll students">
+    {{-- Compact header: title left, action top-right --}}
+    <div class="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 sm:flex-nowrap">
+        <div class="min-w-0">
+            <p class="eyebrow mb-1">Learning</p>
+            <h1 class="font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-on-surface">Enroll students</h1>
+            <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">Every active student — pick one, choose the course, and optionally split the fee into monthly installments.</p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2 pt-1.5">
+            <x-btn variant="ghost" size="sm" :href="route('admin.enrollments.index')">
+                <x-icon name="arrow-left" class="size-4" /> Enrollments
             </x-btn>
-        </x-slot:actions>
-    </x-page-header>
+        </div>
+    </div>
 
-    <form method="POST" action="{{ route('admin.enrollments.store') }}" class="max-w-2xl"
-        x-data="{
-            withPlan: @js((bool) old('create_plan')),
-            total: @js(old('total_fee', '')),
-            months: @js(old('months', 6)),
-            dueDay: @js(old('due_day', 5)),
-            get perMonth() {
-                const t = parseFloat(this.total), m = parseInt(this.months);
-                if (!t || !m || m < 1) return null;
-                return Math.floor(t / m * 100) / 100;
-            },
-            get lastMonth() {
-                const t = parseFloat(this.total), m = parseInt(this.months);
-                if (!t || !m || m < 1 || !this.perMonth) return null;
-                return Math.round((t - this.perMonth * (m - 1)) * 100) / 100;
-            },
-            get firstDue() {
-                const day = parseInt(this.dueDay);
-                if (!day || day < 1 || day > 28) return null;
-                const now = new Date();
-                let due = new Date(now.getFullYear(), now.getMonth(), day);
-                if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-                    due = new Date(now.getFullYear(), now.getMonth() + 1, day);
-                }
-                return due.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
-            },
-        }">
-        @csrf
-
-        <x-card class="space-y-5">
-            <x-form.select label="Student" name="user_id" required>
-                <option value="">Select a student…</option>
-                @foreach ($students as $student)
-                    <option value="{{ $student->id }}" @selected(old('user_id') == $student->id)>{{ $student->name }} — {{ $student->email }}</option>
+    <div x-data="enrollPicker()">
+        {{-- Toolbar: tabs + filters in one card --}}
+        <x-card :padding="false" class="mb-4">
+            <div class="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                @foreach (['all' => 'All active', 'unenrolled' => 'Not enrolled yet'] as $key => $label)
+                    <a href="{{ route('admin.enrollments.create', array_filter(['tab' => $key === 'all' ? null : $key, 'course' => $courseId, 'search' => request('search')])) }}"
+                        class="cursor-pointer rounded-lg border px-3 py-1.5 text-[13px] font-medium transition {{ $tab === $key
+                            ? 'border-primary bg-primary text-white shadow-card'
+                            : 'border-outline/30 bg-white text-on-surface-variant hover:border-primary/50 hover:text-primary' }}">
+                        {{ $label }}
+                    </a>
                 @endforeach
-            </x-form.select>
-            <x-form.select label="Course" name="course_id" required>
-                <option value="">Select a course…</option>
-                @foreach ($courses as $course)
-                    <option value="{{ $course->id }}" @selected(old('course_id') == $course->id)>{{ $course->title }}</option>
-                @endforeach
-            </x-form.select>
-        </x-card>
 
-        {{-- Installment plan --}}
-        <x-card class="mt-6 space-y-5">
-            <label class="flex cursor-pointer items-start gap-3">
-                <input type="hidden" name="create_plan" value="0">
-                <input type="checkbox" name="create_plan" value="1" class="check mt-0.5" x-model="withPlan">
-                <span>
-                    <span class="block text-[13px] font-medium text-on-surface">Create a monthly installment plan</span>
-                    <span class="mt-0.5 block text-xs text-outline">Splits the total fee into monthly invoices starting from today's admission date.</span>
-                </span>
-            </label>
-
-            <div x-show="withPlan" x-cloak class="space-y-5 border-t border-surface-ice pt-5">
-                <div class="grid gap-5 sm:grid-cols-3">
-                    <x-form.input type="number" label="Total fee" name="total_fee" :value="old('total_fee')"
-                        min="1" step="0.01" x-model="total" placeholder="45000" />
-                    <x-form.input type="number" label="Duration (months)" name="months" :value="old('months', 6)"
-                        min="1" max="36" x-model="months" />
-                    <x-form.input type="number" label="Due day of month" name="due_day" :value="old('due_day', 5)"
-                        min="1" max="28" x-model="dueDay" hint="e.g. 5 = due on the 5th." />
-                </div>
-                <div class="grid gap-5 sm:grid-cols-2">
-                    <x-form.input type="number" label="Defaulter fine / day" name="fine_per_day"
-                        :value="old('fine_per_day')" min="0" step="0.01"
-                        :placeholder="number_format($defaultFinePerDay, 0)"
-                        hint="Leave blank to use the global setting ({{ number_format($defaultFinePerDay, 0) }}/day)." />
-                    <x-form.input label="Currency" name="currency" :value="old('currency', 'PKR')" maxlength="3"
-                        hint="ISO code, e.g. PKR." />
-                </div>
-
-                {{-- Live preview --}}
-                <div class="rounded-xl bg-surface-ice/70 p-4" x-show="perMonth" x-cloak>
-                    <p class="eyebrow mb-2">Schedule preview</p>
-                    <p class="text-sm text-on-surface-variant">
-                        <span class="font-semibold text-on-surface" x-text="months"></span> installments of
-                        <span class="font-mono font-semibold text-primary" x-text="perMonth?.toLocaleString()"></span>
-                        <template x-if="lastMonth !== perMonth">
-                            <span>(last <span class="font-mono" x-text="lastMonth?.toLocaleString()"></span>)</span>
-                        </template>
-                        — first due <span class="font-semibold text-on-surface" x-text="firstDue"></span>,
-                        then the <span class="font-semibold text-on-surface" x-text="dueDay"></span><sup>th</sup> of every month.
-                        Each installment opens for payment {{ \App\Support\BillingConfig::activationDays() }} days before it is due.
-                    </p>
-                </div>
+                <form method="GET" action="{{ route('admin.enrollments.create') }}" class="ml-auto flex flex-wrap items-center gap-2">
+                    @if ($tab === 'unenrolled')
+                        <input type="hidden" name="tab" value="unenrolled">
+                    @endif
+                    <label class="sr-only" for="course">Filter by course</label>
+                    <select name="course" id="course" class="field h-9 w-48 text-sm" title="Show students of this course">
+                        <option value="">All courses</option>
+                        @foreach ($courses as $course)
+                            <option value="{{ $course->id }}" @selected($courseId === $course->id)>{{ $course->title }}</option>
+                        @endforeach
+                    </select>
+                    <label class="sr-only" for="search">Search</label>
+                    <input type="search" name="search" id="search" value="{{ request('search') }}"
+                        placeholder="Name, reg #, CNIC…" class="field h-9 w-48 text-sm">
+                    <x-btn variant="secondary" size="sm" class="h-9"><x-icon name="funnel" class="size-3.5" /> Apply</x-btn>
+                    @if (request()->hasAny(['course', 'search']) || $tab === 'unenrolled')
+                        <x-btn variant="ghost" size="sm" class="h-9" :href="route('admin.enrollments.create')">Clear</x-btn>
+                    @endif
+                </form>
             </div>
         </x-card>
 
-        <div class="mt-6 flex items-center gap-3">
-            <x-btn>
-                <x-icon name="check" class="size-4" /> Enroll student
-            </x-btn>
-            <x-btn variant="ghost" :href="route('admin.enrollments.index')">Cancel</x-btn>
-        </div>
-    </form>
+        <x-table>
+            <thead class="bg-surface-ice/60">
+                <tr>
+                    <th class="th">Student</th>
+                    <th class="th">CNIC / Contact</th>
+                    <th class="th">Current courses</th>
+                    <th class="th text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($students as $student)
+                    @php
+                        $payload = [
+                            'id' => $student->id,
+                            'name' => $student->name,
+                            'reg' => $student->studentProfile?->reg_no,
+                            'avatar' => $student->avatar_url,
+                            'enrolled' => $student->enrollments->pluck('course_id')->all(),
+                        ];
+                    @endphp
+                    <tr class="row">
+                        <td class="td">
+                            <div class="flex items-center gap-3">
+                                @if ($student->avatar_url)
+                                    <img src="{{ $student->avatar_url }}" alt="" style="width: 2.5rem; height: 2.5rem;" class="shrink-0 rounded-full object-cover">
+                                @else
+                                    <span style="width: 2.5rem; height: 2.5rem;" class="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-display text-sm font-semibold text-white">
+                                        {{ strtoupper(mb_substr($student->name, 0, 1)) }}
+                                    </span>
+                                @endif
+                                <div class="min-w-0">
+                                    <p class="truncate font-medium text-on-surface">{{ $student->name }}</p>
+                                    <p class="truncate font-mono text-[11px] text-outline">{{ $student->studentProfile?->reg_no ?? $student->email }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="td">
+                            <p class="font-mono text-xs text-on-surface">{{ $student->studentProfile?->cnic ?? '—' }}</p>
+                            <p class="font-mono text-xs text-outline">{{ $student->phone ?? $student->email }}</p>
+                        </td>
+                        <td class="td" style="max-width: 15rem;">
+                            @if ($student->enrollments->isEmpty())
+                                <span class="font-mono text-xs text-outline">not enrolled</span>
+                            @else
+                                <p class="truncate text-sm text-on-surface"
+                                    title="{{ $student->enrollments->map(fn ($enrollment) => $enrollment->course?->title)->filter()->implode(', ') }}">
+                                    {{ \Illuminate\Support\Str::limit($student->enrollments->first()->course?->title ?? '—', 26, '…') }}
+                                </p>
+                                @if ($student->enrollments->count() > 1)
+                                    <p class="mt-0.5 font-mono text-[11px] text-primary">+{{ $student->enrollments->count() - 1 }} more</p>
+                                @endif
+                            @endif
+                        </td>
+                        <td class="td text-right">
+                            <button type="button" x-on:click='openEnroll(@json($payload))'
+                                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white shadow-card transition hover:bg-primary-deep">
+                                <x-icon name="user-plus" class="size-4" /> Enroll now
+                            </button>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4"><x-empty-state icon="users" title="No students match"
+                        description="Adjust the search or filters — only active students are listed." /></td></tr>
+                @endforelse
+            </tbody>
+            @if ($students->hasPages() || $students->total() > 0)
+                <x-slot:footer>
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <p class="text-xs text-outline">
+                            Showing <span class="font-semibold text-on-surface">{{ $students->firstItem() ?? 0 }}–{{ $students->lastItem() ?? 0 }}</span>
+                            of <span class="font-semibold text-on-surface">{{ $students->total() }}</span> active students
+                        </p>
+                        {{ $students->links() }}
+                    </div>
+                </x-slot:footer>
+            @endif
+        </x-table>
+
+        {{-- ···························· Enroll popup ···························· --}}
+        <template x-teleport="body">
+            <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                x-on:keydown.escape.window="close()">
+                <div x-show="open" x-transition.opacity class="absolute inset-0 bg-primary-deep/20 backdrop-blur-[2px]" x-on:click="close()"></div>
+
+                <div x-show="open" x-transition class="relative flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-elevated">
+                    <div class="flex shrink-0 items-center gap-3 border-b border-surface-ice px-5 py-3.5">
+                        <template x-if="student.avatar">
+                            <img :src="student.avatar" alt="" style="width: 2.5rem; height: 2.5rem;" class="shrink-0 rounded-full object-cover">
+                        </template>
+                        <template x-if="! student.avatar">
+                            <span style="width: 2.5rem; height: 2.5rem;" class="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-display text-sm font-semibold text-white"
+                                x-text="(student.name || '?').charAt(0).toUpperCase()"></span>
+                        </template>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate font-display text-[15px] font-semibold text-on-surface" x-text="'Enroll ' + student.name"></p>
+                            <p class="font-mono text-[11px] text-outline" x-text="student.reg || ''"></p>
+                        </div>
+                        <button type="button" x-on:click="close()" class="cursor-pointer rounded-lg p-2 text-on-surface-variant transition hover:bg-surface-ice">
+                            <x-icon name="x-mark" class="size-4" />
+                        </button>
+                    </div>
+
+                    <form method="POST" action="{{ route('admin.enrollments.store') }}" class="min-h-0 space-y-4 overflow-y-auto px-5 py-4">
+                        @csrf
+                        <input type="hidden" name="user_id" :value="student.id">
+
+                        <div>
+                            <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-course">Course</label>
+                            <select name="course_id" id="enroll-course" class="field w-full text-sm" required>
+                                <option value="">Select a course…</option>
+                                <template x-for="course in courses" :key="course.id">
+                                    <option :value="course.id" :disabled="student.enrolled && student.enrolled.includes(course.id)"
+                                        x-text="course.title + (student.enrolled && student.enrolled.includes(course.id) ? ' — already enrolled' : '')"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        {{-- Monthly installments --}}
+                        <div class="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
+                            <label class="flex cursor-pointer items-start gap-3">
+                                <input type="hidden" name="create_plan" value="0">
+                                <input type="checkbox" name="create_plan" value="1" class="check mt-0.5" x-model="withPlan">
+                                <span>
+                                    <span class="block text-sm font-medium text-on-surface">Create monthly installment plan</span>
+                                    <span class="block text-xs text-on-surface-variant">Splits the total fee into monthly invoices from today's admission date.</span>
+                                </span>
+                            </label>
+
+                            <div x-show="withPlan" x-transition x-cloak class="mt-4 space-y-4">
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-total">Total fee (Rs)</label>
+                                        <input type="number" name="total_fee" id="enroll-total" min="1" step="0.01" class="field w-full text-sm" x-model="total" :required="withPlan">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-months">Months</label>
+                                        <input type="number" name="months" id="enroll-months" min="1" max="36" class="field w-full text-sm" x-model="months" :required="withPlan">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-due">Due day</label>
+                                        <input type="number" name="due_day" id="enroll-due" min="1" max="28" class="field w-full text-sm" x-model="dueDay" :required="withPlan">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-fine">Late fine / day (Rs) <span class="font-normal text-outline">(optional)</span></label>
+                                    <input type="number" name="fine_per_day" id="enroll-fine" min="0" step="0.01" class="field w-full text-sm"
+                                        placeholder="default {{ number_format($defaultFinePerDay, 0) }}">
+                                    <p class="mt-1.5 text-xs text-outline">Charged daily once the grace period ends. Blank = global setting.</p>
+                                </div>
+                                <input type="hidden" name="currency" value="PKR">
+
+                                <p class="rounded-lg bg-white px-3 py-2 font-mono text-[11px] leading-5 text-on-surface-variant"
+                                    x-show="perMonth" x-cloak
+                                    x-text="months + ' × Rs ' + (perMonth ? perMonth.toLocaleString() : '') + (lastMonth && lastMonth !== perMonth ? ' (last Rs ' + lastMonth.toLocaleString() + ')' : '') + (firstDue ? ' · first due ' + firstDue : '') + ' · opens {{ \App\Support\BillingConfig::activationDays() }} days before each due date'"></p>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2.5 pb-1">
+                            <x-btn type="button" variant="ghost" size="sm" x-on:click="close()">Cancel</x-btn>
+                            <x-btn type="submit" size="sm"><x-icon name="check" class="size-4" /> Enroll student</x-btn>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function enrollPicker() {
+            return {
+                open: false,
+                student: {},
+                courses: @json($courses->map(fn ($course) => ['id' => $course->id, 'title' => $course->title])->values()),
+                withPlan: false,
+                total: '',
+                months: 6,
+                dueDay: 5,
+                openEnroll(student) {
+                    this.student = student;
+                    this.withPlan = false;
+                    this.total = '';
+                    this.open = true;
+                },
+                close() {
+                    this.open = false;
+                },
+                get perMonth() {
+                    const t = parseFloat(this.total), m = parseInt(this.months);
+                    if (!t || !m || m < 1) return null;
+                    return Math.floor(t / m * 100) / 100;
+                },
+                get lastMonth() {
+                    const t = parseFloat(this.total), m = parseInt(this.months);
+                    if (!t || !m || m < 1 || !this.perMonth) return null;
+                    return Math.round((t - this.perMonth * (m - 1)) * 100) / 100;
+                },
+                get firstDue() {
+                    const day = parseInt(this.dueDay);
+                    if (!day || day < 1 || day > 28) return null;
+                    const now = new Date();
+                    let due = new Date(now.getFullYear(), now.getMonth(), day);
+                    if (due < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                        due = new Date(now.getFullYear(), now.getMonth() + 1, day);
+                    }
+                    return due.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+                },
+            };
+        }
+    </script>
 </x-admin.layout>
