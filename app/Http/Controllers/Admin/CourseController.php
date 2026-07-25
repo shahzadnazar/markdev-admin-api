@@ -154,6 +154,7 @@ class CourseController extends Controller
             'category_id' => ['required', Rule::exists('categories', 'id')],
             'instructor_id' => ['required', Rule::exists('users', 'id')],
             'excerpt' => ['nullable', 'string', 'max:500'],
+            'duration_label' => ['nullable', 'string', 'max:50'],
             'description' => ['nullable', 'string'],
             'level' => ['required', Rule::in(['beginner', 'intermediate', 'advanced'])],
             'status' => ['required', Rule::in(['draft', 'published', 'archived'])],
@@ -163,7 +164,19 @@ class CourseController extends Controller
             'thumbnail' => ['nullable', 'image', 'max:4096'],
         ]);
 
-        $data['slug'] = $data['slug'] ?: Str::slug($data['title']);
+        // Blank slug: build one from the title, keeping it unique.
+        if (empty($data['slug'])) {
+            $base = Str::slug($data['title']) ?: 'course';
+            $slug = $base;
+            $suffix = 2;
+            while (Course::withTrashed()->where('slug', $slug)
+                ->when($course, fn ($query) => $query->where('id', '!=', $course->id))
+                ->exists()) {
+                $slug = $base.'-'.$suffix++;
+            }
+            $data['slug'] = $slug;
+        }
+
         $data['is_free'] = $request->boolean('is_free');
         $data['price'] = $data['is_free'] ? null : ($data['price'] ?? null);
         $data['tags'] = collect(explode(',', (string) ($data['tags'] ?? '')))

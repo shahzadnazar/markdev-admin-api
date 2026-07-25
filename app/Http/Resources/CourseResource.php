@@ -25,6 +25,7 @@ class CourseResource extends JsonResource
             'instructor' => $this->instructor ? new InstructorSummaryResource($this->instructor) : null,
             'tags' => $this->tags ?? [],
             'duration_minutes' => (int) $this->duration_minutes,
+            'duration_label' => $this->duration_label,
             'modules_count' => (int) ($this->modules_count ?? 0),
             'lessons_count' => (int) ($this->lessons_count ?? 0),
             'students_count' => (int) ($this->students_count ?? 0),

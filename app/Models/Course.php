@@ -24,6 +24,7 @@ class Course extends Model
         'thumbnail_path',
         'level',
         'duration_minutes',
+        'duration_label',
         'price',
         'is_free',
         'status',

@@ -147,8 +147,11 @@ class DemoSeeder extends Seeder
 
         /* ------------------------------- Catalog ------------------------------- */
 
-        $backend = Category::create(['name' => 'Backend', 'slug' => 'backend', 'description' => 'Server-side engineering.']);
-        $frontend = Category::create(['name' => 'Frontend', 'slug' => 'frontend', 'description' => 'Modern UI engineering.']);
+        $backend = Category::create(['name' => 'Web Development', 'slug' => 'web-development', 'description' => 'Full-stack and backend web engineering.']);
+        $frontend = Category::create(['name' => 'App Development', 'slug' => 'app-development', 'description' => 'Mobile and desktop applications.']);
+        Category::create(['name' => 'Digital Marketing', 'slug' => 'digital-marketing', 'description' => 'SEO, social and performance marketing.']);
+        Category::create(['name' => 'Artificial Intelligence', 'slug' => 'artificial-intelligence', 'description' => 'AI, machine learning and automation.']);
+        Category::create(['name' => 'Graphics Design', 'slug' => 'graphics-design', 'description' => 'Design tools, branding and creative work.']);
 
         $laravel = $this->course($backend, $instructor, 'Advanced Web Development with Laravel 12', 'intermediate', false, 49.00, [
             'Getting productive' => [
@@ -185,6 +188,10 @@ class DemoSeeder extends Seeder
                 ['Branching strategies', 'article', 8, false],
             ],
         ]);
+
+        $laravel->update(['duration_label' => '3 months']);
+        $react->update(['duration_label' => '2 months']);
+        $git->update(['duration_label' => '6 weeks']);
 
         /* ----------------------------- Enrollments ----------------------------- */
 
