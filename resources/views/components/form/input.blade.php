@@ -2,7 +2,7 @@
 
 <div class="min-w-0">
     @if ($label)
-        <x-form.label :for="$name" :value="$label" />
+        <x-form.label :for="$name" :value="$label" :required="$required" />
     @endif
     <input
         type="{{ $type }}"

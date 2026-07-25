@@ -122,7 +122,7 @@
                                     title="Approve this payment?"
                                     message="The invoice will be marked paid and the student notified."
                                     confirm-label="Approve payment"
-                                    variant="primary"
+                                    variant="success"
                                     class="inline-flex items-center justify-center gap-2 rounded-lg bg-success px-4 py-2.5 text-sm font-medium text-white shadow-card transition hover:-translate-y-px hover:opacity-90"
                                 >
                                     <x-icon name="check" class="size-4" /> Approve

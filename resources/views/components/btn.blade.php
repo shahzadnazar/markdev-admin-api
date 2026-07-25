@@ -13,6 +13,7 @@ $variants = [
     'primary' => 'bg-primary text-white shadow-card hover:bg-primary-deep hover:-translate-y-px active:translate-y-0',
     'secondary' => 'border border-primary/40 bg-white text-primary hover:bg-primary/5 hover:border-primary',
     'ghost' => 'text-on-surface-variant hover:bg-primary/5 hover:text-primary',
+    'success' => 'bg-success text-white shadow-card hover:bg-success/90 hover:-translate-y-px active:translate-y-0',
     'danger' => 'bg-error text-white hover:bg-error/90 hover:-translate-y-px active:translate-y-0',
     'danger-ghost' => 'text-error hover:bg-error/10',
 ];
@@ -23,5 +24,11 @@ $classes = $base.' '.$sizes[$size].' '.$variants[$variant];
 @if ($href)
     <a href="{{ $href }}" {{ $attributes->merge(['class' => $classes]) }}>{{ $slot }}</a>
 @else
-    <button type="{{ $type }}" {{ $attributes->merge(['class' => $classes]) }}>{{ $slot }}</button>
+    <button type="{{ $type }}"
+        @if ($type === 'submit')
+            {{-- Submit-once guard: disable after the click has dispatched the
+                 native submit, so double-clicks can't double-post. --}}
+            onclick="const f=this.closest('form'); if(f && f.checkValidity()) setTimeout(() => { this.disabled = true; this.classList.add('opacity-60'); }, 0)"
+        @endif
+        {{ $attributes->merge(['class' => $classes]) }}>{{ $slot }}</button>
 @endif

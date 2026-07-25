@@ -62,7 +62,7 @@
                     <td class="td text-right">
                         <div class="inline-flex items-center gap-1">
                             @can('announcements.update')
-                                <x-btn variant="ghost" size="sm" :href="route('admin.announcements.edit', $announcement)">
+                                <x-btn variant="ghost" size="sm" :href="route('admin.announcements.edit', $announcement)" aria-label="Edit announcement" title="Edit announcement">
                                     <x-icon name="pencil" class="size-4" />
                                 </x-btn>
                             @endcan

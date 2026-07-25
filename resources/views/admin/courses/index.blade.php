@@ -121,7 +121,7 @@
                                     <x-icon name="eye" class="size-4" />
                                 </a>
                                 @can('courses.update')
-                                    <a href="{{ route('admin.courses.edit', $course) }}" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
+                                    <a href="{{ route('admin.courses.edit', $course) }}" aria-label="Edit course" title="Edit course" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
                                         <x-icon name="pencil" class="size-4" />
                                     </a>
                                 @endcan

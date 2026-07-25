@@ -75,7 +75,7 @@
                                 </x-badge>
                             </td>
                             <td class="td text-right">
-                                <x-btn variant="ghost" size="sm" :href="route('admin.courses.show', $course)">
+                                <x-btn variant="ghost" size="sm" :href="route('admin.courses.show', $course)" aria-label="Open course" title="Open course">
                                     <x-icon name="eye" class="size-4" />
                                 </x-btn>
                             </td>

@@ -59,7 +59,7 @@
                                 <x-icon name="eye" class="size-4" />
                             </a>
                             @can('quizzes.update')
-                                <a href="{{ route('admin.quizzes.edit', $quiz) }}" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
+                                <a href="{{ route('admin.quizzes.edit', $quiz) }}" aria-label="Edit quiz" title="Edit quiz" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
                                     <x-icon name="pencil" class="size-4" />
                                 </a>
                             @endcan

@@ -39,7 +39,7 @@
                     <td class="td">
                         <div class="flex items-center justify-end gap-1">
                             @can('categories.update')
-                                <a href="{{ route('admin.categories.edit', $category) }}" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
+                                <a href="{{ route('admin.categories.edit', $category) }}" aria-label="Edit category" title="Edit category" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
                                     <x-icon name="pencil" class="size-4" />
                                 </a>
                             @endcan

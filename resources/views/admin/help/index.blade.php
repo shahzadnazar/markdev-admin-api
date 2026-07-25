@@ -61,7 +61,7 @@
                         <td class="td text-right">
                             <div class="inline-flex items-center gap-1">
                                 @can('help.manage')
-                                    <x-btn variant="ghost" size="sm" :href="route('admin.help.articles.edit', $article)">
+                                    <x-btn variant="ghost" size="sm" :href="route('admin.help.articles.edit', $article)" aria-label="Edit article" title="Edit article">
                                         <x-icon name="pencil" class="size-4" />
                                     </x-btn>
                                     <x-confirm-form

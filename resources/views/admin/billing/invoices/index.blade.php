@@ -70,7 +70,7 @@
                         </x-badge>
                     </td>
                     <td class="td text-right">
-                        <x-btn variant="ghost" size="sm" :href="route('admin.billing.invoices.show', $invoice)">
+                        <x-btn variant="ghost" size="sm" :href="route('admin.billing.invoices.show', $invoice)" aria-label="Open invoice" title="Open invoice">
                             <x-icon name="eye" class="size-4" />
                         </x-btn>
                     </td>

@@ -38,7 +38,7 @@
                     <td class="td font-mono text-xs">{{ $role->users_count }}</td>
                     <td class="td">
                         <div class="flex items-center justify-end gap-1">
-                            <a href="{{ route('admin.roles.edit', $role) }}" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
+                            <a href="{{ route('admin.roles.edit', $role) }}" aria-label="Edit role" title="Edit role" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
                                 <x-icon name="pencil" class="size-4" />
                             </a>
                             @if ($role->name !== 'super-admin')

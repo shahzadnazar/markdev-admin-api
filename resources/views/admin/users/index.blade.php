@@ -101,7 +101,7 @@
                                 @endcan
                             @else
                                 @can('users.update')
-                                    <a href="{{ route('admin.users.edit', $user) }}" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
+                                    <a href="{{ route('admin.users.edit', $user) }}" aria-label="Edit user" title="Edit user" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary">
                                         <x-icon name="pencil" class="size-4" />
                                     </a>
                                 @endcan

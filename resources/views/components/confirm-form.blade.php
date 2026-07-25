@@ -12,7 +12,8 @@
     The trigger button is the default slot.
 --}}
 <div x-data="{ confirming: false }" class="inline-flex">
-    <button type="button" x-on:click="confirming = true" {{ $attributes->merge(['class' => 'cursor-pointer']) }}>
+    <button type="button" x-on:click="confirming = true" aria-label="{{ $title }}" title="{{ $title }}"
+        {{ $attributes->merge(['class' => 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg']) }}>
         {{ $slot }}
     </button>
 
@@ -22,7 +23,7 @@
             <div x-show="confirming" x-transition.opacity class="absolute inset-0 bg-primary-deep/20 backdrop-blur-[2px]" x-on:click="confirming = false"></div>
             <div x-show="confirming" x-transition class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-elevated">
                 <div class="flex items-start gap-4">
-                    <div class="flex size-11 shrink-0 items-center justify-center rounded-xl {{ $variant === 'danger' ? 'bg-error-container text-error' : 'bg-primary/10 text-primary' }}">
+                    <div class="flex size-11 shrink-0 items-center justify-center rounded-xl {{ ['danger' => 'bg-error-container text-error', 'success' => 'bg-success-container text-success'][$variant] ?? 'bg-primary/10 text-primary' }}">
                         <x-icon name="warning" class="size-5" />
                     </div>
                     <div class="min-w-0">
@@ -36,7 +37,7 @@
                         @method($method)
                     @endif
                     <x-btn type="button" variant="ghost" x-on:click="confirming = false">Cancel</x-btn>
-                    <x-btn type="submit" :variant="$variant === 'danger' ? 'danger' : 'primary'">{{ $confirmLabel }}</x-btn>
+                    <x-btn type="submit" :variant="in_array($variant, ['danger', 'success', 'primary'], true) ? $variant : 'primary'">{{ $confirmLabel }}</x-btn>
                 </form>
             </div>
         </div>

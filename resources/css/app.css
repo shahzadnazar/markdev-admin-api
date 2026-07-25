@@ -31,6 +31,16 @@
 
     --shadow-card: 0px 4px 20px rgba(12, 90, 189, 0.05);
     --shadow-elevated: 0px 12px 32px rgba(12, 90, 189, 0.12);
+
+    /* Label scale — matches the student portal tokens. */
+    --text-label-md: 0.875rem;
+    --text-label-md--line-height: 1.25rem;
+    --text-label-md--letter-spacing: 0.02em;
+    --text-label-md--font-weight: 500;
+    --text-label-sm: 0.75rem;
+    --text-label-sm--line-height: 1rem;
+    --text-label-sm--letter-spacing: 0.05em;
+    --text-label-sm--font-weight: 500;
 }
 
 @layer base {
@@ -65,7 +75,7 @@
     }
 
     .check {
-        @apply size-4 rounded border-outline-variant accent-[#0c5abd];
+        @apply size-4 rounded border-outline-variant accent-primary;
     }
 
     /* Table primitives. */
@@ -85,29 +95,12 @@
     .eyebrow {
         @apply font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-primary;
     }
-
-    /* Simple rendered rich-text (seeded HTML bodies). */
-    .prose-simple p {
-        @apply mb-3 text-sm leading-6 text-on-surface-variant;
-    }
-
-    .prose-simple ul {
-        @apply mb-3 list-disc pl-5 text-sm text-on-surface-variant;
-    }
-
-    .prose-simple h3 {
-        @apply mb-2 mt-4 font-display text-base font-semibold text-on-surface;
-    }
-
-    .prose-simple pre {
-        @apply mb-3 overflow-x-auto rounded-lg bg-on-surface p-3 font-mono text-xs text-white;
-    }
 }
 
 /* Slim, quiet scrollbars for the sidebar + tables. */
 .scroll-thin {
     scrollbar-width: thin;
-    scrollbar-color: #c2c6d5 transparent;
+    scrollbar-color: var(--color-outline-variant) transparent;
 }
 
 .scroll-thin::-webkit-scrollbar {
@@ -116,8 +109,16 @@
 }
 
 .scroll-thin::-webkit-scrollbar-thumb {
-    background: #c2c6d5;
+    background: var(--color-outline-variant);
     border-radius: 9999px;
+}
+
+/* Keyboard focus must be visible on EVERY interactive element. */
+@layer base {
+    :focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
 }
 
 /* Buttons should always read as clickable. */
