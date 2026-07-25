@@ -17,7 +17,8 @@ class SubmitFeeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'channel' => ['required', Rule::in(array_keys(FeeSubmissionService::CHANNELS))],
+            'channel' => ['required_without:payment_method_id', 'nullable', Rule::in(array_keys(FeeSubmissionService::CHANNELS))],
+            'payment_method_id' => ['nullable', Rule::exists('payment_methods', 'id')->where('is_active', true)->whereNull('deleted_at')],
             'payer_name' => ['required', 'string', 'max:120'],
             'reference_no' => ['required', 'string', 'max:120'],
             'payment_date' => ['required', 'date', 'before_or_equal:today'],

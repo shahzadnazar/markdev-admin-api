@@ -78,8 +78,9 @@
             @forelse ($plans as $plan)
                 @php
                     $rows = $plan->invoices;
-                    $paidCount = $rows->where('status', 'paid')->count();
-                    $total = $rows->count();
+                    $installmentRows = $rows->where('type', 'installment');
+                    $paidCount = $installmentRows->where('status', 'paid')->count();
+                    $total = $installmentRows->count();
                     $outstanding = $rows->whereIn('status', ['open', 'pending', 'past_due'])
                         ->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount);
                     $hasDefault = $rows->contains(fn ($invoice) => $invoice->status === 'past_due');

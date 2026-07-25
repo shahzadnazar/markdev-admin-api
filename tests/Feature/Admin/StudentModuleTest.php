@@ -148,8 +148,13 @@ class StudentModuleTest extends TestCase
 
         $this->assertDatabaseHas('enrollments', ['user_id' => $student->id, 'course_id' => $course->id]);
         $this->assertDatabaseHas('fee_plans', ['user_id' => $student->id, 'course_id' => $course->id]);
-        $this->assertSame(6, $student->invoices()->count());
-        $this->assertEquals(60000.0, (float) $student->invoices()->sum('amount'));
+        // 6 installments + the registration-fee invoice from the office-use section.
+        $this->assertSame(6, $student->invoices()->where('type', 'installment')->count());
+        $this->assertSame(1, $student->invoices()->where('type', 'registration')->count());
+        $this->assertEquals(60000.0, (float) $student->invoices()->where('type', 'installment')->sum('amount'));
+        // Installment 1 is due on admission day (advance).
+        $first = $student->invoices()->where('sequence_no', 1)->first();
+        $this->assertTrue($first->due_at->isToday());
     }
 
     public function test_directory_lists_students_with_reg_no(): void

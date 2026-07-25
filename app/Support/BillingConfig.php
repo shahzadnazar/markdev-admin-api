@@ -20,6 +20,12 @@ class BillingConfig
         return (int) (Setting::where('key', 'billing_grace_days')->value('value') ?? 5);
     }
 
+    /** One-time registration fee collected at admission (per-admission override allowed). */
+    public static function registrationFee(): float
+    {
+        return (float) (Setting::where('key', 'registration_fee')->value('value') ?? 2000);
+    }
+
     /** Default defaulter fine per day; a plan may override it. */
     public static function finePerDay(?FeePlan $plan = null): float
     {

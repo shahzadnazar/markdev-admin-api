@@ -15,6 +15,7 @@ class InvoiceResource extends JsonResource
         return [
             'id' => $this->id,
             'number' => $this->number,
+            'type' => $this->type ?? 'installment',
             'sequence_no' => $this->sequence_no,
             'title' => $this->title,
             'amount' => (float) $this->amount,

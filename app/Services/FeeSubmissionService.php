@@ -46,15 +46,24 @@ class FeeSubmissionService
             ]);
         }
 
-        $channel = self::CHANNELS[$data['channel']];
+        // A configured payment method (JazzCash/EasyPaisa/bank account …)
+        // wins over the legacy free-form channel.
+        $method = ! empty($data['payment_method_id'])
+            ? \App\Models\PaymentMethod::find($data['payment_method_id'])
+            : null;
+
+        $channel = $method
+            ? ['label' => $method->name, 'method_type' => $method->methodType()]
+            : self::CHANNELS[$data['channel']];
         $receiptPath = $receipt->store('receipts', 'public');
 
-        $transaction = DB::transaction(function () use ($student, $invoice, $data, $channel, $receiptPath) {
+        $transaction = DB::transaction(function () use ($student, $invoice, $data, $channel, $receiptPath, $method) {
             $transaction = Transaction::create([
                 'invoice_id' => $invoice->id,
                 'user_id' => $student->id,
                 'reference' => $this->nextReference(),
                 'description' => "Student fee submission for {$invoice->number}",
+                'payment_method_id' => $method?->id,
                 'method_type' => $channel['method_type'],
                 'method_brand' => $channel['label'],
                 'amount' => $invoice->payable_total,
@@ -62,7 +71,7 @@ class FeeSubmissionService
                 'status' => 'pending',
                 'receipt_path' => $receiptPath,
                 'payer_name' => $data['payer_name'],
-                'bank_name' => $channel['label'],
+                'bank_name' => $method?->bank_name ?? $channel['label'],
                 'reference_no' => $data['reference_no'],
                 'payment_date' => $data['payment_date'],
                 'notes' => $data['notes'] ?? null,

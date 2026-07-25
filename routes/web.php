@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BillingController;
+use App\Http\Controllers\Admin\PaymentMethodController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\CourseController;
@@ -250,6 +251,14 @@ Route::prefix('admin')
             Route::post('billing/invoices', [BillingController::class, 'storeInvoice'])->middleware('can:billing.manage')->name('billing.invoices.store');
             Route::get('billing/invoices/{invoice}', [BillingController::class, 'showInvoice'])->name('billing.invoices.show');
             Route::post('billing/invoices/{invoice}/void', [BillingController::class, 'voidInvoice'])->middleware('can:billing.manage')->name('billing.invoices.void');
+            Route::post('billing/invoices/{invoice}/adjust', [BillingController::class, 'adjustInvoiceAmount'])->middleware('can:billing.manage')->name('billing.invoices.adjust');
+
+            Route::get('billing/payment-methods', [PaymentMethodController::class, 'index'])->name('billing.payment-methods.index');
+            Route::get('billing/payment-methods/create', [PaymentMethodController::class, 'create'])->middleware('can:billing.manage')->name('billing.payment-methods.create');
+            Route::post('billing/payment-methods', [PaymentMethodController::class, 'store'])->middleware('can:billing.manage')->name('billing.payment-methods.store');
+            Route::get('billing/payment-methods/{paymentMethod}/edit', [PaymentMethodController::class, 'edit'])->middleware('can:billing.manage')->name('billing.payment-methods.edit');
+            Route::put('billing/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update'])->middleware('can:billing.manage')->name('billing.payment-methods.update');
+            Route::delete('billing/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy'])->middleware('can:billing.manage')->name('billing.payment-methods.destroy');
             Route::post('billing/invoices/{invoice}/payments', [BillingController::class, 'recordPayment'])->middleware('can:billing.manage')->name('billing.invoices.payments.store');
             Route::get('billing/submissions', [BillingController::class, 'submissions'])->name('billing.submissions');
             Route::post('billing/submissions/{transaction}/approve', [BillingController::class, 'approveSubmission'])->middleware('can:billing.manage')->name('billing.submissions.approve');

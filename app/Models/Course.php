@@ -67,6 +67,11 @@ class Course extends Model
         return $this->hasMany(Lesson::class);
     }
 
+    public function paymentMethods(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(PaymentMethod::class);
+    }
+
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);

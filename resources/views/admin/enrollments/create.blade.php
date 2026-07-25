@@ -217,6 +217,27 @@
                                         <input type="number" name="due_day" id="enroll-due" min="1" max="28" class="field w-full text-sm" x-model="dueDay" :required="withPlan">
                                     </div>
                                 </div>
+
+                                {{-- Admission charges: collected today at the counter --}}
+                                <div class="rounded-lg border border-secondary/30 bg-secondary/[0.04] p-3">
+                                    <p class="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-secondary">Admission charges — collected today</p>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-reg">Registration fee (Rs)</label>
+                                            <input type="number" name="registration_fee" id="enroll-reg" min="0" step="0.01" class="field w-full text-sm" x-model="regFee">
+                                            <p class="mt-1 text-[11px] text-outline">default from settings · 0 = waived</p>
+                                        </div>
+                                        <div x-show="mode === 'monthly'">
+                                            <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-first">1st installment (Rs)</label>
+                                            <input type="number" name="first_amount" id="enroll-first" min="1" step="0.01" class="field w-full text-sm"
+                                                x-model="firstAmount" :placeholder="perMonth ? 'auto ' + perMonth.toLocaleString() : 'auto'">
+                                            <p class="mt-1 text-[11px] text-outline">due today · blank = equal split</p>
+                                        </div>
+                                        <div x-show="mode === 'full'" class="flex items-end pb-5">
+                                            <p class="text-[11px] leading-4 text-outline">Full fee is due today with the registration fee.</p>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div>
                                     <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-fine">Late fine / day (Rs) <span class="font-normal text-outline">(optional)</span></label>
                                     <input type="number" name="fine_per_day" id="enroll-fine" min="0" step="0.01" class="field w-full text-sm"
@@ -252,6 +273,8 @@
                 total: '',
                 months: 6,
                 dueDay: 5,
+                regFee: @js((float) $defaultRegistrationFee),
+                firstAmount: '',
                 openEnroll(student, pick = null) {
                     this.student = student;
                     this.courseId = '';
@@ -259,6 +282,8 @@
                     this.withPlan = false;
                     this.total = '';
                     this.months = 6;
+                    this.regFee = @js((float) $defaultRegistrationFee);
+                    this.firstAmount = '';
                     this.open = true;
                     // Deferred: on deep links this runs mid-init, before the
                     // select's options are stamped — sync the value one tick later.
@@ -306,16 +331,26 @@
                     return due.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
                 },
                 get preview() {
+                    const t = parseFloat(this.total), reg = parseFloat(this.regFee) || 0;
+                    if (!t) return null;
+
                     if (this.mode === 'full') {
-                        const t = parseFloat(this.total);
-                        if (!t) return null;
-                        return 'Full payment · 1 invoice of Rs ' + t.toLocaleString()
-                            + (this.firstDue ? ' · due ' + this.firstDue : '');
+                        return 'Collect today: Rs ' + (reg + t).toLocaleString()
+                            + ' — ' + (reg > 0 ? 'registration ' + reg.toLocaleString() + ' + ' : '')
+                            + 'full fee ' + t.toLocaleString();
                     }
-                    if (!this.perMonth) return null;
-                    return this.months + ' × Rs ' + this.perMonth.toLocaleString()
-                        + (this.lastMonth && this.lastMonth !== this.perMonth ? ' (last Rs ' + this.lastMonth.toLocaleString() + ')' : '')
-                        + (this.firstDue ? ' · first due ' + this.firstDue : '')
+
+                    const m = parseInt(this.months);
+                    if (!m || m < 1) return null;
+                    const first = (m > 1 && parseFloat(this.firstAmount)) ? parseFloat(this.firstAmount) : this.perMonth;
+                    if (!first || first >= t) return null;
+                    const rest = m - 1;
+                    const rem = rest > 0 ? Math.floor((t - first) / rest * 100) / 100 : 0;
+
+                    return 'Collect today: Rs ' + (reg + first).toLocaleString()
+                        + ' — ' + (reg > 0 ? 'registration ' + reg.toLocaleString() + ' + ' : '')
+                        + 'installment 1 (advance) ' + first.toLocaleString()
+                        + (rest > 0 ? ' · then ' + rest + ' × Rs ' + rem.toLocaleString() + ' due day ' + this.dueDay : '')
                         + ' · opens {{ \App\Support\BillingConfig::activationDays() }} days before each due date';
                 },
             };

@@ -29,7 +29,7 @@ class StudentController extends Controller
     protected const NON_PROFILE_FIELDS = [
         'name', 'email', 'password', 'contact_number', 'is_active',
         'photo', 'cnic_doc', 'degree_doc',
-        'course_id', 'create_plan', 'months', 'due_day', 'fine_per_day', 'terms',
+        'course_id', 'create_plan', 'months', 'due_day', 'fine_per_day', 'first_amount', 'terms',
     ];
 
     public function index(Request $request): View
@@ -79,6 +79,7 @@ class StudentController extends Controller
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'nextRegNo' => StudentProfile::nextRegNo(),
             'defaultFinePerDay' => BillingConfig::finePerDay(),
+            'defaultRegistrationFee' => BillingConfig::registrationFee(),
         ]);
     }
 
@@ -125,15 +126,19 @@ class StudentController extends Controller
         // it creates its own invoice rows and never partially fails silently).
         if (! empty($data['course_id']) && $request->boolean('create_plan')) {
             $course = Course::findOrFail($data['course_id']);
+            $months = (int) $data['months'];
             $installments->create(
                 student: $student,
                 course: $course,
                 title: $course->title,
                 totalFee: (float) $data['total_fee'],
-                months: (int) $data['months'],
+                months: $months,
                 dueDay: (int) $data['due_day'],
                 finePerDay: $request->filled('fine_per_day') ? (float) $data['fine_per_day'] : null,
                 currency: 'PKR',
+                advance: true,
+                firstAmount: ($months > 1 && $request->filled('first_amount')) ? (float) $data['first_amount'] : null,
+                registrationFee: $request->filled('registration_fee') ? (float) $data['registration_fee'] : 0.0,
             );
         }
 
@@ -181,6 +186,7 @@ class StudentController extends Controller
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'nextRegNo' => $student->studentProfile?->reg_no ?? StudentProfile::nextRegNo(),
             'defaultFinePerDay' => BillingConfig::finePerDay(),
+            'defaultRegistrationFee' => BillingConfig::registrationFee(),
         ]);
     }
 
@@ -269,6 +275,7 @@ class StudentController extends Controller
             // Installments (optional, only meaningful with a course)
             'create_plan' => ['nullable', 'boolean'],
             'months' => [$withPlan ? 'required' : 'nullable', 'integer', 'min:1', 'max:36'],
+            'first_amount' => ['nullable', 'numeric', 'min:1', 'lt:total_fee'],
             'due_day' => [$withPlan ? 'required' : 'nullable', 'integer', 'min:1', 'max:28'],
             'fine_per_day' => ['nullable', 'numeric', 'min:0', 'max:100000'],
 

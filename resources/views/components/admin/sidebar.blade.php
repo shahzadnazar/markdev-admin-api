@@ -77,12 +77,13 @@
         @can('billing.view')
             <x-admin.nav-section label="Finance">
                 @php $pendingFees = rescue(fn () => \App\Models\Transaction::where('submitted_by_student', true)->where('status', 'pending')->count(), 0, false); @endphp
-                <x-admin.nav-item :href="route('admin.billing.submissions')" icon="banknotes" :active="request()->routeIs('admin.billing.*')">
+                <x-admin.nav-item :href="route('admin.billing.submissions')" icon="banknotes" :active="request()->routeIs('admin.billing.*') && ! request()->routeIs('admin.billing.payment-methods.*')">
                     Billing
                     @if ($pendingFees > 0)
                         <span class="ml-auto rounded-full bg-warning-container px-2 py-0.5 font-mono text-[10px] font-semibold text-warning">{{ $pendingFees }}</span>
                     @endif
                 </x-admin.nav-item>
+                <x-admin.nav-item :href="route('admin.billing.payment-methods.index')" icon="wallet" :active="request()->routeIs('admin.billing.payment-methods.*')">Payment Methods</x-admin.nav-item>
             </x-admin.nav-section>
         @endcan
 

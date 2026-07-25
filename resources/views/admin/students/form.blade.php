@@ -96,7 +96,8 @@
                         <div class="grid gap-5 sm:grid-cols-3">
                             <x-form.input type="number" label="Total fee (Rs)" name="total_fee" :value="$profile?->total_fee" min="0" step="0.01" />
                             <x-form.input type="number" label="Submitted fee (Rs)" name="submitted_fee" :value="$profile?->submitted_fee" min="0" step="0.01" />
-                            <x-form.input type="number" label="Registration fee (Rs)" name="registration_fee" :value="$profile?->registration_fee" min="0" step="0.01" />
+                            <x-form.input type="number" label="Registration fee (Rs)" name="registration_fee" :value="$profile?->registration_fee ?? $defaultRegistrationFee" min="0" step="0.01"
+                                hint="Collected today at admission — becomes its own invoice when a fee plan is generated. 0 = waived." />
                         </div>
                         <x-form.input label="Reference" name="reference" :value="$profile?->reference" hint="Who referred this student, if anyone." />
 
@@ -115,6 +116,11 @@
                                     <x-form.input type="number" label="Due day of month" name="due_day" :value="old('due_day', 5)" min="1" max="28" />
                                     <x-form.input type="number" label="Late fine / day (Rs)" name="fine_per_day" :value="old('fine_per_day')"
                                         min="0" step="0.01" :placeholder="'default '.number_format($defaultFinePerDay)" />
+                                </div>
+                                <div x-show="plan" x-cloak class="mt-4">
+                                    <x-form.input type="number" label="1st installment — advance (Rs)" name="first_amount" :value="old('first_amount')"
+                                        min="1" step="0.01" placeholder="blank = equal split"
+                                        hint="Due today with the registration fee; the remaining fee divides equally over the remaining months." />
                                 </div>
                             </div>
                         @endunless

@@ -23,6 +23,9 @@
                 </x-form.select>
 
                 <div class="grid gap-5 sm:grid-cols-3 border-t border-surface-ice pt-5">
+                    <x-form.input type="number" label="Registration fee (Rs)" name="registration_fee"
+                        :value="$settings['registration_fee']" required min="0" step="0.01"
+                        hint="Charged once at every new admission, due the same day. Each admission can override or waive it." />
                     <x-form.input type="number" label="Defaulter fine / day" name="defaulter_fine_per_day"
                         :value="$settings['defaulter_fine_per_day']" required min="0" step="0.01"
                         hint="Added daily once the grace period ends." />

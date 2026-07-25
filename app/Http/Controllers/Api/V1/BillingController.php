@@ -47,6 +47,8 @@ class BillingController extends ApiController
                     'pending_invoice' => null,
                     'statement_url' => null,
                     'payment_channels' => $channels,
+                    'payment_methods' => \App\Models\PaymentMethod::availableForCourse(null)
+                        ->map(fn ($method) => $this->methodPayload($method))->values(),
                     'support_phone' => $supportPhone,
                     'installments' => null,
                 ],
@@ -54,7 +56,7 @@ class BillingController extends ApiController
         }
 
         $total = (float) $plan->total_amount;
-        $paid = (float) $plan->invoices()->where('status', 'paid')->sum('amount');
+        $paid = (float) $plan->invoices()->where('type', 'installment')->where('status', 'paid')->sum('amount');
         $pendingReview = (float) $plan->invoices()->where('status', 'pending')->sum('amount');
         $remaining = round(max($total - $paid, 0), 2);
 
@@ -88,6 +90,8 @@ class BillingController extends ApiController
                 'pending_invoice' => $pendingInvoice ? (new InvoiceResource($pendingInvoice))->resolve() : null,
                 'statement_url' => null,
                 'payment_channels' => $channels,
+                'payment_methods' => \App\Models\PaymentMethod::availableForCourse($plan->course_id)
+                    ->map(fn ($method) => $this->methodPayload($method))->values(),
                 'support_phone' => $supportPhone,
                 'installments' => $plan->installment_months ? [
                     'months' => $plan->installment_months,
@@ -95,11 +99,26 @@ class BillingController extends ApiController
                     'fine_per_day' => BillingConfig::finePerDay($plan),
                     'grace_days' => BillingConfig::graceDays(),
                     'activation_days' => BillingConfig::activationDays(),
-                    'paid_count' => $plan->invoices()->where('status', 'paid')->count(),
+                    'paid_count' => $plan->invoices()->where('type', 'installment')->where('status', 'paid')->count(),
                     'defaulted_fine_total' => (float) $plan->invoices()->where('status', 'past_due')->sum('fine_amount'),
                 ] : null,
             ],
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    protected function methodPayload(\App\Models\PaymentMethod $method): array
+    {
+        return [
+            'id' => $method->id,
+            'name' => $method->name,
+            'channel' => $method->channel,
+            'channel_label' => $method->channelLabel(),
+            'account_title' => $method->account_title,
+            'account_number' => $method->account_number,
+            'bank_name' => $method->bank_name,
+            'instructions' => $method->instructions,
+        ];
     }
 
     public function transactions(Request $request): AnonymousResourceCollection

@@ -91,6 +91,7 @@ class EnrollmentController extends Controller
             'students' => $students,
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'defaultFinePerDay' => BillingConfig::finePerDay(),
+            'defaultRegistrationFee' => BillingConfig::registrationFee(),
             'courseId' => $courseId,
             'tab' => $tab,
             'autoOpen' => $autoOpen,
@@ -108,6 +109,8 @@ class EnrollmentController extends Controller
             'months' => [$withPlan ? 'required' : 'nullable', 'integer', 'min:1', 'max:36'],
             'due_day' => [$withPlan ? 'required' : 'nullable', 'integer', 'min:1', 'max:28'],
             'fine_per_day' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'registration_fee' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'first_amount' => ['nullable', 'numeric', 'min:1', 'lt:total_fee'],
             'currency' => [$withPlan ? 'required' : 'nullable', 'string', 'size:3'],
         ]);
 
@@ -161,27 +164,36 @@ class EnrollmentController extends Controller
         if ($withPlan) {
             $course = Course::findOrFail($data['course_id']);
             $months = (int) $data['months'];
+            $totalFee = (float) $data['total_fee'];
+            $registrationFee = $request->filled('registration_fee') ? (float) $data['registration_fee'] : 0.0;
+            $firstAmount = ($months > 1 && $request->filled('first_amount')) ? (float) $data['first_amount'] : null;
 
             $installments->create(
                 student: $student,
                 course: $course,
                 title: $course->title,
-                totalFee: (float) $data['total_fee'],
+                totalFee: $totalFee,
                 months: $months,
                 dueDay: (int) $data['due_day'],
                 finePerDay: $request->filled('fine_per_day') ? (float) $data['fine_per_day'] : null,
                 currency: strtoupper($data['currency'] ?? 'PKR'),
+                advance: true,
+                firstAmount: $firstAmount,
+                registrationFee: $registrationFee,
             );
 
+            $firstInstallment = $months === 1 ? $totalFee : ($firstAmount ?? floor($totalFee / $months * 100) / 100);
+            $collectToday = number_format($registrationFee + $firstInstallment);
             $schedule = $months === 1
-                ? 'full fee invoice created'
-                : "{$months} monthly installments created (due day {$data['due_day']})";
+                ? 'full fee invoice due today'
+                : "installment 1 due today, then ".($months - 1)." monthly (due day {$data['due_day']})";
 
             return redirect()->route('admin.enrollments.create')->with(
                 'success',
-                $alreadyEnrolled
-                    ? "Fee generated for {$student->name} — {$schedule}."
-                    : "{$student->name} enrolled — {$schedule}."
+                ($alreadyEnrolled ? "Fee generated for {$student->name}" : "{$student->name} enrolled")
+                    ." — collect today Rs {$collectToday}"
+                    .($registrationFee > 0 ? " (incl. Rs ".number_format($registrationFee)." registration)" : '')
+                    ." · {$schedule}."
             );
         }
 

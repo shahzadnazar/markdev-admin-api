@@ -17,6 +17,7 @@ class Invoice extends Model
         'fee_plan_id',
         'user_id',
         'number',
+        'type',
         'sequence_no',
         'title',
         'amount',
