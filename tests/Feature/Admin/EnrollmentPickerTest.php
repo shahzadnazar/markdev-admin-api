@@ -122,6 +122,71 @@ class EnrollmentPickerTest extends TestCase
         $this->assertSame(1, Enrollment::count());
     }
 
+    public function test_generating_fee_for_an_already_enrolled_student_creates_the_plan_only(): void
+    {
+        Enrollment::create(['user_id' => $this->student->id, 'course_id' => $this->course->id, 'enrolled_at' => now()]);
+
+        $this->actingAs($this->admin)->post('/admin/enrollments', [
+            'user_id' => $this->student->id,
+            'course_id' => $this->course->id,
+            'create_plan' => '1',
+            'total_fee' => 48000,
+            'months' => 6,
+            'due_day' => 5,
+            'currency' => 'PKR',
+        ])->assertRedirect(route('admin.enrollments.create'))
+            ->assertSessionHas('success');
+
+        $this->assertSame(1, Enrollment::count()); // no duplicate enrollment
+        $this->assertDatabaseHas('fee_plans', ['user_id' => $this->student->id, 'course_id' => $this->course->id]);
+        $this->assertSame(6, $this->student->invoices()->count());
+    }
+
+    public function test_a_second_in_flight_fee_plan_is_rejected(): void
+    {
+        Enrollment::create(['user_id' => $this->student->id, 'course_id' => $this->course->id, 'enrolled_at' => now()]);
+        $plan = app(\App\Services\InstallmentPlanService::class)->create(
+            student: $this->student, course: $this->course, title: $this->course->title,
+            totalFee: 48000, months: 6, dueDay: 5,
+        );
+
+        $payload = [
+            'user_id' => $this->student->id,
+            'course_id' => $this->course->id,
+            'create_plan' => '1',
+            'total_fee' => 48000,
+            'months' => 6,
+            'due_day' => 5,
+            'currency' => 'PKR',
+        ];
+
+        $this->actingAs($this->admin)->post('/admin/enrollments', $payload)->assertSessionHas('error');
+        $this->assertSame(1, \App\Models\FeePlan::count());
+
+        // A fully paid plan no longer blocks a new one.
+        $plan->invoices()->update(['status' => 'paid', 'paid_at' => now()]);
+
+        $this->actingAs($this->admin)->post('/admin/enrollments', $payload)->assertSessionHas('success');
+        $this->assertSame(2, \App\Models\FeePlan::count());
+    }
+
+    public function test_full_payment_creates_a_single_invoice(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/enrollments', [
+            'user_id' => $this->student->id,
+            'course_id' => $this->course->id,
+            'create_plan' => '1',
+            'payment_mode' => 'full',
+            'total_fee' => 48000,
+            'months' => 1,
+            'due_day' => 5,
+            'currency' => 'PKR',
+        ])->assertSessionHas('success');
+
+        $this->assertSame(1, $this->student->invoices()->count());
+        $this->assertEquals(48000.0, (float) $this->student->invoices()->sum('amount'));
+    }
+
     public function test_re_enrolling_after_removal_restores_the_enrollment(): void
     {
         $enrollment = Enrollment::create([

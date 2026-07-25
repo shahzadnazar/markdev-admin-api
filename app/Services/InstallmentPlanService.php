@@ -77,7 +77,9 @@ class InstallmentPlanService
                     'user_id' => $student->id,
                     'number' => $this->nextNumber($year),
                     'sequence_no' => $sequence,
-                    'title' => sprintf('%s — Installment %d of %d (%s)', $title, $sequence, $months, $due->format('M Y')),
+                    'title' => $months === 1
+                        ? sprintf('%s — Full payment (%s)', $title, $due->format('M Y'))
+                        : sprintf('%s — Installment %d of %d (%s)', $title, $sequence, $months, $due->format('M Y')),
                     'amount' => $sequence === $months ? $last : $base,
                     'currency' => $currency,
                     'status' => $status,

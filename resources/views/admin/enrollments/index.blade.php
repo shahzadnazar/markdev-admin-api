@@ -32,6 +32,7 @@
                 <th class="th">Course</th>
                 <th class="th">Enrolled</th>
                 <th class="th">Progress</th>
+                <th class="th">Fee</th>
                 <th class="th">Status</th>
                 <th class="th text-right">Actions</th>
             </tr>
@@ -55,6 +56,31 @@
                             <span class="font-mono text-xs text-on-surface-variant">{{ round((float) $enrollment->progress_percent) }}%</span>
                         </div>
                     </td>
+                    @php $plan = $plans[$enrollment->user_id.'-'.$enrollment->course_id] ?? null; @endphp
+                    <td class="td" style="white-space: nowrap;">
+                        @if ($plan)
+                            @can('billing.view')
+                                <a href="{{ route('admin.billing.plans.show', $plan) }}" class="font-mono text-xs font-medium text-primary hover:underline">
+                                    {{ $plan->paid_invoices }}/{{ $plan->total_invoices }} paid
+                                </a>
+                            @else
+                                <span class="font-mono text-xs text-on-surface">{{ $plan->paid_invoices }}/{{ $plan->total_invoices }} paid</span>
+                            @endcan
+                            <p class="font-mono text-[11px] text-outline">Rs {{ number_format((float) $plan->total_amount) }}</p>
+                        @elseif ($enrollment->user)
+                            @can('enrollments.create')
+                                <x-btn variant="secondary" size="sm"
+                                    :href="route('admin.enrollments.create', ['enroll' => $enrollment->user_id, 'pick' => $enrollment->course_id])"
+                                    title="Generate the fee for this enrollment">
+                                    <x-icon name="plus" class="size-3.5" /> Add fee
+                                </x-btn>
+                            @else
+                                <span class="font-mono text-xs text-warning">no fee plan</span>
+                            @endcan
+                        @else
+                            <span class="font-mono text-xs text-outline">—</span>
+                        @endif
+                    </td>
                     <td class="td">
                         @if ($enrollment->completed_at)
                             <x-badge variant="success">completed</x-badge>
@@ -76,7 +102,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
                         <x-empty-state icon="user-plus" title="No enrollments found" description="Enroll a student to get things moving." />
                     </td>
                 </tr>

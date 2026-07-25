@@ -13,7 +13,7 @@
         </div>
     </div>
 
-    <div x-data="enrollPicker()">
+    <div x-data="enrollPicker()" x-effect="if (feeOnly) withPlan = true">
         {{-- Toolbar: tabs + filters in one card --}}
         <x-card :padding="false" class="mb-4">
             <div class="flex flex-wrap items-center gap-2 px-4 py-2.5">
@@ -66,7 +66,12 @@
                             'reg' => $student->studentProfile?->reg_no,
                             'avatar' => $student->avatar_url,
                             'enrolled' => $student->enrollments->pluck('course_id')->all(),
+                            'planned' => $student->feePlans->pluck('course_id')->filter()->values()->all(),
                         ];
+
+                        if ($autoOpen === $student->id) {
+                            $autoPayload = $payload;
+                        }
                     @endphp
                     <tr class="row">
                         <td class="td">
@@ -126,6 +131,11 @@
             @endif
         </x-table>
 
+        @if ($autoOpen && ! empty($autoPayload))
+            {{-- Deep link (?enroll=&pick=): open the popup for this student right away. --}}
+            <div x-init='openEnroll(@json($autoPayload), @json(request()->integer('pick') ?: null))'></div>
+        @endif
+
         {{-- ···························· Enroll popup ···························· --}}
         <template x-teleport="body">
             <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -142,7 +152,7 @@
                                 x-text="(student.name || '?').charAt(0).toUpperCase()"></span>
                         </template>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate font-display text-[15px] font-semibold text-on-surface" x-text="'Enroll ' + student.name"></p>
+                            <p class="truncate font-display text-[15px] font-semibold text-on-surface" x-text="(feeOnly ? 'Add fee — ' : 'Enroll ') + student.name"></p>
                             <p class="font-mono text-[11px] text-outline" x-text="student.reg || ''"></p>
                         </div>
                         <button type="button" x-on:click="close()" class="cursor-pointer rounded-lg p-2 text-on-surface-variant transition hover:bg-surface-ice">
@@ -156,33 +166,49 @@
 
                         <div>
                             <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-course">Course</label>
-                            <select name="course_id" id="enroll-course" class="field w-full text-sm" required>
+                            <select name="course_id" id="enroll-course" class="field w-full text-sm" x-model="courseId" required>
                                 <option value="">Select a course…</option>
                                 <template x-for="course in courses" :key="course.id">
-                                    <option :value="course.id" :disabled="student.enrolled && student.enrolled.includes(course.id)"
-                                        x-text="course.title + (student.enrolled && student.enrolled.includes(course.id) ? ' — already enrolled' : '')"></option>
+                                    <option :value="course.id" :disabled="courseDisabled(course)" x-text="courseLabel(course)"></option>
                                 </template>
                             </select>
+                            <p x-show="feeOnly" x-cloak class="mt-1.5 rounded-lg bg-warning/10 px-3 py-2 text-xs leading-5 text-on-surface">
+                                Already enrolled with no fee yet — this only generates the fee schedule, the enrollment is not duplicated.
+                            </p>
                         </div>
 
-                        {{-- Monthly installments --}}
+                        {{-- Fee plan --}}
                         <div class="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
-                            <label class="flex cursor-pointer items-start gap-3">
-                                <input type="hidden" name="create_plan" value="0">
-                                <input type="checkbox" name="create_plan" value="1" class="check mt-0.5" x-model="withPlan">
+                            <label class="flex items-start gap-3" :class="feeOnly ? '' : 'cursor-pointer'">
+                                <input type="hidden" name="create_plan" :value="feeOnly ? 1 : 0">
+                                <input type="checkbox" name="create_plan" value="1" class="check mt-0.5" x-model="withPlan" :disabled="feeOnly">
                                 <span>
-                                    <span class="block text-sm font-medium text-on-surface">Create monthly installment plan</span>
-                                    <span class="block text-xs text-on-surface-variant">Splits the total fee into monthly invoices from today's admission date.</span>
+                                    <span class="block text-sm font-medium text-on-surface">Generate the course fee</span>
+                                    <span class="block text-xs text-on-surface-variant">Monthly installments or one full-payment invoice, from today's admission date.</span>
                                 </span>
                             </label>
 
                             <div x-show="withPlan" x-transition x-cloak class="mt-4 space-y-4">
-                                <div class="grid grid-cols-3 gap-3">
+                                {{-- Payment mode --}}
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="choice-pill flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline/30 px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-outline/60">
+                                        <input type="radio" name="payment_mode" value="monthly" class="sr-only" :checked="mode === 'monthly'"
+                                            x-on:change="mode = 'monthly'; months = 6">
+                                        Monthly installments
+                                    </label>
+                                    <label class="choice-pill flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline/30 px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-outline/60">
+                                        <input type="radio" name="payment_mode" value="full" class="sr-only" :checked="mode === 'full'"
+                                            x-on:change="mode = 'full'; months = 1">
+                                        Full payment
+                                    </label>
+                                </div>
+
+                                <div class="grid gap-3" :class="mode === 'monthly' ? 'grid-cols-3' : 'grid-cols-2'">
                                     <div>
                                         <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-total">Total fee (Rs)</label>
                                         <input type="number" name="total_fee" id="enroll-total" min="1" step="0.01" class="field w-full text-sm" x-model="total" :required="withPlan">
                                     </div>
-                                    <div>
+                                    <div x-show="mode === 'monthly'">
                                         <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="enroll-months">Months</label>
                                         <input type="number" name="months" id="enroll-months" min="1" max="36" class="field w-full text-sm" x-model="months" :required="withPlan">
                                     </div>
@@ -200,14 +226,13 @@
                                 <input type="hidden" name="currency" value="PKR">
 
                                 <p class="rounded-lg bg-white px-3 py-2 font-mono text-[11px] leading-5 text-on-surface-variant"
-                                    x-show="perMonth" x-cloak
-                                    x-text="months + ' × Rs ' + (perMonth ? perMonth.toLocaleString() : '') + (lastMonth && lastMonth !== perMonth ? ' (last Rs ' + lastMonth.toLocaleString() + ')' : '') + (firstDue ? ' · first due ' + firstDue : '') + ' · opens {{ \App\Support\BillingConfig::activationDays() }} days before each due date'"></p>
+                                    x-show="preview" x-cloak x-text="preview"></p>
                             </div>
                         </div>
 
                         <div class="flex justify-end gap-2.5 pb-1">
                             <x-btn type="button" variant="ghost" size="sm" x-on:click="close()">Cancel</x-btn>
-                            <x-btn type="submit" size="sm"><x-icon name="check" class="size-4" /> Enroll student</x-btn>
+                            <x-btn type="submit" size="sm"><x-icon name="check" class="size-4" /> <span x-text="feeOnly ? 'Generate fee' : 'Enroll student'"></span></x-btn>
                         </div>
                     </form>
                 </div>
@@ -222,17 +247,43 @@
                 student: {},
                 courses: @json($courses->map(fn ($course) => ['id' => $course->id, 'title' => $course->title])->values()),
                 withPlan: false,
+                mode: 'monthly',
+                courseId: '',
                 total: '',
                 months: 6,
                 dueDay: 5,
-                openEnroll(student) {
+                openEnroll(student, pick = null) {
                     this.student = student;
+                    this.courseId = '';
+                    this.mode = 'monthly';
                     this.withPlan = false;
                     this.total = '';
+                    this.months = 6;
                     this.open = true;
+                    // Deferred: on deep links this runs mid-init, before the
+                    // select's options are stamped — sync the value one tick later.
+                    if (pick) this.$nextTick(() => { this.courseId = String(pick); });
                 },
                 close() {
                     this.open = false;
+                },
+                isEnrolled(id) {
+                    return (this.student.enrolled || []).includes(id);
+                },
+                hasPlan(id) {
+                    return (this.student.planned || []).includes(id);
+                },
+                // Selected course is already enrolled but has no fee yet → only the fee gets created.
+                get feeOnly() {
+                    const id = parseInt(this.courseId);
+                    return !!id && this.isEnrolled(id) && ! this.hasPlan(id);
+                },
+                courseLabel(course) {
+                    if (! this.isEnrolled(course.id)) return course.title;
+                    return course.title + (this.hasPlan(course.id) ? ' — already enrolled' : ' — enrolled · fee not generated');
+                },
+                courseDisabled(course) {
+                    return this.isEnrolled(course.id) && this.hasPlan(course.id);
                 },
                 get perMonth() {
                     const t = parseFloat(this.total), m = parseInt(this.months);
@@ -253,6 +304,19 @@
                         due = new Date(now.getFullYear(), now.getMonth() + 1, day);
                     }
                     return due.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+                },
+                get preview() {
+                    if (this.mode === 'full') {
+                        const t = parseFloat(this.total);
+                        if (!t) return null;
+                        return 'Full payment · 1 invoice of Rs ' + t.toLocaleString()
+                            + (this.firstDue ? ' · due ' + this.firstDue : '');
+                    }
+                    if (!this.perMonth) return null;
+                    return this.months + ' × Rs ' + this.perMonth.toLocaleString()
+                        + (this.lastMonth && this.lastMonth !== this.perMonth ? ' (last Rs ' + this.lastMonth.toLocaleString() + ')' : '')
+                        + (this.firstDue ? ' · first due ' + this.firstDue : '')
+                        + ' · opens {{ \App\Support\BillingConfig::activationDays() }} days before each due date';
                 },
             };
         }

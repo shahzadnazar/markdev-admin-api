@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Enrollment;
+use App\Models\FeePlan;
 use App\Models\User;
 use App\Services\InstallmentPlanService;
 use App\Support\BillingConfig;
@@ -17,6 +18,9 @@ use Illuminate\View\View;
 class EnrollmentController extends Controller
 {
     use RestrictsToInstructor;
+
+    /** Invoice states that mean a fee plan is still being collected. */
+    private const UNPAID_INVOICE_STATUSES = ['upcoming', 'open', 'pending', 'past_due'];
 
     public function index(Request $request): View
     {
@@ -32,8 +36,19 @@ class EnrollmentController extends Controller
             ->paginate(12)
             ->withQueryString();
 
+        $plans = FeePlan::query()
+            ->whereIn('user_id', $enrollments->pluck('user_id')->filter())
+            ->whereIn('course_id', $enrollments->pluck('course_id')->filter())
+            ->withCount([
+                'invoices as total_invoices',
+                'invoices as paid_invoices' => fn ($query) => $query->where('status', 'paid'),
+            ])
+            ->get()
+            ->keyBy(fn ($plan) => $plan->user_id.'-'.$plan->course_id);
+
         return view('admin.enrollments.index', [
             'enrollments' => $enrollments,
+            'plans' => $plans,
             'courses' => $this->selectableCourses($request)->get(['id', 'title']),
         ]);
     }
@@ -43,10 +58,19 @@ class EnrollmentController extends Controller
     {
         $courseId = $request->filled('course') ? $request->integer('course') : null;
         $tab = $request->query('tab') === 'unenrolled' ? 'unenrolled' : 'all';
+        $autoOpen = $request->integer('enroll') ?: null;
 
         $students = User::role('student')
             ->where('is_active', true)
-            ->with(['studentProfile:id,user_id,reg_no,cnic', 'enrollments.course:id,title'])
+            ->with([
+                'studentProfile:id,user_id,reg_no,cnic',
+                'enrollments.course:id,title',
+                'feePlans' => fn ($query) => $query
+                    ->select('id', 'user_id', 'course_id')
+                    ->where('is_active', true)
+                    ->whereHas('invoices', fn ($inner) => $inner->whereIn('status', self::UNPAID_INVOICE_STATUSES)),
+            ])
+            ->when($autoOpen, fn ($query) => $query->where('id', $autoOpen))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.trim($request->string('search')).'%';
                 $query->where(fn ($inner) => $inner
@@ -69,6 +93,7 @@ class EnrollmentController extends Controller
             'defaultFinePerDay' => BillingConfig::finePerDay(),
             'courseId' => $courseId,
             'tab' => $tab,
+            'autoOpen' => $autoOpen,
         ]);
     }
 
@@ -95,44 +120,68 @@ class EnrollmentController extends Controller
             ->where('user_id', $data['user_id'])
             ->where('course_id', $data['course_id'])
             ->first();
+        $alreadyEnrolled = $existing && ! $existing->trashed();
 
-        if ($existing && ! $existing->trashed()) {
+        // Already enrolled with no fee requested → nothing to do.
+        if ($alreadyEnrolled && ! $withPlan) {
             return back()->with('error', "{$student->name} is already enrolled in that course.");
         }
 
-        if ($existing) {
-            $existing->restore();
-            $existing->update([
-                'enrolled_at' => now(),
-                'progress_percent' => 0,
-                'completed_at' => null,
-            ]);
-        } else {
-            Enrollment::create([
-                'user_id' => $data['user_id'],
-                'course_id' => $data['course_id'],
-                'enrolled_at' => now(),
-                'progress_percent' => 0,
-            ]);
+        // One in-flight plan per student & course — completed plans don't block.
+        if ($withPlan) {
+            $inFlight = FeePlan::where('user_id', $data['user_id'])
+                ->where('course_id', $data['course_id'])
+                ->where('is_active', true)
+                ->whereHas('invoices', fn ($query) => $query->whereIn('status', self::UNPAID_INVOICE_STATUSES))
+                ->exists();
+
+            if ($inFlight) {
+                return back()->with('error', "{$student->name} already has an active fee plan for that course — manage it under Finance → Fee plans.");
+            }
+        }
+
+        if (! $alreadyEnrolled) {
+            if ($existing) {
+                $existing->restore();
+                $existing->update([
+                    'enrolled_at' => now(),
+                    'progress_percent' => 0,
+                    'completed_at' => null,
+                ]);
+            } else {
+                Enrollment::create([
+                    'user_id' => $data['user_id'],
+                    'course_id' => $data['course_id'],
+                    'enrolled_at' => now(),
+                    'progress_percent' => 0,
+                ]);
+            }
         }
 
         if ($withPlan) {
             $course = Course::findOrFail($data['course_id']);
+            $months = (int) $data['months'];
 
             $installments->create(
                 student: $student,
                 course: $course,
                 title: $course->title,
                 totalFee: (float) $data['total_fee'],
-                months: (int) $data['months'],
+                months: $months,
                 dueDay: (int) $data['due_day'],
                 finePerDay: $request->filled('fine_per_day') ? (float) $data['fine_per_day'] : null,
                 currency: strtoupper($data['currency'] ?? 'PKR'),
             );
 
+            $schedule = $months === 1
+                ? 'full fee invoice created'
+                : "{$months} monthly installments created (due day {$data['due_day']})";
+
             return redirect()->route('admin.enrollments.create')->with(
                 'success',
-                "{$student->name} enrolled — {$data['months']} monthly installments created (due day {$data['due_day']})."
+                $alreadyEnrolled
+                    ? "Fee generated for {$student->name} — {$schedule}."
+                    : "{$student->name} enrolled — {$schedule}."
             );
         }
 
