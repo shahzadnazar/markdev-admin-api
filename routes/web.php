@@ -181,6 +181,10 @@ Route::prefix('admin')
             Route::get('attendance/daily/{student}', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'show'])->name('attendance.daily.show');
             Route::get('attendance/daily/{student}/print', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'printStudent'])->name('attendance.daily.show-print');
             Route::put('attendance/daily/{record}', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'update'])->name('attendance.daily.update');
+
+            Route::get('leaves', [\App\Http\Controllers\Admin\LeaveApplicationController::class, 'index'])->name('leaves.index');
+            Route::post('leaves/{leave}/approve', [\App\Http\Controllers\Admin\LeaveApplicationController::class, 'approve'])->name('leaves.approve');
+            Route::post('leaves/{leave}/reject', [\App\Http\Controllers\Admin\LeaveApplicationController::class, 'reject'])->name('leaves.reject');
         });
 
         Route::middleware('can:attendance.view')->group(function () {

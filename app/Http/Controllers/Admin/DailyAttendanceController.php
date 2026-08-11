@@ -341,7 +341,8 @@ class DailyAttendanceController extends Controller
 
         $counts = (clone $query)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $total = (int) $counts->sum();
-        $attended = (int) ($counts['present'] ?? 0) + (int) ($counts['late'] ?? 0);
+        // Approved leave counts as attended — only genuine absences hurt the rate.
+        $attended = (int) ($counts['present'] ?? 0) + (int) ($counts['late'] ?? 0) + (int) ($counts['leave'] ?? 0);
 
         return [
             'present' => (int) ($counts['present'] ?? 0),

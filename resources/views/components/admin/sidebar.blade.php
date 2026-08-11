@@ -51,6 +51,7 @@
                 @can('attendance.view')
                     @can('attendance.daily')
                         <x-admin.nav-item :href="route('admin.attendance.daily')" icon="check" :active="request()->routeIs('admin.attendance.daily')">Daily Attendance</x-admin.nav-item>
+                        <x-admin.nav-item :href="route('admin.leaves.index')" icon="clipboard" :active="request()->routeIs('admin.leaves.*')">Leave Requests</x-admin.nav-item>
                     @endcan
                     <x-admin.nav-item :href="route('admin.attendance.index')" icon="calendar" :active="request()->routeIs('admin.attendance.index') || request()->routeIs('admin.attendance.log')">Class Attendance</x-admin.nav-item>
                 @endcan

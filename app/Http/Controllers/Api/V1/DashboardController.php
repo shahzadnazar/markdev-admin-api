@@ -9,6 +9,7 @@ use App\Models\AnnouncementRead;
 use App\Models\Assignment;
 use App\Models\AttendanceRecord;
 use App\Models\LearningActivity;
+use App\Models\LeaveApplication;
 use App\Models\Quiz;
 use App\Services\CalendarService;
 use App\Services\LearningStatsService;
@@ -80,6 +81,12 @@ class DashboardController extends ApiController
                     'attendance_rate' => $attendanceTotal > 0
                         ? round($attendancePresent / $attendanceTotal * 100, 1)
                         : 0,
+                    'approved_leave_today' => LeaveApplication::where('user_id', $user->id)
+                        ->where('status', 'approved')
+                        ->whereDate('from_date', '<=', today())
+                        ->whereDate('to_date', '>=', today())
+                        ->exists(),
+                    'pending_leaves' => LeaveApplication::where('user_id', $user->id)->pending()->count(),
                     'points' => (int) $user->points,
                 ],
                 'continue_learning' => CourseProgressResource::collection($continueLearning),
