@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Course;
+use App\Models\User;
+use App\Notifications\AnnouncementPublished;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -47,7 +49,8 @@ class AnnouncementController extends Controller
     {
         $data = $this->validated($request);
 
-        Announcement::create([...$data, 'author_id' => $request->user()->id]);
+        $announcement = Announcement::create([...$data, 'author_id' => $request->user()->id]);
+        $this->notifyStudents($announcement);
 
         return redirect()->route('admin.announcements.index')->with('success', 'Announcement published.');
     }
@@ -67,6 +70,7 @@ class AnnouncementController extends Controller
     {
         $this->authorizeCourseAccess($request, $announcement->course_id);
         $announcement->update($this->validated($request));
+        $this->notifyStudents($announcement->refresh());
 
         return redirect()->route('admin.announcements.index')->with('success', 'Announcement updated.');
     }
@@ -80,6 +84,36 @@ class AnnouncementController extends Controller
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Rings the portal bell for every targeted student, exactly once per
+     * announcement, and only after it's actually live. A future-dated
+     * announcement is picked up here when it's next edited after going live.
+     */
+    protected function notifyStudents(Announcement $announcement): void
+    {
+        if ($announcement->notified_at !== null
+            || $announcement->published_at === null
+            || $announcement->published_at->isFuture()) {
+            return;
+        }
+
+        $announcement->loadMissing('course');
+
+        User::role('student')
+            ->where('is_active', true)
+            ->when($announcement->course_id, fn ($query) => $query->whereHas(
+                'enrollments',
+                fn ($enrollment) => $enrollment->where('course_id', $announcement->course_id),
+            ))
+            ->chunkById(500, function ($students) use ($announcement) {
+                foreach ($students as $student) {
+                    $student->notify(new AnnouncementPublished($announcement));
+                }
+            });
+
+        $announcement->forceFill(['notified_at' => now()])->save();
+    }
+
     protected function validated(Request $request): array
     {
         $data = $request->validate([

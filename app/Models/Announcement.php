@@ -20,6 +20,7 @@ class Announcement extends Model
         'body',
         'is_pinned',
         'published_at',
+        'notified_at',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class Announcement extends Model
         return [
             'is_pinned' => 'boolean',
             'published_at' => 'datetime',
+            'notified_at' => 'datetime',
         ];
     }
 
