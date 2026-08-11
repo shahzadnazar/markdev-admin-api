@@ -77,6 +77,8 @@ Route::prefix('admin')
             Route::get('students/{student}/edit', [\App\Http\Controllers\Admin\StudentController::class, 'edit'])->middleware('can:students.update')->name('students.edit');
             Route::put('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'update'])->middleware('can:students.update')->name('students.update');
             Route::delete('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'destroy'])->middleware('can:students.delete')->name('students.destroy');
+            Route::post('students/{student}/restore', [\App\Http\Controllers\Admin\StudentController::class, 'restore'])->middleware('can:students.delete')->withTrashed()->name('students.restore');
+            Route::delete('students/{student}/force', [\App\Http\Controllers\Admin\StudentController::class, 'forceDestroy'])->middleware('can:students.delete')->withTrashed()->name('students.force-destroy');
 
             Route::get('users', [UserController::class, 'index'])->name('users.index');
             Route::get('users/create', [UserController::class, 'create'])->middleware('can:users.create')->name('users.create');
@@ -153,6 +155,7 @@ Route::prefix('admin')
             Route::delete('assignments/{assignment}/attachments/{attachment}', [AssignmentController::class, 'destroyAttachment'])->middleware('can:assignments.update')->name('assignments.attachments.destroy');
             Route::get('assignments/{assignment}/submissions', [AssignmentController::class, 'submissions'])->name('assignments.submissions');
             Route::post('submissions/{submission}/grade', [AssignmentController::class, 'grade'])->middleware('can:assignments.grade')->name('submissions.grade');
+            Route::post('submissions/{submission}/return', [AssignmentController::class, 'returnForChanges'])->middleware('can:assignments.grade')->name('submissions.return');
         });
 
         Route::middleware('can:quizzes.view')->group(function () {

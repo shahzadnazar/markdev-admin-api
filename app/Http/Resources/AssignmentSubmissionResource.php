@@ -22,6 +22,7 @@ class AssignmentSubmissionResource extends JsonResource
             'score' => $this->score !== null ? (int) $this->score : null,
             'feedback' => $this->feedback,
             'graded_at' => $this->graded_at?->toISOString(),
+            'returned_at' => $this->returned_at?->toISOString(),
         ];
     }
 }

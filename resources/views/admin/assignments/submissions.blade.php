@@ -39,7 +39,12 @@
                                 <p class="text-[11px] text-outline">by {{ $submission->grader?->name ?? '—' }} · {{ $submission->graded_at->diffForHumans() }}</p>
                             </div>
                             <x-badge variant="success">graded</x-badge>
+                        @elseif ($submission->returned_at)
+                            <x-badge variant="warning">returned for changes</x-badge>
                         @else
+                            @if ($submission->feedback)
+                                <x-badge variant="primary">resubmitted</x-badge>
+                            @endif
                             <x-badge variant="warning">awaiting grade</x-badge>
                         @endif
                         @can('assignments.grade')
@@ -85,6 +90,10 @@
                             <div class="flex items-center gap-2 pb-0.5">
                                 <x-btn size="sm">
                                     <x-icon name="check" class="size-3.5" /> Save grade
+                                </x-btn>
+                                <x-btn size="sm" variant="warning" formaction="{{ route('admin.submissions.return', $submission) }}" formnovalidate
+                                    title="Send back with feedback so the student can resubmit — clears any grade">
+                                    <x-icon name="arrow-left" class="size-3.5" /> Return for changes
                                 </x-btn>
                                 <x-btn type="button" size="sm" variant="ghost" x-on:click="grading = false">Cancel</x-btn>
                             </div>

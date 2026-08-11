@@ -16,6 +16,7 @@ $variants = [
     'success' => 'bg-success text-white shadow-card hover:bg-success/90 hover:-translate-y-px active:translate-y-0',
     'danger' => 'bg-error text-white hover:bg-error/90 hover:-translate-y-px active:translate-y-0',
     'danger-ghost' => 'text-error hover:bg-error/10',
+    'warning' => 'bg-warning text-white shadow-card hover:bg-warning/90 hover:-translate-y-px active:translate-y-0',
 ];
 
 $classes = $base.' '.$sizes[$size].' '.$variants[$variant];

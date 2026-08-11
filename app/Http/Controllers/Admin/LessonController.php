@@ -23,12 +23,12 @@ class LessonController extends Controller
         $data = $this->validated($request);
 
         $lesson = $module->lessons()->create([
-            ...collect($data)->except(['provider', 'url', 'embed_url'])->all(),
+            ...collect($data)->except(['provider', 'url', 'embed_url', 'thumbnail'])->all(),
             'course_id' => $module->course_id,
             'position' => ((int) $module->lessons()->max('position')) + 1,
         ]);
 
-        $this->syncVideo($lesson, $data);
+        $this->syncVideo($lesson, $data, $request);
 
         return redirect()
             ->route('admin.courses.show', $module->course_id)
@@ -48,8 +48,8 @@ class LessonController extends Controller
         $this->authorizeCourseAccess($request, $lesson->course_id);
         $data = $this->validated($request);
 
-        $lesson->update(collect($data)->except(['provider', 'url', 'embed_url'])->all());
-        $this->syncVideo($lesson, $data);
+        $lesson->update(collect($data)->except(['provider', 'url', 'embed_url', 'thumbnail'])->all());
+        $this->syncVideo($lesson, $data, $request);
 
         return redirect()
             ->route('admin.lessons.edit', $lesson)
@@ -129,6 +129,7 @@ class LessonController extends Controller
             'provider' => ['nullable', Rule::in(['youtube', 'vimeo', 'self_hosted'])],
             'url' => ['nullable', 'string', 'max:1000'],
             'embed_url' => ['nullable', 'string', 'max:1000'],
+            'thumbnail' => ['nullable', 'image', 'max:2048'],
         ]);
 
         $data['is_preview'] = $request->boolean('is_preview');
@@ -140,7 +141,7 @@ class LessonController extends Controller
     }
 
     /** Keep the lesson's video row in sync for video lessons. */
-    protected function syncVideo(Lesson $lesson, array $data): void
+    protected function syncVideo(Lesson $lesson, array $data, Request $request): void
     {
         if ($data['type'] !== 'video') {
             $lesson->video()->delete();
@@ -148,15 +149,31 @@ class LessonController extends Controller
             return;
         }
 
-        if (empty($data['url']) && empty($data['embed_url'])) {
+        $video = $lesson->video;
+
+        if ($video === null && empty($data['url']) && empty($data['embed_url'])) {
             return;
         }
 
-        $lesson->video()->updateOrCreate([], [
+        $attributes = [
             'provider' => $data['provider'] ?? 'youtube',
             'url' => $data['url'] ?? '',
             'embed_url' => $data['embed_url'] ?? null,
-            'duration_seconds' => ($data['duration_minutes'] ?? 0) * 60,
-        ]);
+        ];
+
+        // The video's real duration is only seeded on creation — later lesson
+        // edits must not clobber it with the display duration.
+        if ($video === null) {
+            $attributes['duration_seconds'] = ($data['duration_minutes'] ?? 0) * 60;
+        }
+
+        $video = $lesson->video()->updateOrCreate([], $attributes);
+
+        if ($file = $request->file('thumbnail')) {
+            if ($video->thumbnail_path) {
+                Storage::disk('public')->delete($video->thumbnail_path);
+            }
+            $video->update(['thumbnail_path' => $file->store('courses', 'public')]);
+        }
     }
 }

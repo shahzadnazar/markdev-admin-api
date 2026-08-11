@@ -14,6 +14,7 @@ class AssignmentResource extends JsonResource
         $submission = $this->relationLoaded('submissions') ? $this->submissions->first() : null;
 
         $status = match (true) {
+            $submission?->returned_at !== null => 'returned',
             $submission?->graded_at !== null => 'graded',
             $submission !== null => 'submitted',
             $this->due_at !== null && $this->due_at->isPast() => 'overdue',

@@ -32,7 +32,7 @@
                     <select name="course_id" id="course_id" class="field" x-model="course" required>
                         <option value="">Select a course…</option>
                         @foreach ($courses as $course)
-                            <option value="{{ $course->id }}">{{ $course->title }}</option>
+                            <option value="{{ $course->id }}" @selected((string) old('course_id', $assignment?->course_id) === (string) $course->id)>{{ $course->title }}</option>
                         @endforeach
                     </select>
                     <x-form.error name="course_id" />

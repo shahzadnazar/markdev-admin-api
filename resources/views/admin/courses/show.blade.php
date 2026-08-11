@@ -108,6 +108,18 @@
                             @if ($lesson->is_preview)
                                 <x-badge variant="success">preview</x-badge>
                             @endif
+                            @if ($lesson->type === 'video' && $lesson->video && ($lesson->video->embed_src || $lesson->video->provider === 'self_hosted'))
+                                <button type="button" x-data
+                                    x-on:click="$dispatch('lesson-preview', {
+                                        title: @js($lesson->title),
+                                        src: @js($lesson->video->embed_src),
+                                        file: @js($lesson->video->provider === 'self_hosted' ? $lesson->video->url : null),
+                                    }); $dispatch('open-modal', 'lesson-preview')"
+                                    class="shrink-0 rounded-lg p-1.5 text-primary transition hover:bg-primary/10"
+                                    title="Preview lecture" aria-label="Preview lecture “{{ $lesson->title }}”">
+                                    <x-icon name="play" class="size-4" />
+                                </button>
+                            @endif
                             @can('lessons.update')
                                 <div class="flex shrink-0 items-center gap-1">
                                     <form method="POST" action="{{ route('admin.lessons.move', $lesson) }}">
@@ -152,22 +164,29 @@
 
             {{-- Add-lesson modal for this module --}}
             @can('lessons.create')
+                @php($reopen = $errors->any() && old('module_id') == $module->id)
                 <x-modal :name="'add-lesson-'.$module->id" max-width="xl">
-                    <form method="POST" action="{{ route('admin.lessons.store', $module) }}" class="p-6" x-data="{ type: 'video' }">
+                    <form method="POST" action="{{ route('admin.lessons.store', $module) }}" enctype="multipart/form-data" class="p-6"
+                        x-data="{ type: '{{ $reopen ? old('type', 'video') : 'video' }}' }"
+                        @if ($reopen) x-init="$nextTick(() => $dispatch('open-modal', 'add-lesson-{{ $module->id }}'))" @endif>
                         @csrf
+                        <input type="hidden" name="module_id" value="{{ $module->id }}">
                         <h3 class="font-display text-lg font-semibold text-on-surface">Add lesson to “{{ $module->title }}”</h3>
                         <div class="mt-5 space-y-4">
-                            <x-form.input label="Title" name="title" required />
+                            @if ($reopen)
+                                <x-form.errors-summary />
+                            @endif
+                            <x-form.input label="Title" name="title" required :value="$reopen ? old('title') : null" />
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div>
                                     <x-form.label for="type-{{ $module->id }}" value="Type" />
                                     <select name="type" id="type-{{ $module->id }}" class="field" x-model="type">
                                         @foreach (['video', 'article', 'quiz', 'assignment', 'resource'] as $type)
-                                            <option value="{{ $type }}">{{ ucfirst($type) }}</option>
+                                            <option value="{{ $type }}" @selected($reopen && old('type') === $type)>{{ ucfirst($type) }}</option>
                                         @endforeach
                                     </select>
                                 </div>
-                                <x-form.input label="Duration (minutes)" name="duration_minutes" type="number" min="0" value="10" />
+                                <x-form.input label="Duration (minutes)" name="duration_minutes" type="number" min="0" :value="$reopen ? old('duration_minutes', 10) : 10" />
                             </div>
 
                             <div x-show="type === 'video'" x-cloak class="space-y-4 rounded-xl bg-surface-ice/70 p-4">
@@ -175,14 +194,16 @@
                                     <div>
                                         <x-form.label value="Provider" />
                                         <select name="provider" class="field">
-                                            <option value="youtube">YouTube</option>
-                                            <option value="vimeo">Vimeo</option>
-                                            <option value="self_hosted">Self-hosted</option>
+                                            <option value="youtube" @selected($reopen && old('provider') === 'youtube')>YouTube</option>
+                                            <option value="vimeo" @selected($reopen && old('provider') === 'vimeo')>Vimeo</option>
+                                            <option value="self_hosted" @selected($reopen && old('provider') === 'self_hosted')>Self-hosted</option>
                                         </select>
                                     </div>
-                                    <x-form.input label="Watch URL" name="url" placeholder="https://…" />
+                                    <x-form.input label="Watch URL" name="url" placeholder="https://…" :value="$reopen ? old('url') : null" />
                                 </div>
-                                <x-form.input label="Embed URL" name="embed_url" placeholder="https://…/embed/…" />
+                                <x-form.input label="Embed URL" name="embed_url" placeholder="https://…/embed/…" :value="$reopen ? old('embed_url') : null" />
+                                <x-form.input type="file" label="Thumbnail (optional)" name="thumbnail" accept="image/*"
+                                    hint="JPG/PNG up to 2 MB — shown on the lesson card in the student portal." />
                             </div>
 
                             <div x-show="type === 'article'" x-cloak>
@@ -191,7 +212,7 @@
 
                             <label class="flex cursor-pointer items-center gap-2.5">
                                 <input type="hidden" name="is_preview" value="0">
-                                <input type="checkbox" name="is_preview" value="1" class="check">
+                                <input type="checkbox" name="is_preview" value="1" class="check" @checked($reopen && old('is_preview'))>
                                 <span class="text-sm text-on-surface-variant">Free preview lesson</span>
                             </label>
                         </div>
@@ -225,4 +246,38 @@
             </x-card>
         @endcan
     </div>
+
+    {{-- Shared lecture-preview modal: fed by the per-lesson play buttons.
+         The src is cleared whenever the modal closes so playback stops. --}}
+    <x-modal name="lesson-preview" max-width="3xl">
+        <div x-data="{ title: '', src: null, file: null }"
+            x-on:lesson-preview.window="title = $event.detail.title; src = $event.detail.src; file = $event.detail.file"
+            x-on:close-modal.window="if ($event.detail === 'lesson-preview') { src = null; file = null }"
+            x-on:keydown.escape.window="src = null; file = null"
+            class="p-4 sm:p-5">
+            <div class="mb-3 flex items-center justify-between gap-3">
+                <h3 class="min-w-0 truncate font-display text-base font-semibold text-on-surface" x-text="title"></h3>
+                <button type="button" x-on:click="src = null; file = null; $dispatch('close-modal', 'lesson-preview')"
+                    class="shrink-0 rounded-lg p-1.5 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary"
+                    aria-label="Close preview">
+                    <x-icon name="x-mark" class="size-4" />
+                </button>
+            </div>
+            <div class="overflow-hidden rounded-xl bg-primary-deep/95">
+                <template x-if="src">
+                    <iframe :src="src" class="aspect-video w-full" frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen title="Lecture preview"></iframe>
+                </template>
+                <template x-if="!src && file">
+                    <video :src="file" controls class="aspect-video w-full" title="Lecture preview"></video>
+                </template>
+                <template x-if="!src && !file">
+                    <div class="flex aspect-video w-full items-center justify-center text-sm text-white/70">
+                        This lesson has no playable video URL yet — add a watch or embed URL first.
+                    </div>
+                </template>
+            </div>
+        </div>
+    </x-modal>
 </x-admin.layout>

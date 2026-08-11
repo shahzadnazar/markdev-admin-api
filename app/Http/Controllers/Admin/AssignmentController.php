@@ -143,6 +143,35 @@ class AssignmentController extends Controller
         return back()->with('success', 'Submission graded.');
     }
 
+    /**
+     * Send a submission back to the student: feedback is required, any grade
+     * is cleared, and the student can resubmit until it's graded again.
+     */
+    public function returnForChanges(Request $request, AssignmentSubmission $submission): RedirectResponse
+    {
+        $submission->load(['assignment', 'user']);
+        $this->authorizeCourseAccess($request, $submission->assignment->course_id);
+
+        $data = $request->validate([
+            'feedback' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $submission->update([
+            'feedback' => $data['feedback'],
+            'score' => null,
+            'graded_at' => null,
+            'graded_by' => $request->user()->id,
+            'returned_at' => now(),
+        ]);
+
+        AuditLogger::log('returned', 'assignment_submissions', $submission->id, null, [
+            'assignment' => $submission->assignment->title,
+            'student' => $submission->user?->name,
+        ]);
+
+        return back()->with('success', 'Returned to '.($submission->user?->name ?? 'the student').' for changes.');
+    }
+
     /** @return array<string, mixed> */
     protected function validated(Request $request): array
     {

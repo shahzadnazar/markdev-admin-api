@@ -13,10 +13,11 @@
     </x-page-header>
 
     <div class="grid max-w-5xl gap-6 xl:grid-cols-3">
-        <form method="POST" action="{{ route('admin.lessons.update', $lesson) }}" class="xl:col-span-2"
+        <form method="POST" action="{{ route('admin.lessons.update', $lesson) }}" enctype="multipart/form-data" class="xl:col-span-2"
             x-data="{ type: '{{ old('type', $lesson->type) }}' }">
             @csrf @method('PUT')
 
+            <x-form.errors-summary />
             <x-card class="space-y-5">
                 <p class="eyebrow">Lesson details</p>
                 <x-form.input label="Title" name="title" :value="$lesson->title" required />
@@ -25,7 +26,7 @@
                         <x-form.label for="type" value="Type" />
                         <select name="type" id="type" class="field" x-model="type">
                             @foreach (['video', 'article', 'quiz', 'assignment', 'resource'] as $type)
-                                <option value="{{ $type }}">{{ ucfirst($type) }}</option>
+                                <option value="{{ $type }}" @selected(old('type', $lesson->type) === $type)>{{ ucfirst($type) }}</option>
                             @endforeach
                         </select>
                         <x-form.error name="type" />
@@ -44,6 +45,16 @@
                         <x-form.input label="Watch URL" name="url" :value="$lesson->video?->getRawOriginal('url')" placeholder="https://…" />
                     </div>
                     <x-form.input label="Embed URL" name="embed_url" :value="$lesson->video?->embed_url" placeholder="https://…/embed/…" />
+                    <div class="flex flex-wrap items-end gap-4">
+                        @if ($lesson->video?->thumbnail_url)
+                            <img src="{{ $lesson->video->thumbnail_url }}" alt="Current thumbnail"
+                                class="h-16 w-28 shrink-0 rounded-lg border border-outline-variant/40 object-cover">
+                        @endif
+                        <div class="min-w-0 flex-1">
+                            <x-form.input type="file" label="Thumbnail" name="thumbnail" accept="image/*"
+                                :hint="($lesson->video?->thumbnail_path ? 'Uploading a new image replaces the current thumbnail.' : 'JPG/PNG up to 2 MB — shown on the lesson card in the student portal.')" />
+                        </div>
+                    </div>
                 </div>
 
                 <div x-show="type === 'article'" x-cloak>

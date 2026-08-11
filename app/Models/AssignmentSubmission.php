@@ -24,6 +24,7 @@ class AssignmentSubmission extends Model
         'feedback',
         'graded_at',
         'graded_by',
+        'returned_at',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class AssignmentSubmission extends Model
             'is_late' => 'boolean',
             'score' => 'integer',
             'graded_at' => 'datetime',
+            'returned_at' => 'datetime',
         ];
     }
 

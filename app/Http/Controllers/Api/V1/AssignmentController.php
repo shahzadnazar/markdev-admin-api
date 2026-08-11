@@ -70,7 +70,11 @@ class AssignmentController extends ApiController
             'user_id' => $user->id,
         ]);
 
-        abort_if($submission->graded_at !== null, 403, 'This assignment has already been graded.');
+        abort_if(
+            $submission->graded_at !== null && $submission->returned_at === null,
+            403,
+            'This assignment has already been graded.',
+        );
 
         if ($request->filled('content')) {
             $submission->content = $request->string('content')->value();
@@ -84,6 +88,8 @@ class AssignmentController extends ApiController
 
         $submission->submitted_at = now();
         $submission->is_late = $assignment->due_at !== null && now()->greaterThan($assignment->due_at);
+        // A resubmission answers the instructor's return-for-changes request.
+        $submission->returned_at = null;
         $submission->save();
 
         return (new AssignmentSubmissionResource($submission))->response($request)->setStatusCode(201);

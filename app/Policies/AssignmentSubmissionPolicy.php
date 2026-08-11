@@ -14,6 +14,7 @@ class AssignmentSubmissionPolicy
 
     public function update(User $user, AssignmentSubmission $submission): bool
     {
-        return $submission->user_id === $user->id && $submission->graded_at === null;
+        return $submission->user_id === $user->id
+            && ($submission->graded_at === null || $submission->returned_at !== null);
     }
 }
