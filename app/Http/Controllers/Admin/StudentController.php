@@ -34,12 +34,16 @@ class StudentController extends Controller
 
     public function index(Request $request): View
     {
-        $status = in_array($request->query('status'), ['active', 'inactive'], true)
+        $trashed = $request->string('trashed')->toString() === '1';
+
+        // The status filter is meaningless inside the trash box.
+        $status = ! $trashed && in_array($request->query('status'), ['active', 'inactive'], true)
             ? $request->query('status')
             : null;
 
         $students = User::role('student')
             ->with(['studentProfile', 'enrollments.course:id,title'])
+            ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.trim($request->string('search')).'%';
                 $query->where(fn ($inner) => $inner
@@ -61,6 +65,7 @@ class StudentController extends Controller
         return view('admin.students.index', [
             'students' => $students,
             'status' => $status,
+            'trashed' => $trashed,
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'totals' => [
                 'students' => User::role('student')->count(),
@@ -228,6 +233,29 @@ class StudentController extends Controller
         AuditLogger::log('deleted', 'students', $student->id, null, ['name' => $name]);
 
         return redirect()->route('admin.students.index')->with('success', "Student \"{$name}\" moved to trash.");
+    }
+
+    public function restore(User $student): RedirectResponse
+    {
+        abort_unless($student->hasRole('student'), 404);
+
+        $student->restore();
+
+        AuditLogger::log('restored', 'students', $student->id, null, ['name' => $student->name]);
+
+        return redirect()->route('admin.students.index', ['trashed' => 1])->with('success', "Student \"{$student->name}\" restored.");
+    }
+
+    public function forceDestroy(User $student): RedirectResponse
+    {
+        abort_unless($student->hasRole('student'), 404);
+
+        $name = $student->name;
+        $student->forceDelete();
+
+        AuditLogger::log('force_deleted', 'students', $student->id, null, ['name' => $name]);
+
+        return redirect()->route('admin.students.index', ['trashed' => 1])->with('success', "Student \"{$name}\" permanently removed.");
     }
 
     /** @return array<string, mixed> */

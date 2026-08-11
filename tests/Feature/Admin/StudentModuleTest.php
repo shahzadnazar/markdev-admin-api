@@ -229,6 +229,70 @@ class StudentModuleTest extends TestCase
         Storage::disk('public')->assertExists($student->studentProfile->photo_path);
     }
 
+    public function test_trashed_students_appear_only_in_the_trash_box(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/students', $this->payload());
+        $student = User::where('email', 'hamza@student.test')->first();
+
+        $this->actingAs($this->admin)->delete("/admin/students/{$student->id}");
+        $this->assertSoftDeleted('users', ['id' => $student->id]);
+
+        // Drop the "moved to trash" flash so it cannot echo the name.
+        $this->flushSession();
+
+        $this->actingAs($this->admin)->get('/admin/students')
+            ->assertOk()
+            ->assertDontSee('Hamza Tariq');
+
+        $this->actingAs($this->admin)->get('/admin/students?trashed=1')
+            ->assertOk()
+            ->assertSee('Hamza Tariq')
+            ->assertSee('1 removed student');
+    }
+
+    public function test_a_trashed_student_can_be_restored(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/students', $this->payload());
+        $student = User::where('email', 'hamza@student.test')->first();
+        $this->actingAs($this->admin)->delete("/admin/students/{$student->id}");
+
+        $response = $this->actingAs($this->admin)->post("/admin/students/{$student->id}/restore");
+
+        $response->assertRedirect(route('admin.students.index', ['trashed' => 1]));
+        $response->assertSessionHas('success', 'Student "Hamza Tariq" restored.');
+        $this->assertNull($student->fresh()->deleted_at);
+
+        $this->actingAs($this->admin)->get('/admin/students')
+            ->assertOk()
+            ->assertSee('Hamza Tariq');
+    }
+
+    public function test_a_trashed_student_can_be_permanently_removed(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/students', $this->payload());
+        $student = User::where('email', 'hamza@student.test')->first();
+        $this->actingAs($this->admin)->delete("/admin/students/{$student->id}");
+
+        $response = $this->actingAs($this->admin)->delete("/admin/students/{$student->id}/force");
+
+        $response->assertRedirect(route('admin.students.index', ['trashed' => 1]));
+        $response->assertSessionHas('success', 'Student "Hamza Tariq" permanently removed.');
+        $this->assertDatabaseMissing('users', ['id' => $student->id]);
+    }
+
+    public function test_non_student_ids_404_on_the_trash_endpoints(): void
+    {
+        $this->actingAs($this->admin)
+            ->post("/admin/students/{$this->admin->id}/restore")
+            ->assertNotFound();
+
+        $this->actingAs($this->admin)
+            ->delete("/admin/students/{$this->admin->id}/force")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('users', ['id' => $this->admin->id]);
+    }
+
     public function test_reg_numbers_increment_sequentially(): void
     {
         $this->actingAs($this->admin)->post('/admin/students', $this->payload());
