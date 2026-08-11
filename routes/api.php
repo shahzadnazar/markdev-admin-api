@@ -10,11 +10,13 @@ use App\Http\Controllers\Api\V1\BookmarkController;
 use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CertificateController;
+use App\Http\Controllers\Api\V1\MaterialController;
 use App\Http\Controllers\Api\V1\CommentController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
+use App\Http\Controllers\Api\V1\LeaveApplicationController;
 use App\Http\Controllers\Api\V1\LessonController;
 use App\Http\Controllers\Api\V1\ModuleController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -89,7 +91,13 @@ Route::prefix('v1')->group(function () {
         Route::get('attendance', [AttendanceController::class, 'index']);
         Route::get('attendance/summary', [AttendanceController::class, 'summary']);
         Route::get('attendance/daily', [AttendanceController::class, 'daily']);
+        Route::get('leaves', [LeaveApplicationController::class, 'index']);
+        Route::post('leaves', [LeaveApplicationController::class, 'store']);
         Route::get('certificates', [CertificateController::class, 'index']);
+
+        /* Study materials */
+        Route::get('materials', [MaterialController::class, 'index']);
+        Route::post('materials/{resource}/read', [MaterialController::class, 'read']);
         Route::get('progress', ProgressController::class);
         Route::get('leaderboard', LeaderboardController::class);
 

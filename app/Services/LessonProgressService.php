@@ -8,6 +8,8 @@ use App\Models\Enrollment;
 use App\Models\LearningActivity;
 use App\Models\Lesson;
 use App\Models\LessonCompletion;
+use App\Models\LessonResource;
+use App\Models\MaterialRead;
 use App\Models\PointEvent;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -17,6 +19,8 @@ class LessonProgressService
     public const POINTS_LESSON_COMPLETED = 10;
 
     public const POINTS_COURSE_COMPLETED = 50;
+
+    public const MINUTES_MATERIAL_READ = 5;
 
     /** Marks a lesson complete and returns the fresh course progress percent. */
     public function complete(User $user, Course $course, Lesson $lesson): float
@@ -34,6 +38,31 @@ class LessonProgressService
         }
 
         return $this->syncEnrollmentProgress($user, $course, $enrollment);
+    }
+
+    /**
+     * Credits a study-material read: activity minutes always, and for
+     * read-style lessons (resource/article) the lesson auto-completes once
+     * every attached file has been read — feeding course progress percent.
+     */
+    public function recordMaterialRead(User $user, LessonResource $resource): void
+    {
+        $this->recordLearningMinutes($user, self::MINUTES_MATERIAL_READ);
+
+        $lesson = $resource->lesson()->with('course')->first();
+
+        if ($lesson === null || $lesson->course === null
+            || ! in_array($lesson->type, ['resource', 'article'], true)) {
+            return;
+        }
+
+        $unread = $lesson->resources()
+            ->whereNotIn('id', MaterialRead::where('user_id', $user->id)->select('lesson_resource_id'))
+            ->exists();
+
+        if (! $unread) {
+            $this->complete($user, $lesson->course, $lesson);
+        }
     }
 
     /** Unmarks a lesson and returns the fresh course progress percent. */
