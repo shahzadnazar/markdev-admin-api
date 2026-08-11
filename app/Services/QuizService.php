@@ -29,7 +29,10 @@ class QuizService
             ]);
         }
 
-        $expiresAt = $quiz->time_limit_minutes ? $now->copy()->addMinutes($quiz->time_limit_minutes) : null;
+        // Quizzes without an explicit limit get one minute per question, so
+        // every attempt runs against a clock (MCQ pacing rule).
+        $limitMinutes = $quiz->time_limit_minutes ?: max(1, $quiz->questions()->count());
+        $expiresAt = $now->copy()->addMinutes($limitMinutes);
 
         $open = QuizAttempt::where('quiz_id', $quiz->id)
             ->where('user_id', $user->id)
@@ -38,9 +41,24 @@ class QuizService
             ->first();
 
         if ($open !== null) {
-            $open->update(['expires_at' => $expiresAt]);
+            if ($open->expires_at !== null && $now->gt($open->expires_at->copy()->addSeconds(30))) {
+                // Timed out without submitting — close it as a spent attempt
+                // (score 0) so the student isn't wedged on a dead attempt.
+                $open->update([
+                    'submitted_at' => $open->expires_at,
+                    'score' => 0,
+                    'max_score' => (int) $quiz->questions()->sum('points'),
+                    'passed' => false,
+                ]);
+            } else {
+                // Resuming never refreshes the clock — that would let a student
+                // reset their own timer by re-hitting the start endpoint.
+                if ($open->expires_at === null) {
+                    $open->update(['expires_at' => $open->started_at->copy()->addMinutes($limitMinutes)]);
+                }
 
-            return $open;
+                return $open;
+            }
         }
 
         $finished = QuizAttempt::where('quiz_id', $quiz->id)
@@ -72,6 +90,13 @@ class QuizService
         if ($attempt->submitted_at !== null) {
             throw ValidationException::withMessages([
                 'attempt' => ['This attempt has already been submitted.'],
+            ]);
+        }
+
+        // 30-second grace absorbs network latency on auto-submit at expiry.
+        if ($attempt->expires_at !== null && now()->gt($attempt->expires_at->copy()->addSeconds(30))) {
+            throw ValidationException::withMessages([
+                'attempt' => ['Time is up for this attempt — it can no longer be submitted.'],
             ]);
         }
 

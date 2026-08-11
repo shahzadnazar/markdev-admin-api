@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\Transaction;
 use App\Services\FeeSubmissionService;
 use App\Support\BillingConfig;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -190,6 +191,22 @@ class BillingController extends ApiController
             ->withQueryString();
 
         return InvoiceResource::collection($invoices);
+    }
+
+    /**
+     * Streams a paid-invoice receipt PDF. Reached through a signed URL
+     * (validated by the `signed` middleware) so the portal can link to it
+     * with a plain <a href> — no Authorization header needed.
+     */
+    public function receipt(Invoice $invoice): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless($invoice->status === 'paid', 404);
+
+        $invoice->load(['user', 'feePlan.course', 'latestSubmission']);
+
+        $pdf = Pdf::loadView('pdf.invoice-receipt', ['invoice' => $invoice])->setPaper('a4');
+
+        return $pdf->download("receipt-{$invoice->number}.pdf");
     }
 
     /** Student uploads proof of payment; the submission awaits admin review. */

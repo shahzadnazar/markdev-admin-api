@@ -30,7 +30,9 @@ class InvoiceResource extends JsonResource
             'in_grace' => $this->isInGrace(BillingConfig::graceDays()),
             'days_overdue' => $this->daysOverdue(),
             'paid_at' => $this->paid_at?->toISOString(),
-            'download_url' => $this->download_url,
+            'download_url' => $this->status === 'paid'
+                ? \Illuminate\Support\Facades\URL::signedRoute('api.v1.billing.invoices.receipt', ['invoice' => $this->id])
+                : $this->download_url,
             'latest_submission' => $this->whenLoaded(
                 'latestSubmission',
                 fn () => $this->latestSubmission

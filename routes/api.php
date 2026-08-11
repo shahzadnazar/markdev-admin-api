@@ -43,6 +43,10 @@ Route::prefix('v1')->group(function () {
         ->name('api.v1.certificates.download')
         ->middleware('signed');
 
+    Route::get('billing/invoices/{invoice}/receipt', [BillingController::class, 'receipt'])
+        ->name('api.v1.billing.invoices.receipt')
+        ->middleware('signed');
+
     /* ---------------------------- Authenticated --------------------------- */
 
     Route::middleware('auth:sanctum')->group(function () {

@@ -10,7 +10,7 @@ $tones = [
 ];
 @endphp
 
-<div {{ $attributes->merge(['class' => 'rounded-2xl bg-white p-6 shadow-card']) }}>
+<div {{ $attributes->merge(['class' => 'rounded-2xl bg-white p-6 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-elevated active:translate-y-0 active:shadow-card']) }}>
     <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
             <p class="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-on-surface-variant">{{ $label }}</p>
