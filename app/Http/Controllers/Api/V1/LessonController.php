@@ -6,10 +6,12 @@ use App\Http\Resources\LessonResource;
 use App\Models\Bookmark;
 use App\Models\Course;
 use App\Models\Enrollment;
+use App\Models\LearningActivity;
 use App\Models\Lesson;
 use App\Models\LessonCompletion;
 use App\Services\LessonProgressService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
 class LessonController extends ApiController
@@ -57,6 +59,45 @@ class LessonController extends ApiController
         return response()->json(['data' => ['progress_percent' => $percent]]);
     }
 
+    public function activity(
+    Request $request,
+    Course $course,
+    Lesson $lesson
+): JsonResponse {
+    $user = $request->user();
+
+    $request->validate([
+        'minutes' => ['required', 'integer', 'min:1', 'max:120'],
+    ]);
+
+    $enrolled = Enrollment::where('user_id', $user->id)
+        ->where('course_id', $course->id)
+        ->exists();
+
+    abort_unless(
+        $enrolled || $lesson->is_preview,
+        403,
+        'Enroll in the course to access this lesson.'
+    );
+
+    LearningActivity::updateOrCreate(
+        [
+            'user_id' => $user->id,
+            'date' => now()->toDateString(),
+        ],
+        [
+            'minutes' => DB::raw(
+                'minutes + ' . (int) $request->integer('minutes')
+            ),
+        ]
+    );
+
+    return response()->json([
+        'data' => [
+            'success' => true,
+        ],
+    ]);
+}
     /**
      * Previous/next lesson ids ordered by module position, then lesson
      * position, across the whole course.

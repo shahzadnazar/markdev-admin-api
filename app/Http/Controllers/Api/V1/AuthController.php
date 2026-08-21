@@ -120,7 +120,7 @@ class AuthController extends ApiController
     {
         $user = $request->user();
 
-        $user->fill($request->only('name', 'phone', 'bio', 'headline'))->save();
+        $user->fill($request->only('name', 'phone',  'headline'))->save();
 
         return new UserResource($user);
     }

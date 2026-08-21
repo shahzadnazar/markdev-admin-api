@@ -69,6 +69,10 @@ Route::prefix('v1')->group(function () {
             Route::get('courses/{course}/lessons/{lesson}', [LessonController::class, 'show']);
             Route::post('courses/{course}/lessons/{lesson}/complete', [LessonController::class, 'complete']);
             Route::delete('courses/{course}/lessons/{lesson}/complete', [LessonController::class, 'uncomplete']);
+            Route::post(
+    'courses/{course}/lessons/{lesson}/activity',
+    [LessonController::class, 'activity']
+);
         });
 
         Route::get('lessons/{lesson}/comments', [CommentController::class, 'index']);
