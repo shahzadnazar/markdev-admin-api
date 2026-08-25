@@ -65,6 +65,13 @@
                             <x-icon name="download" class="size-4" /> {{ $submission->file_name ?? 'Download attachment' }}
                         </a>
                     @endif
+                    @if ($submission->query)
+                        {{-- Student's question about the assignment — highlighted so it isn't missed while grading. --}}
+                        <div class="mt-3 rounded-xl border border-warning/30 bg-warning/5 p-4">
+                            <p class="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-outline">Student query</p>
+                            <p class="mt-1 whitespace-pre-line text-sm leading-6 text-on-surface-variant">{{ $submission->query }}</p>
+                        </div>
+                    @endif
                     @if ($submission->feedback)
                         <div class="mt-3 rounded-xl bg-surface-ice/70 p-4">
                             <p class="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-outline">Feedback</p>

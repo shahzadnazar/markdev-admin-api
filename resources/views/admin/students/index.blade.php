@@ -36,7 +36,7 @@
                 @endphp
                 @foreach (['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
                     @php $isActive = ($status ?? '') === $key; @endphp
-                    <a href="{{ route('admin.students.index', array_filter(['status' => $key, 'search' => request('search'), 'course' => request('course')])) }}"
+                    <a href="{{ route('admin.students.index', array_filter(['status' => $key, 'search' => request('search'), 'course' => request('course'), 'fields' => request('fields')])) }}"
                         class="inline-flex items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium transition {{ $isActive ? 'bg-primary text-white shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
                         {{ $label }}
                         <span class="rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none {{ $isActive ? 'bg-white/20 text-white' : 'bg-surface-ice text-on-surface-variant' }}">{{ number_format($tabCounts[$key]) }}</span>
@@ -45,7 +45,25 @@
             </div>
         @endif
 
-        <form method="GET" action="{{ route('admin.students.index') }}" class="flex flex-wrap items-center gap-2">
+        @php
+            $searchFields = array_values(array_intersect(
+                (array) request('fields', []),
+                ['name', 'gender', 'joined'],
+            ));
+            $fieldLabels = ['name' => 'Name', 'gender' => 'Gender', 'joined' => 'Joined Date'];
+        @endphp
+
+        <form method="GET" action="{{ route('admin.students.index') }}"
+            class="flex flex-wrap items-center gap-2"
+            x-data="{
+                timer: null,
+                /* Debounced so we fire one request after typing stops, not one per keystroke. */
+                live() {
+                    clearTimeout(this.timer);
+                    this.timer = setTimeout(() => this.$refs.form.requestSubmit(), 400);
+                },
+            }"
+            x-ref="form">
             @if ($status)
                 <input type="hidden" name="status" value="{{ $status }}">
             @endif
@@ -55,15 +73,49 @@
                     <option value="{{ $course->id }}" @selected(request('course') == $course->id)>{{ $course->title }}</option>
                 @endforeach
             </select>
+
             <input type="search" name="search" value="{{ request('search') }}"
-                placeholder="Name, email, reg #, CNIC…" class="field w-64">
+                placeholder="Name, email, reg #, CNIC…" class="field w-64"
+                autocomplete="off"
+                x-on:input="live()"
+                x-on:search="live()">
+
+            {{-- Narrows which fields the search box matches. None checked = search everything. --}}
+            <div class="relative" x-data="{ open: false }" x-on:keydown.escape="open = false">
+                <button type="button" x-on:click="open = ! open"
+                    class="flex h-[42px] items-center gap-2 rounded-lg border border-outline-variant bg-white px-3 text-sm text-on-surface-variant hover:bg-surface-ice"
+                    :aria-expanded="open.toString()" aria-haspopup="true">
+                    <span>
+                        Filters
+                        @if ($searchFields)
+                            <span class="ml-1 rounded-full bg-primary px-1.5 py-0.5 font-mono text-[10px] leading-none text-white">{{ count($searchFields) }}</span>
+                        @endif
+                    </span>
+                    <x-icon name="chevron-down" class="size-4" />
+                </button>
+
+                <div x-show="open" x-on:click.outside="open = false" x-cloak
+                    class="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-outline-variant bg-white p-2 shadow-lg">
+                    @foreach ($fieldLabels as $value => $label)
+                        <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface-ice">
+                            <input type="checkbox" name="fields[]" value="{{ $value }}"
+                                @checked(in_array($value, $searchFields, true))
+                                onchange="this.form.submit()" class="check">
+                            <span class="text-sm text-on-surface-variant">{{ $label }}</span>
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
             @can('students.delete')
                 <label class="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-white px-3">
                     <input type="checkbox" name="trashed" value="1" @checked($trashed) onchange="this.form.submit()" class="check">
                     <span class="text-sm text-on-surface-variant">Trash box</span>
                 </label>
             @endcan
-            <x-btn variant="secondary" size="md">Search</x-btn>
+
+            {{-- No submit button: search fires automatically. Kept for keyboard Enter / no-JS fallback. --}}
+            <noscript><x-btn variant="secondary" size="md">Search</x-btn></noscript>
         </form>
     </div>
 

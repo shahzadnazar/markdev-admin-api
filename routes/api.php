@@ -10,7 +10,6 @@ use App\Http\Controllers\Api\V1\BookmarkController;
 use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CertificateController;
-use App\Http\Controllers\Api\V1\MaterialController;
 use App\Http\Controllers\Api\V1\CommentController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -103,9 +102,6 @@ Route::prefix('v1')->group(function () {
         /* Notes */
         Route::get('notes', [NoteController::class, 'index']);
         Route::post('notes/{note}/read', [NoteController::class, 'read']);
-        /* Study materials */
-        Route::get('materials', [MaterialController::class, 'index']);
-        Route::post('materials/{resource}/read', [MaterialController::class, 'read']);
         Route::get('progress', ProgressController::class);
         Route::get('leaderboard', LeaderboardController::class);
 

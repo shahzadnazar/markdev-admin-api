@@ -16,6 +16,7 @@ class AssignmentSubmission extends Model
         'assignment_id',
         'user_id',
         'content',
+        'query',
         'file_path',
         'file_name',
         'submitted_at',

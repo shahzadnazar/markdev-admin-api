@@ -15,8 +15,11 @@ class SubmitAssignmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'content' => ['nullable', 'string', 'max:65000', 'required_without:file'],
-            'file' => ['nullable', 'file', 'max:10240', 'required_without:content'],
+            // Legacy submission body — still accepted for older clients.
+            'content' => ['nullable', 'string', 'max:65000'],
+            // Student's question to the instructor.
+            'query' => ['nullable', 'string', 'max:65000'],
+            'file' => ['required', 'file', 'max:10240'],
         ];
     }
 
@@ -24,8 +27,7 @@ class SubmitAssignmentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'content.required_without' => 'Provide written content or attach a file.',
-            'file.required_without' => 'Provide written content or attach a file.',
+            'file.required' => 'Attach your work to submit.',
         ];
     }
 }

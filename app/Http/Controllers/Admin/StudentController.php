@@ -46,14 +46,47 @@ class StudentController extends Controller
             ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.trim($request->string('search')).'%';
-                $query->where(fn ($inner) => $inner
-                    ->where('name', 'like', $term)
-                    ->orWhere('email', 'like', $term)
-                    ->orWhere('phone', 'like', $term))
-                    ->orWhereHas('studentProfile', fn ($profile) => $profile
-                        ->where('reg_no', 'like', $term)
-                        ->orWhere('cnic', 'like', $term)
-                        ->orWhere('father_name', 'like', $term));
+
+                // Which fields the search box should match. Empty = search everything.
+                $fields = array_values(array_intersect(
+                    (array) $request->query('fields', []),
+                    ['name', 'gender', 'joined'],
+                ));
+
+                // The whole search must be wrapped, otherwise its ORs escape the
+                // closure and match students excluded by the status/course filters.
+                $query->where(function ($outer) use ($term, $fields) {
+                    if ($fields === []) {
+                        $outer->where('name', 'like', $term)
+                            ->orWhere('email', 'like', $term)
+                            ->orWhere('phone', 'like', $term)
+                            ->orWhereHas('studentProfile', fn ($profile) => $profile
+                                ->where('reg_no', 'like', $term)
+                                ->orWhere('cnic', 'like', $term)
+                                ->orWhere('father_name', 'like', $term));
+
+                        return;
+                    }
+
+                    if (in_array('name', $fields, true)) {
+                        $outer->orWhere('name', 'like', $term);
+                    }
+
+                    $profileFields = array_intersect($fields, ['gender', 'joined']);
+
+                    if ($profileFields !== []) {
+                        $outer->orWhereHas('studentProfile', fn ($profile) => $profile
+                            ->where(function ($inner) use ($profileFields, $term) {
+                                if (in_array('gender', $profileFields, true)) {
+                                    $inner->orWhere('gender', 'like', $term);
+                                }
+
+                                if (in_array('joined', $profileFields, true)) {
+                                    $inner->orWhere('date_of_joining', 'like', $term);
+                                }
+                            }));
+                    }
+                });
             })
             ->when($request->filled('course'), fn ($query) => $query
                 ->whereHas('enrollments', fn ($inner) => $inner->where('course_id', $request->integer('course'))))

@@ -80,6 +80,10 @@ class AssignmentController extends ApiController
             $submission->content = $request->string('content')->value();
         }
 
+        if ($request->filled('query')) {
+            $submission->query = $request->string('query')->value();
+        }
+
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $submission->file_path = $file->store('submissions', 'public');

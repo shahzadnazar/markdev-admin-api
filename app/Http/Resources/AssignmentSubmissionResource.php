@@ -15,6 +15,7 @@ class AssignmentSubmissionResource extends JsonResource
             'id' => $this->id,
             'assignment_id' => $this->assignment_id,
             'content' => $this->content,
+            'query' => $this->query,
             'file_url' => $this->file_url,
             'file_name' => $this->file_name,
             'submitted_at' => $this->submitted_at?->toISOString(),
