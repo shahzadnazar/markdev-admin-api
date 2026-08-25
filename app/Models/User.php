@@ -130,6 +130,11 @@ class User extends Authenticatable
         return $this->hasMany(DailyAttendance::class);
     }
 
+    public function notes(): HasMany
+{
+    return $this->hasMany(Note::class, 'instructor_id');
+}
+
     /* ------------------------------ Accessors ------------------------------ */
 
     public function getAvatarUrlAttribute(): ?string

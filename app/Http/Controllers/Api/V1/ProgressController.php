@@ -32,6 +32,7 @@ class ProgressController extends ApiController
                 'longest_streak_days' => $stats->longestStreak($user),
                 'points' => (int) $user->points,
                 'activity' => $stats->activitySeries($user, 84),
+                'progress' => $stats->progressSeries($user, 12),
                 'courses' => CourseProgressResource::collection($enrollments),
             ],
         ]);

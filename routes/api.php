@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\V1\QuizAttemptController;
 use App\Http\Controllers\Api\V1\QuizController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettingsController;
+use App\Http\Controllers\Api\V1\NoteController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -70,9 +71,9 @@ Route::prefix('v1')->group(function () {
             Route::post('courses/{course}/lessons/{lesson}/complete', [LessonController::class, 'complete']);
             Route::delete('courses/{course}/lessons/{lesson}/complete', [LessonController::class, 'uncomplete']);
             Route::post(
-    'courses/{course}/lessons/{lesson}/activity',
-    [LessonController::class, 'activity']
-);
+                'courses/{course}/lessons/{lesson}/activity',
+                [LessonController::class, 'activity']
+            );
         });
 
         Route::get('lessons/{lesson}/comments', [CommentController::class, 'index']);
@@ -99,6 +100,9 @@ Route::prefix('v1')->group(function () {
         Route::post('leaves', [LeaveApplicationController::class, 'store']);
         Route::get('certificates', [CertificateController::class, 'index']);
 
+        /* Notes */
+        Route::get('notes', [NoteController::class, 'index']);
+        Route::post('notes/{note}/read', [NoteController::class, 'read']);
         /* Study materials */
         Route::get('materials', [MaterialController::class, 'index']);
         Route::post('materials/{resource}/read', [MaterialController::class, 'read']);

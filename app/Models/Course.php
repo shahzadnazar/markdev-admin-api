@@ -102,6 +102,11 @@ class Course extends Model
         return $this->hasMany(CalendarEvent::class);
     }
 
+    public function notes(): HasMany
+{
+    return $this->hasMany(Note::class);
+}
+
     /* ------------------------------- Scopes -------------------------------- */
 
     public function scopePublished(Builder $query): Builder

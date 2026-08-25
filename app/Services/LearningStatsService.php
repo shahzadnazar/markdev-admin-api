@@ -6,6 +6,8 @@ use App\Models\LearningActivity;
 use App\Models\Lesson;
 use App\Models\LessonCompletion;
 use App\Models\User;
+use App\Models\Note;
+use App\Models\NoteRead;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -24,7 +26,7 @@ class LearningStatsService
         $minutesByDate = LearningActivity::where('user_id', $user->id)
             ->whereDate('date', '>=', $start->toDateString())
             ->get()
-            ->keyBy(fn (LearningActivity $activity) => $activity->date->toDateString());
+            ->keyBy(fn(LearningActivity $activity) => $activity->date->toDateString());
 
         $series = [];
         for ($day = $start->copy(); $day->lte(now()); $day->addDay()) {
@@ -87,7 +89,7 @@ class LearningStatsService
         return LearningActivity::where('user_id', $user->id)
             ->where('minutes', '>', 0)
             ->pluck('date')
-            ->mapWithKeys(fn ($date) => [$date->toDateString() => true]);
+            ->mapWithKeys(fn($date) => [$date->toDateString() => true]);
     }
 
     /**
@@ -126,5 +128,248 @@ class LearningStatsService
             $enrollment->setAttribute('completed_lessons', (int) ($completed[$enrollment->course_id] ?? 0));
             $enrollment->setAttribute('time_spent_minutes', (int) ($timeSpent[$enrollment->course_id] ?? 0));
         });
+    }
+    /**
+     * Monthly learning progress for the trailing number of months.
+     *
+     * Tracks five completely independent activities:
+     *
+     * - completed lessons
+     * - completed quizzes
+     * - submitted assignments
+     * - attendance
+     * - notes read
+     *
+     * All values are percentages from 0–100.
+     *
+     * @return array<int, array{
+     *     month: string,
+     *     lessons: float|int,
+     *     quizzes: float|int,
+     *     assignments: float|int,
+     *     attendance: float|int,
+     *     notes: float|int
+     * }>
+     */
+    public function progressSeries(User $user, int $months = 12): array
+    {
+        $start = now()
+            ->subMonths($months - 1)
+            ->startOfMonth();
+
+        /*
+     * -------------------------------------------------------------
+     * Enrolled courses
+     * -------------------------------------------------------------
+     */
+        $courseIds = $user->enrollments()
+            ->pluck('course_id');
+
+        /*
+     * -------------------------------------------------------------
+     * LESSONS
+     * -------------------------------------------------------------
+     */
+        $lessonCompletions = LessonCompletion::where('user_id', $user->id)
+            ->whereDate('completed_at', '>=', $start->toDateString())
+            ->get()
+            ->groupBy(
+                fn($completion) =>
+                $completion->completed_at
+                    ->copy()
+                    ->startOfMonth()
+                    ->toDateString()
+            )
+            ->map(fn($items) => $items->count());
+
+        $totalLessons = Lesson::whereIn('course_id', $courseIds)->count();
+
+        /*
+     * -------------------------------------------------------------
+     * QUIZZES
+     * -------------------------------------------------------------
+    
+ *
+ * Count UNIQUE quizzes completed in each month.
+ *
+ * Multiple attempts on the same quiz count as ONE completed quiz.
+ */
+        $quizCompletions = \App\Models\QuizAttempt::where('user_id', $user->id)
+            ->whereNotNull('submitted_at')
+            ->whereDate('submitted_at', '>=', $start->toDateString())
+            ->get()
+            ->groupBy(function ($attempt) {
+                return $attempt->submitted_at
+                    ->copy()
+                    ->startOfMonth()
+                    ->toDateString();
+            })
+            ->map(function ($items) {
+                return $items
+                    ->pluck('quiz_id')
+                    ->unique()
+                    ->count();
+            });
+
+        $totalQuizzes = \App\Models\Quiz::whereIn('course_id', $courseIds)->count();
+
+        /*
+     * -------------------------------------------------------------
+     * ASSIGNMENTS
+     * -------------------------------------------------------------
+     */
+        $assignmentSubmissions = \App\Models\AssignmentSubmission::where('user_id', $user->id)
+            ->whereNotNull('submitted_at')
+            ->whereDate('submitted_at', '>=', $start->toDateString())
+            ->get()
+            ->groupBy(
+                fn($submission) =>
+                $submission->submitted_at
+                    ->copy()
+                    ->startOfMonth()
+                    ->toDateString()
+            )
+            ->map(fn($items) => $items->count());
+
+        $totalAssignments = \App\Models\Assignment::whereHas(
+            'lesson',
+            fn($query) => $query->whereIn('course_id', $courseIds)
+        )->count();
+
+        /*
+     * -------------------------------------------------------------
+     * ATTENDANCE
+     * -------------------------------------------------------------
+     */
+        $attendanceRecords = \App\Models\AttendanceRecord::where('user_id', $user->id)
+            ->whereDate('date', '>=', $start->toDateString())
+            ->get()
+            ->groupBy(
+                fn($record) =>
+                $record->date
+                    ->copy()
+                    ->startOfMonth()
+                    ->toDateString()
+            );
+
+        /*
+     * -------------------------------------------------------------
+     * NOTES
+     * -------------------------------------------------------------
+     *
+     * IMPORTANT:
+     * Notes are completely separate from LessonCompletion
+     * and completely separate from MaterialRead.
+     *
+     * A note counts only when the student opens/reads that Note.
+     */
+        $noteReads = NoteRead::where('user_id', $user->id)
+            ->whereDate('read_at', '>=', $start->toDateString())
+            ->get()
+            ->groupBy(
+                fn($read) =>
+                $read->read_at
+                    ->copy()
+                    ->startOfMonth()
+                    ->toDateString()
+            )
+            ->map(fn($items) => $items->count());
+
+        /*
+     * Total notes available to this student.
+     */
+        $totalNotes = Note::whereIn('course_id', $courseIds)->count();
+
+        /*
+     * -------------------------------------------------------------
+     * BUILD MONTHLY SERIES
+     * -------------------------------------------------------------
+     */
+        $series = [];
+
+        $month = $start->copy()->startOfMonth();
+        $end = now()->startOfMonth();
+
+        while ($month->lte($end)) {
+            $key = $month->toDateString();
+
+            /*
+         * Lessons
+         */
+            $lessonPercent = $totalLessons > 0
+                ? round(
+                    (($lessonCompletions[$key] ?? 0) / $totalLessons) * 100,
+                    1
+                )
+                : 0;
+
+            /*
+       
+ * Quizzes
+ */
+            $quizPercent = $totalQuizzes > 0
+                ? round(
+                    (($quizCompletions[$key] ?? 0) / $totalQuizzes) * 100,
+                    1
+                )
+                : 0;
+
+            /*
+         * Assignments
+         */
+            $assignmentPercent = $totalAssignments > 0
+                ? round(
+                    (($assignmentSubmissions[$key] ?? 0) / $totalAssignments) * 100,
+                    1
+                )
+                : 0;
+
+            /*
+         * Attendance
+         */
+            $monthAttendance = $attendanceRecords[$key] ?? collect();
+
+            $totalAttendance = $monthAttendance->count();
+
+            $presentAttendance = $monthAttendance
+                ->where('status', 'present')
+                ->count();
+
+            $attendancePercent = $totalAttendance > 0
+                ? round(
+                    ($presentAttendance / $totalAttendance) * 100,
+                    1
+                )
+                : 0;
+
+            /*
+         * Notes
+         *
+         * NOTE READS ONLY.
+         * Does NOT affect lessons.
+         * Does NOT affect quizzes.
+         * Does NOT affect assignments.
+         * Does NOT affect attendance.
+         */
+            $notesPercent = $totalNotes > 0
+                ? round(
+                    (($noteReads[$key] ?? 0) / $totalNotes) * 100,
+                    1
+                )
+                : 0;
+
+            $series[] = [
+                'month' => $key,
+                'lessons' => $lessonPercent,
+                'quizzes' => $quizPercent,
+                'assignments' => $assignmentPercent,
+                'attendance' => $attendancePercent,
+                'notes' => $notesPercent,
+            ];
+
+            $month->addMonth();
+        }
+
+        return $series;
     }
 }

@@ -294,6 +294,7 @@ class StudentController extends Controller
 
             // Office use only
             'date_of_joining' => ['required', 'date'],
+            'batch_no' => ['nullable', 'string', 'max:50'],
             'course_id' => ['nullable', Rule::exists('courses', 'id')],
             'reference' => ['nullable', 'string', 'max:255'],
             'total_fee' => [$withPlan ? 'required' : 'nullable', 'numeric', 'min:0', 'max:99999999'],

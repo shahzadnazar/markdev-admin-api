@@ -53,33 +53,35 @@ class MaterialController extends ApiController
     }
 
     public function read(
-        Request $request,
-        LessonResource $resource,
-        LessonProgressService $progress,
-    ): JsonResponse {
-        $resource->load('lesson');
+    Request $request,
+    LessonResource $resource,
+    LessonProgressService $progress,
+): JsonResponse {
+    $resource->load('lesson');
 
-        abort_unless(
-            $resource->lesson !== null
-                && $this->enrolledCourseIds($request)->contains($resource->lesson->course_id),
-            403,
-        );
+    abort_unless(
+        $resource->lesson !== null
+            && $this->enrolledCourseIds($request)->contains($resource->lesson->course_id),
+        403,
+    );
 
-        $read = MaterialRead::firstOrCreate(
-            ['user_id' => $request->user()->id, 'lesson_resource_id' => $resource->id],
-            ['read_at' => now()],
-        );
+    // Let LessonProgressService handle MaterialRead creation,
+    // learning minutes, and lesson completion.
+    $progress->recordMaterialRead(
+        $request->user(),
+        $resource
+    );
 
-        if ($read->wasRecentlyCreated) {
-            $progress->recordMaterialRead($request->user(), $resource);
-        }
+    $read = MaterialRead::where('user_id', $request->user()->id)
+        ->where('lesson_resource_id', $resource->id)
+        ->first();
 
-        return response()->json([
-            'data' => [
-                'id' => $resource->id,
-                'is_read' => true,
-                'read_at' => $read->read_at?->toISOString(),
-            ],
-        ]);
-    }
+    return response()->json([
+        'data' => [
+            'id' => $resource->id,
+            'is_read' => true,
+            'read_at' => $read?->read_at?->toISOString(),
+        ],
+    ]);
+}
 }

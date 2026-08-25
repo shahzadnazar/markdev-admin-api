@@ -86,6 +86,12 @@
                         <div class="grid gap-5 sm:grid-cols-2">
                             <x-form.input type="date" label="Date of joining" name="date_of_joining"
                                 :value="optional($profile?->date_of_joining)->format('Y-m-d') ?? now()->toDateString()" required />
+                                <x-form.input
+                                label="Batch No"
+                                name="batch_no"
+                                :value="$profile?->batch_no"
+                                placeholder="e.g. Batch 01"
+                                hint="Assigned by office/admin only." />
                             <x-form.select label="Course enrollment" name="course_id"
                                 :hint="$student ? 'Enrollments are managed from the Enrollments screen after registration.' : 'Optional — enrolls the student right away.'"
                                 :disabled="(bool) $student">

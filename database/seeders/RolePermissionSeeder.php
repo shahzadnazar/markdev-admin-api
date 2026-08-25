@@ -22,6 +22,7 @@ class RolePermissionSeeder extends Seeder
         'categories' => ['view', 'create', 'update', 'delete'],
         'courses' => ['view', 'create', 'update', 'delete', 'restore'],
         'lessons' => ['view', 'create', 'update', 'delete'],
+        'notes' => ['view', 'create', 'update', 'delete'],
         'enrollments' => ['view', 'create', 'update', 'delete'],
         'assignments' => ['view', 'create', 'update', 'delete', 'grade'],
         'quizzes' => ['view', 'create', 'update', 'delete'],
@@ -61,7 +62,7 @@ class RolePermissionSeeder extends Seeder
         // Admin: everything except role management, system settings and backups.
         Role::findOrCreate('admin', 'web')->syncPermissions(
             collect($all)->reject(
-                fn (string $name) => str_starts_with($name, 'roles.')
+                fn(string $name) => str_starts_with($name, 'roles.')
                     || str_starts_with($name, 'settings.')
                     || str_starts_with($name, 'backups.')
             )->values()->all()
@@ -126,6 +127,10 @@ class RolePermissionSeeder extends Seeder
             'announcements.delete',
             'media.view',
             'media.upload',
+            'notes.view',
+            'notes.create',
+            'notes.update',
+            'notes.delete',
         ]);
 
         // Students act through the API with ownership checks; no admin panel access.

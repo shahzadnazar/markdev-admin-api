@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\NoteController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,7 +38,7 @@ Route::get('/', function () {
 });
 
 // Breeze redirects here after login / register / verification.
-Route::get('/dashboard', fn () => redirect()->route('admin.dashboard'))
+Route::get('/dashboard', fn() => redirect()->route('admin.dashboard'))
     ->middleware('auth')
     ->name('dashboard');
 
@@ -68,6 +69,7 @@ Route::prefix('admin')
             Route::get('instructors', [\App\Http\Controllers\Admin\InstructorController::class, 'index'])->name('instructors.index');
             Route::get('instructors/{instructor}', [\App\Http\Controllers\Admin\InstructorController::class, 'show'])->name('instructors.show');
         });
+
 
         Route::middleware('can:students.view')->group(function () {
             Route::get('students', [\App\Http\Controllers\Admin\StudentController::class, 'index'])->name('students.index');
@@ -136,6 +138,28 @@ Route::prefix('admin')
             Route::delete('lessons/{lesson}', [LessonController::class, 'destroy'])->middleware('can:lessons.delete')->name('lessons.destroy');
             Route::post('lessons/{lesson}/resources', [LessonController::class, 'storeResource'])->middleware('can:lessons.update')->name('lessons.resources.store');
             Route::delete('lessons/{lesson}/resources/{resource}', [LessonController::class, 'destroyResource'])->middleware('can:lessons.update')->name('lessons.resources.destroy');
+        });
+
+        Route::middleware('can:notes.view')->group(function () {
+            Route::get('notes', [NoteController::class, 'index'])->name('notes.index');
+            Route::get('notes/create', [NoteController::class, 'create'])
+                ->middleware('can:notes.create')
+                ->name('notes.create');
+            Route::post('notes', [NoteController::class, 'store'])
+                ->middleware('can:notes.create')
+                ->name('notes.store');
+            Route::get('notes/{note}/edit', [NoteController::class, 'edit'])
+                ->middleware('can:notes.update')
+                ->name('notes.edit');
+            Route::put('notes/{note}', [NoteController::class, 'update'])
+                ->middleware('can:notes.update')
+                ->name('notes.update');
+            Route::get('notes/{note}/download', [NoteController::class, 'download'])
+                ->name('notes.download');
+            Route::delete('notes/{note}', [NoteController::class, 'destroy'])
+                ->middleware('can:notes.delete')
+                ->name('notes.destroy');
+            Route::post('/notes/{note}/read', [NoteController::class, 'read']);
         });
 
         Route::middleware('can:enrollments.view')->group(function () {
@@ -305,4 +329,4 @@ Route::prefix('admin')
         });
     });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

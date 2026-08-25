@@ -20,6 +20,7 @@ class StudentProfile extends Model
         'gender',
         'address',
         'cnic',
+        'batch_no',
         'guardian_contact',
         'current_qualification',
         'applied_course',

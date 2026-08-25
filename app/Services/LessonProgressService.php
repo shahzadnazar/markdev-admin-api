@@ -45,25 +45,58 @@ class LessonProgressService
      * read-style lessons (resource/article) the lesson auto-completes once
      * every attached file has been read — feeding course progress percent.
      */
-    public function recordMaterialRead(User $user, LessonResource $resource): void
-    {
-        $this->recordLearningMinutes($user, self::MINUTES_MATERIAL_READ);
+   public function recordMaterialRead(User $user, LessonResource $resource): void
+{
+    // Only count the material once.
+    $materialRead = MaterialRead::firstOrCreate(
+        [
+            'user_id' => $user->id,
+            'lesson_resource_id' => $resource->id,
+        ],
+        [
+            'read_at' => now(),
+        ]
+    );
 
-        $lesson = $resource->lesson()->with('course')->first();
-
-        if ($lesson === null || $lesson->course === null
-            || ! in_array($lesson->type, ['resource', 'article'], true)) {
-            return;
-        }
-
-        $unread = $lesson->resources()
-            ->whereNotIn('id', MaterialRead::where('user_id', $user->id)->select('lesson_resource_id'))
-            ->exists();
-
-        if (! $unread) {
-            $this->complete($user, $lesson->course, $lesson);
-        }
+    // Don't add learning time again if the student downloads
+    // the same note multiple times.
+    if (! $materialRead->wasRecentlyCreated) {
+        return;
     }
+
+    $this->recordLearningMinutes(
+        $user,
+        self::MINUTES_MATERIAL_READ
+    );
+
+    $lesson = $resource->lesson()->with('course')->first();
+
+    if (
+        $lesson === null ||
+        $lesson->course === null ||
+        ! in_array($lesson->type, ['resource', 'article'], true)
+    ) {
+        return;
+    }
+
+    // Check whether every file attached to this lesson
+    // has been read/downloaded by this student.
+    $unread = $lesson->resources()
+        ->whereNotIn(
+            'id',
+            MaterialRead::where('user_id', $user->id)
+                ->select('lesson_resource_id')
+        )
+        ->exists();
+
+    if (! $unread) {
+        $this->complete(
+            $user,
+            $lesson->course,
+            $lesson
+        );
+    }
+}
 
     /** Unmarks a lesson and returns the fresh course progress percent. */
     public function uncomplete(User $user, Course $course, Lesson $lesson): float
