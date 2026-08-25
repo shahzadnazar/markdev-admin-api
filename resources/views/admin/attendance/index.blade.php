@@ -49,6 +49,7 @@
                         <th class="th">Student</th>
                         <th class="th">Status</th>
                         <th class="th">Notes</th>
+                        <th class="th text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -83,6 +84,16 @@
                                 <input type="text" name="rows[{{ $loop->index }}][notes]" value="{{ $record->notes ?? '' }}"
                                     placeholder="Optional note…" class="field max-w-xs">
                             </td>
+                            <td class="td text-right">
+    <a
+        href="{{ route('admin.attendance.daily.show', $student) }}"
+        title="View attendance history"
+        aria-label="View attendance history"
+        class="inline-flex items-center justify-center rounded-lg p-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary"
+    >
+        <x-icon name="eye" class="size-4" />
+    </a>
+</td>
                         </tr>
                     @endforeach
                 </tbody>

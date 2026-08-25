@@ -93,6 +93,7 @@ class DashboardController extends ApiController
                 'upcoming' => array_slice($calendar->eventsBetween($user, now(), now()->addDays(90)), 0, 5),
                 'recent_announcements' => AnnouncementResource::collection($announcements),
                 'activity' => $stats->activitySeries($user, 28),
+'progress' => $stats->progressSeries($user, 12),
             ],
         ]);
     }

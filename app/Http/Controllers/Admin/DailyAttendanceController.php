@@ -33,10 +33,10 @@ class DailyAttendanceController extends Controller
 
         $students = $this->cohort($request, $courseId)
             ->with(['studentProfile:id,user_id,reg_no,cnic', 'enrollments.course:id,title'])
-            ->when($statusFilter === 'unmarked', fn ($query) => $query
-                ->whereDoesntHave('dailyAttendance', fn ($inner) => $inner->whereDate('date', $date)))
-            ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn ($query) => $query
-                ->whereHas('dailyAttendance', fn ($inner) => $inner->whereDate('date', $date)->where('status', $statusFilter)))
+            ->when($statusFilter === 'unmarked', fn($query) => $query
+                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)))
+            ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn($query) => $query
+                ->whereHas('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)->where('status', $statusFilter)))
             ->orderBy('name')
             ->paginate(25)
             ->withQueryString();
@@ -47,16 +47,24 @@ class DailyAttendanceController extends Controller
             ->get()
             ->keyBy('user_id');
 
+        $previousAttendance = DailyAttendance::whereIn('user_id', $students->pluck('id'))
+            ->whereDate('date', '<', $date)
+            ->orderByDesc('date')
+            ->get()
+            ->groupBy('user_id');
+
+
         return view('admin.attendance.daily', [
-            'students' => $students,
-            'records' => $records,
-            'date' => $date,
-            'statusFilter' => $statusFilter,
-            'courseId' => $courseId,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
-            'counts' => $this->dayCounts($request, $date, $courseId),
-            'pinConfigured' => AttendanceConfig::hasEditPin(),
-        ]);
+    'students' => $students,
+    'records' => $records,
+    'previousAttendance' => $previousAttendance,
+    'date' => $date,
+    'statusFilter' => $statusFilter,
+    'courseId' => $courseId,
+    'courses' => Course::orderBy('title')->get(['id', 'title']),
+    'counts' => $this->dayCounts($request, $date, $courseId),
+    'pinConfigured' => AttendanceConfig::hasEditPin(),
+]);
     }
 
     /** Print the currently loaded register (same filters) as a PDF. */
@@ -68,10 +76,10 @@ class DailyAttendanceController extends Controller
 
         $students = $this->cohort($request, $courseId)
             ->with(['studentProfile:id,user_id,reg_no', 'enrollments.course:id,title'])
-            ->when($statusFilter === 'unmarked', fn ($query) => $query
-                ->whereDoesntHave('dailyAttendance', fn ($inner) => $inner->whereDate('date', $date)))
-            ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn ($query) => $query
-                ->whereHas('dailyAttendance', fn ($inner) => $inner->whereDate('date', $date)->where('status', $statusFilter)))
+            ->when($statusFilter === 'unmarked', fn($query) => $query
+                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)))
+            ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn($query) => $query
+                ->whereHas('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)->where('status', $statusFilter)))
             ->orderBy('name')
             ->limit(1000)
             ->get();
@@ -93,7 +101,7 @@ class DailyAttendanceController extends Controller
             'generatedBy' => $request->user()->name,
         ])->setPaper('a4', 'landscape');
 
-        return $pdf->stream('daily-attendance-'.$date->toDateString().'.pdf');
+        return $pdf->stream('daily-attendance-' . $date->toDateString() . '.pdf');
     }
 
     /** Per-student attendance history with range filters. */
@@ -134,7 +142,7 @@ class DailyAttendanceController extends Controller
             'generatedBy' => $request->user()->name,
         ])->setPaper('a4');
 
-        return $pdf->stream('attendance-'.($student->studentProfile?->reg_no ?? $student->id).'.pdf');
+        return $pdf->stream('attendance-' . ($student->studentProfile?->reg_no ?? $student->id) . '.pdf');
     }
 
     /** First-time marking — no PIN, but only once per student per day. */
@@ -231,7 +239,7 @@ class DailyAttendanceController extends Controller
         }
 
         // Five PIN attempts per minute per user, then a cool-off.
-        $throttleKey = 'attendance-pin:'.$request->user()->id;
+        $throttleKey = 'attendance-pin:' . $request->user()->id;
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             return back()->with('error', 'Too many wrong PIN attempts — wait a minute and try again.');
         }
@@ -277,16 +285,16 @@ class DailyAttendanceController extends Controller
         return User::role('student')
             ->where('is_active', true)
             ->when($request->filled('search'), function ($query) use ($request) {
-                $term = '%'.trim($request->string('search')).'%';
-                $query->where(fn ($inner) => $inner
+                $term = '%' . trim($request->string('search')) . '%';
+                $query->where(fn($inner) => $inner
                     ->where('name', 'like', $term)
                     ->orWhere('email', 'like', $term)
-                    ->orWhereHas('studentProfile', fn ($profile) => $profile
+                    ->orWhereHas('studentProfile', fn($profile) => $profile
                         ->where('reg_no', 'like', $term)
                         ->orWhere('cnic', 'like', $term)));
             })
-            ->when($courseId, fn ($query) => $query
-                ->whereHas('enrollments', fn ($inner) => $inner->where('course_id', $courseId)));
+            ->when($courseId, fn($query) => $query
+                ->whereHas('enrollments', fn($inner) => $inner->where('course_id', $courseId)));
     }
 
     /** Day summary for the filtered cohort (search + course aware). */
@@ -323,13 +331,13 @@ class DailyAttendanceController extends Controller
         }
 
         $query = DailyAttendance::where('user_id', $student->id)
-            ->when($range === 'today', fn ($inner) => $inner->whereDate('date', today()))
-            ->when($range === 'yesterday', fn ($inner) => $inner->whereDate('date', today()->subDay()))
-            ->when($range === 'week', fn ($inner) => $inner->whereDate('date', '>=', today()->startOfWeek()))
-            ->when($range === 'month', fn ($inner) => $inner->whereDate('date', '>=', today()->startOfMonth()))
-            ->when($from !== null, fn ($inner) => $inner->whereDate('date', '>=', $from))
-            ->when($to !== null, fn ($inner) => $inner->whereDate('date', '<=', $to))
-            ->when($statusFilter !== null, fn ($inner) => $inner->where('status', $statusFilter));
+            ->when($range === 'today', fn($inner) => $inner->whereDate('date', today()))
+            ->when($range === 'yesterday', fn($inner) => $inner->whereDate('date', today()->subDay()))
+            ->when($range === 'week', fn($inner) => $inner->whereDate('date', '>=', today()->startOfWeek()))
+            ->when($range === 'month', fn($inner) => $inner->whereDate('date', '>=', today()->startOfMonth()))
+            ->when($from !== null, fn($inner) => $inner->whereDate('date', '>=', $from))
+            ->when($to !== null, fn($inner) => $inner->whereDate('date', '<=', $to))
+            ->when($statusFilter !== null, fn($inner) => $inner->where('status', $statusFilter));
 
         return [$range, $statusFilter, $query];
     }
@@ -337,7 +345,7 @@ class DailyAttendanceController extends Controller
     /** Range-filtered overview counts for one student (status filter excluded). */
     protected function studentSummary(Request $request, User $student): array
     {
-        [, , $query] = $this->studentQuery($request->duplicate(array_merge($request->query(), ['status' => null])), $student);
+        [,, $query] = $this->studentQuery($request->duplicate(array_merge($request->query(), ['status' => null])), $student);
 
         $counts = (clone $query)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $total = (int) $counts->sum();
