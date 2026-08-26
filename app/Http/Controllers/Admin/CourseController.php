@@ -76,7 +76,30 @@ class CourseController extends Controller
             'modules.lessons.resources',
         ])->loadCount('enrollments');
 
-        return view('admin.courses.show', ['course' => $course]);
+        $lessonIds = $course->modules->flatMap->lessons->pluck('id');
+
+        $watches = \App\Models\LessonVideoProgress::query()
+            ->whereIn('lesson_id', $lessonIds)
+            ->with('user:id,name,email')
+            ->get()
+            ->groupBy('lesson_id');
+
+        $enrolledCount = $course->enrollments_count;
+        $required = \App\Models\LessonVideoProgress::requiredPercent();
+
+        // Per lesson: how many enrolled students cleared the bar, and who did what.
+        $watchStats = $watches->map(fn ($rows) => [
+            'rows' => $rows->sortByDesc('coverage_percent')->values(),
+            'full' => $rows->where('coverage_percent', '>=', $required)->count(),
+            'started' => $rows->where('watched_seconds', '>', 0)->count(),
+            'enrolled' => $enrolledCount,
+        ]);
+
+        return view('admin.courses.show', [
+            'course' => $course,
+            'watchStats' => $watchStats,
+            'requiredPercent' => $required,
+        ]);
     }
 
     public function edit(Course $course): View

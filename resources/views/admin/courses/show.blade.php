@@ -108,6 +108,27 @@
                             @if ($lesson->is_preview)
                                 <x-badge variant="success">preview</x-badge>
                             @endif
+                            @if ($lesson->type === 'video' && $lesson->video)
+                                @php $stats = ($watchStats ?? collect())->get($lesson->id); @endphp
+                                <button type="button" x-data
+                                    x-on:click="$dispatch('lesson-watch', {
+                                        title: @js($lesson->title),
+                                        rows: @js(($stats['rows'] ?? collect())->map(fn ($row) => [
+                                            'name' => $row->user?->name ?? 'Unknown',
+                                            'email' => $row->user?->email,
+                                            'coverage' => $row->coverage_percent,
+                                            'verdict' => $row->verdict(),
+                                            'segments' => $row->segments ?? [],
+                                            'skipped' => $row->skippedSegments(),
+                                            'duration' => $row->duration_seconds,
+                                            'seen' => $row->last_seen_at?->diffForHumans(),
+                                        ])->values()),
+                                    }); $dispatch('open-modal', 'lesson-watch')"
+                                    class="shrink-0 rounded-lg px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-on-surface-variant transition hover:bg-primary/10 hover:text-primary"
+                                    title="Who watched this lecture">
+                                    {{ $stats['full'] ?? 0 }}/{{ $stats['enrolled'] ?? 0 }} watched
+                                </button>
+                            @endif
                             @if ($lesson->type === 'video' && $lesson->video && ($lesson->video->embed_src || $lesson->video->provider === 'self_hosted'))
                                 <button type="button" x-data
                                     x-on:click="$dispatch('lesson-preview', {
@@ -249,6 +270,83 @@
 
     {{-- Shared lecture-preview modal: fed by the per-lesson play buttons.
          The src is cleared whenever the modal closes so playback stops. --}}
+    {{-- Who watched a lecture, and which parts they skipped. --}}
+    <x-modal name="lesson-watch" max-width="3xl">
+        <div class="p-6" x-data="{ title: '', rows: [] }"
+            x-on:lesson-watch.window="title = $event.detail.title; rows = $event.detail.rows"
+            x-on:close-modal.window="if ($event.detail === 'lesson-watch') { rows = [] }">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-outline">Video watch record</p>
+                    <h3 class="truncate font-display text-lg font-semibold text-on-surface" x-text="title"></h3>
+                </div>
+                <button type="button" x-on:click="$dispatch('close-modal', 'lesson-watch')"
+                    class="rounded-lg p-1.5 text-on-surface-variant transition hover:bg-error/10 hover:text-error" aria-label="Close">
+                    <x-icon name="x" class="size-4" />
+                </button>
+            </div>
+
+            <p class="mt-1 text-xs text-on-surface-variant">
+                Filled bars are the parts actually played. Gaps were skipped —
+                {{ $requiredPercent ?? 90 }}% coverage is required to complete the lesson.
+            </p>
+
+            <template x-if="rows.length === 0">
+                <p class="mt-6 rounded-xl bg-surface-ice/70 p-6 text-center text-sm text-on-surface-variant">
+                    No student has played this video yet.
+                </p>
+            </template>
+
+            <ul class="scroll-thin mt-5 max-h-[26rem] space-y-3 overflow-y-auto pr-1">
+                <template x-for="row in rows" :key="row.email || row.name">
+                    <li class="rounded-xl border border-outline-variant/60 p-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium text-on-surface" x-text="row.name"></p>
+                                <p class="truncate font-mono text-[10px] text-outline" x-text="row.email"></p>
+                            </div>
+                            <div class="shrink-0 text-right">
+                                <span class="font-mono text-sm"
+                                    :class="{
+                                        'text-success': row.verdict === 'watched in full',
+                                        'text-warning': row.verdict === 'skipped ahead',
+                                        'text-primary': row.verdict === 'left part-way',
+                                        'text-outline': row.verdict === 'not started',
+                                    }"
+                                    x-text="row.coverage + '%'"></span>
+                                <p class="font-mono text-[10px] uppercase tracking-[0.08em] text-outline" x-text="row.verdict"></p>
+                            </div>
+                        </div>
+
+                        <div class="relative mt-2 h-2 overflow-hidden rounded-full bg-surface-ice">
+                            <template x-for="(seg, i) in row.segments" :key="i">
+                                <span class="absolute inset-y-0"
+                                    :class="{
+                                        'bg-success': row.verdict === 'watched in full',
+                                        'bg-warning': row.verdict === 'skipped ahead',
+                                        'bg-primary': row.verdict === 'left part-way',
+                                    }"
+                                    :style="`left:${(seg[0] / row.duration) * 100}%; width:${Math.max(0.5, ((seg[1]-seg[0]) / row.duration) * 100)}%`"></span>
+                            </template>
+                        </div>
+
+                        <p class="mt-1.5 font-mono text-[10px] text-outline">
+                            <template x-if="row.skipped.length">
+                                <span>skipped
+                                    <template x-for="(gap, i) in row.skipped" :key="i">
+                                        <span x-text="`${Math.floor(gap[0]/60)}:${String(Math.floor(gap[0]%60)).padStart(2,'0')}\u2013${Math.floor(gap[1]/60)}:${String(Math.floor(gap[1]%60)).padStart(2,'0')} `"></span>
+                                    </template>
+                                </span>
+                            </template>
+                            <template x-if="!row.skipped.length"><span>no gaps</span></template>
+                            <span x-show="row.seen" x-text="` \u00b7 ${row.seen}`"></span>
+                        </p>
+                    </li>
+                </template>
+            </ul>
+        </div>
+    </x-modal>
+
     <x-modal name="lesson-preview" max-width="3xl">
         <div x-data="{ title: '', src: null, file: null }"
             x-on:lesson-preview.window="title = $event.detail.title; src = $event.detail.src; file = $event.detail.file"

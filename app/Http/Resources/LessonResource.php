@@ -13,6 +13,7 @@ class LessonResource extends LessonSummaryResource
         return array_merge(parent::toArray($request), [
             'content' => $this->content,
             'video' => $this->video ? new VideoResource($this->video) : null,
+            'video_progress' => $this->whenNotNull($this->video_progress),
             'resources' => ResourceFileResource::collection($this->resources),
             'quiz_id' => $this->quiz_id ?? null,
             'assignment_id' => $this->assignment_id ?? null,

@@ -178,6 +178,43 @@
 
         {{-- Documents --}}
         <x-card class="min-w-0 self-start">
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="font-mono text-label-md uppercase text-on-surface">Video watch record</h2>
+                <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-outline">
+                    {{ $requiredPercent }}% required
+                </span>
+            </div>
+
+            @if ($watches->isEmpty())
+                <p class="mt-4 rounded-xl bg-surface-ice/70 p-5 text-center text-sm text-on-surface-variant">
+                    This student hasn't played any lesson video yet.
+                </p>
+            @else
+                <ul class="mt-4 space-y-3">
+                    @foreach ($watches as $watch)
+                        <li class="rounded-xl border border-outline-variant/60 p-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-medium text-on-surface">
+                                        {{ $watch->lesson?->title ?? 'Lesson removed' }}
+                                    </p>
+                                    <p class="truncate font-mono text-[10px] text-outline">
+                                        {{ $watch->course?->title }}
+                                        @if ($watch->last_seen_at) · {{ $watch->last_seen_at->diffForHumans() }} @endif
+                                    </p>
+                                </div>
+                                @if ($watch->completed_at)
+                                    <x-badge variant="success">complete</x-badge>
+                                @endif
+                            </div>
+                            <x-watch-bar :progress="$watch" class="mt-2" />
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </x-card>
+
+        <x-card class="min-w-0 self-start">
             <div class="mb-4 flex items-center gap-2.5">
                 <x-icon name="document" class="size-4 text-primary" />
                 <h2 class="font-mono text-label-md uppercase text-on-surface">Documents</h2>

@@ -257,9 +257,16 @@ class StudentController extends Controller
 
         $invoices = Invoice::where('user_id', $student->id)->get(['id', 'amount', 'fine_amount', 'status']);
 
+        $watches = \App\Models\LessonVideoProgress::where('user_id', $student->id)
+            ->with(['lesson:id,title,course_id', 'course:id,title'])
+            ->orderByDesc('last_seen_at')
+            ->get();
+
         return view('admin.students.show', [
             'student' => $student,
             'profile' => $student->studentProfile,
+            'watches' => $watches,
+            'requiredPercent' => \App\Models\LessonVideoProgress::requiredPercent(),
             'fees' => [
                 'paid' => $invoices->where('status', 'paid')->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
                 'outstanding' => $invoices->whereIn('status', ['open', 'pending', 'past_due'])

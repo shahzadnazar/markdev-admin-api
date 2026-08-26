@@ -9,6 +9,7 @@ use App\Models\Enrollment;
 use App\Models\LearningActivity;
 use App\Models\Lesson;
 use App\Models\LessonCompletion;
+use App\Models\LessonVideoProgress;
 use App\Services\LessonProgressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -41,15 +42,93 @@ class LessonController extends ApiController
         $lesson->setAttribute('is_completed', LessonCompletion::where('user_id', $user->id)
             ->where('lesson_id', $lesson->id)
             ->exists());
+        $lesson->setAttribute('video_progress', $this->videoProgressPayload($user->id, $lesson));
 
         return new LessonResource($lesson);
     }
 
     public function complete(Request $request, Course $course, Lesson $lesson, LessonProgressService $progress): JsonResponse
     {
-        $percent = $progress->complete($request->user(), $course, $lesson);
+        $user = $request->user();
+
+        // A video lesson is only done once enough of it has actually been played.
+        // Seeking past a section never counts, so the check cannot be satisfied
+        // by dragging the scrubber to the end.
+        if ($lesson->type === 'video' && $lesson->video()->exists()) {
+            $required = LessonVideoProgress::requiredPercent();
+            $watch = LessonVideoProgress::where('user_id', $user->id)
+                ->where('lesson_id', $lesson->id)
+                ->first();
+            $covered = (int) ($watch->coverage_percent ?? 0);
+
+            if ($covered < $required) {
+                return response()->json([
+                    'message' => "Watch at least {$required}% of the video to complete this lesson. You have watched {$covered}%.",
+                    'errors' => ['video' => ["You have watched {$covered}% of {$required}%."]],
+                    'data' => ['coverage_percent' => $covered, 'required_percent' => $required],
+                ], 422);
+            }
+        }
+
+        $percent = $progress->complete($user, $course, $lesson);
 
         return response()->json(['data' => ['progress_percent' => $percent]]);
+    }
+
+    /**
+     * Record the ranges of the lesson video the student just played.
+     *
+     * The client sends the segments it observed; the server merges them into
+     * what it already holds, so coverage accumulates across sittings and a
+     * replay is never counted twice.
+     */
+    public function videoProgress(Request $request, Course $course, Lesson $lesson): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'duration' => ['required', 'integer', 'min:1', 'max:86400'],
+            'position' => ['nullable', 'integer', 'min:0', 'max:86400'],
+            'segments' => ['present', 'array', 'max:500'],
+            'segments.*' => ['array', 'size:2'],
+            'segments.*.*' => ['numeric', 'min:0', 'max:86400'],
+        ]);
+
+        $enrolled = Enrollment::where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->exists();
+
+        abort_unless($enrolled || $lesson->is_preview, 403, 'Enroll in the course to access this lesson.');
+        abort_unless($lesson->course_id === $course->id, 404);
+
+        $progress = LessonVideoProgress::firstOrNew([
+            'user_id' => $user->id,
+            'lesson_id' => $lesson->id,
+        ]);
+        $progress->course_id = $course->id;
+        $progress->recordSegments($data['segments'], $data['duration'], $data['position'] ?? null);
+        $progress->save();
+
+        return response()->json(['data' => $this->videoProgressPayload($user->id, $lesson, $progress)]);
+    }
+
+    /** @return array<string, mixed> */
+    protected function videoProgressPayload(int $userId, Lesson $lesson, ?LessonVideoProgress $progress = null): array
+    {
+        $required = LessonVideoProgress::requiredPercent();
+
+        $progress ??= LessonVideoProgress::where('user_id', $userId)
+            ->where('lesson_id', $lesson->id)
+            ->first();
+
+        return [
+            'watched_seconds' => (int) ($progress->watched_seconds ?? 0),
+            'duration_seconds' => (int) ($progress->duration_seconds ?? 0),
+            'furthest_seconds' => (int) ($progress->furthest_seconds ?? 0),
+            'coverage_percent' => (int) ($progress->coverage_percent ?? 0),
+            'required_percent' => $required,
+            'can_complete' => (int) ($progress->coverage_percent ?? 0) >= $required,
+        ];
     }
 
     public function uncomplete(Request $request, Course $course, Lesson $lesson, LessonProgressService $progress): JsonResponse
