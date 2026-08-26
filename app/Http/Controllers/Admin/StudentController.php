@@ -91,7 +91,13 @@ class StudentController extends Controller
             ->when($request->filled('course'), fn ($query) => $query
                 ->whereHas('enrollments', fn ($inner) => $inner->where('course_id', $request->integer('course'))))
             ->when($status !== null, fn ($query) => $query->where('is_active', $status === 'active'))
+            // `created_at` alone is not a unique sort key — students registered in
+            // the same second (bulk imports, seeded cohorts) tie, and MySQL gives no
+            // stable order for ties across separate LIMIT/OFFSET queries. That drops
+            // some students from one page and repeats others on the next, so the
+            // unfiltered list never shows everyone. `id` breaks the tie.
             ->latest()
+            ->orderByDesc('id')
             ->paginate(12)
             ->withQueryString();
 
