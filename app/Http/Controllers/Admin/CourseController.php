@@ -89,13 +89,19 @@ class CourseController extends Controller
         $enrolledCount = $course->enrollments_count;
         $required = \App\Models\LessonVideoProgress::requiredPercent();
 
-        // Per lesson: how many enrolled students cleared the bar, and who did what.
-        $watchStats = $watches->map(fn ($rows) => [
-            'rows' => $rows->sortByDesc('coverage_percent')->values(),
-            'full' => $rows->where('coverage_percent', '>=', $required)->count(),
-            'started' => $rows->where('watched_seconds', '>', 0)->count(),
-            'enrolled' => $enrolledCount,
-        ]);
+        // Every lesson gets an entry, not just the watched ones — otherwise a
+        // lesson nobody has opened yet loses its denominator and reads "0/0"
+        // on a course that has students enrolled.
+        $watchStats = $lessonIds->mapWithKeys(function ($lessonId) use ($watches, $required, $enrolledCount) {
+            $rows = $watches->get($lessonId, collect());
+
+            return [$lessonId => [
+                'rows' => $rows->sortByDesc('coverage_percent')->values(),
+                'full' => $rows->where('coverage_percent', '>=', $required)->count(),
+                'started' => $rows->where('watched_seconds', '>', 0)->count(),
+                'enrolled' => $enrolledCount,
+            ]];
+        });
 
         return view('admin.courses.show', [
             'course' => $course,
