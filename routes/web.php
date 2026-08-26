@@ -13,7 +13,6 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EnrollmentController;
 use App\Http\Controllers\Admin\HelpController;
 use App\Http\Controllers\Admin\LessonController;
-use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\QuestionController;
 use App\Http\Controllers\Admin\QuizController;
@@ -320,12 +319,6 @@ Route::prefix('admin')
             Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
             Route::put('settings', [SettingController::class, 'update'])->middleware('can:settings.update')->name('settings.update');
             Route::post('settings/backups/run', [SettingController::class, 'runBackup'])->middleware('can:backups.run')->name('settings.backups.run');
-        });
-
-        Route::middleware('can:media.view')->group(function () {
-            Route::get('media', [MediaController::class, 'index'])->name('media.index');
-            Route::post('media', [MediaController::class, 'store'])->middleware('can:media.upload')->name('media.store');
-            Route::delete('media', [MediaController::class, 'destroy'])->middleware('can:media.delete')->name('media.destroy');
         });
     });
 

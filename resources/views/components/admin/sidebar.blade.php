@@ -94,7 +94,7 @@
         </x-admin.nav-section>
         @endcan
 
-        @canany(['audit-logs.view', 'reports.view', 'settings.view', 'media.view'])
+        @canany(['audit-logs.view', 'reports.view', 'settings.view'])
         <x-admin.nav-section label="System">
             @can('audit-logs.view')
             <x-admin.nav-item :href="route('admin.audit-logs.index')" icon="audit" :active="request()->routeIs('admin.audit-logs.*')">Audit Logs</x-admin.nav-item>
@@ -104,9 +104,6 @@
             @endcan
             @can('settings.view')
             <x-admin.nav-item :href="route('admin.settings.edit')" icon="cog" :active="request()->routeIs('admin.settings.*')">Settings</x-admin.nav-item>
-            @endcan
-            @can('media.view')
-            <x-admin.nav-item :href="route('admin.media.index')" icon="photo" :active="request()->routeIs('admin.media.*')">Media</x-admin.nav-item>
             @endcan
         </x-admin.nav-section>
         @endcanany
