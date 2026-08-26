@@ -70,7 +70,7 @@ class Video extends Model
         $url = (string) $this->getRawOriginal('url');
 
         if ($this->provider === 'youtube' && $url !== '') {
-            if (preg_match('~(?:youtube\.com/(?:watch\?v=|shorts/|embed/)|youtu\.be/)([\w-]{6,})~', $url, $m)) {
+            if (preg_match('~(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:[^#]*&)?v=|shorts/|embed/|live/|v/)|youtu\.be/)([\w-]{6,})~i', $url, $m)) {
                 return "https://www.youtube.com/embed/{$m[1]}";
             }
         }
