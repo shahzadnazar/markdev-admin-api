@@ -41,53 +41,66 @@ class StudentController extends Controller
             ? $request->query('status')
             : null;
 
+        // Independent filters: each narrows the list on its own and combines with the
+        // others (AND). The free-text search always covers every identity column, so
+        // a CNIC or reg number is found without having to pick a field first.
+        $name = trim((string) $request->query('name', ''));
+
+        $genders = array_values(array_intersect(
+            array_map('strtolower', array_map('strval', (array) $request->query('gender', []))),
+            ['male', 'female'],
+        ));
+
+        $joinedFrom = $this->asDate($request->query('joined_from'));
+        $joinedTo = $this->asDate($request->query('joined_to'));
+
+        // A single day is the same date in both boxes. If they arrive reversed,
+        // swap them rather than returning an empty list.
+        if ($joinedFrom !== null && $joinedTo !== null && $joinedFrom->gt($joinedTo)) {
+            [$joinedFrom, $joinedTo] = [$joinedTo, $joinedFrom];
+        }
+
         $students = User::role('student')
             ->with(['studentProfile', 'enrollments.course:id,title'])
             ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->when($request->filled('search'), function ($query) use ($request) {
-                $term = '%'.trim($request->string('search')).'%';
+                $raw = trim((string) $request->string('search'));
+                $term = '%'.$raw.'%';
 
-                // Which fields the search box should match. Empty = search everything.
-                $fields = array_values(array_intersect(
-                    (array) $request->query('fields', []),
-                    ['name', 'gender', 'joined'],
-                ));
+                // CNIC and phone carry separators, so a typed run of digits is also
+                // matched against the stripped value: both "31201" and
+                // "312011234567" find 31201-1234567-1.
+                $digits = preg_replace('/\D+/', '', $raw);
 
-                // The whole search must be wrapped, otherwise its ORs escape the
-                // closure and match students excluded by the status/course filters.
-                $query->where(function ($outer) use ($term, $fields) {
-                    if ($fields === []) {
-                        $outer->where('name', 'like', $term)
-                            ->orWhere('email', 'like', $term)
-                            ->orWhere('phone', 'like', $term)
-                            ->orWhereHas('studentProfile', fn ($profile) => $profile
-                                ->where('reg_no', 'like', $term)
-                                ->orWhere('cnic', 'like', $term)
-                                ->orWhere('father_name', 'like', $term));
-
-                        return;
-                    }
-
-                    if (in_array('name', $fields, true)) {
-                        $outer->orWhere('name', 'like', $term);
-                    }
-
-                    $profileFields = array_intersect($fields, ['gender', 'joined']);
-
-                    if ($profileFields !== []) {
-                        $outer->orWhereHas('studentProfile', fn ($profile) => $profile
-                            ->where(function ($inner) use ($profileFields, $term) {
-                                if (in_array('gender', $profileFields, true)) {
-                                    $inner->orWhere('gender', 'like', $term);
-                                }
-
-                                if (in_array('joined', $profileFields, true)) {
-                                    $inner->orWhere('date_of_joining', 'like', $term);
-                                }
-                            }));
-                    }
-                });
+                // Wrapped so these ORs cannot escape and defeat the other filters.
+                $query->where(fn ($outer) => $outer
+                    ->where('name', 'like', $term)
+                    ->orWhere('email', 'like', $term)
+                    ->orWhere('phone', 'like', $term)
+                    ->when($digits !== '', fn ($q) => $q
+                        ->orWhereRaw("replace(replace(replace(coalesce(phone, ''), '-', ''), ' ', ''), '+', '') like ?", ['%'.$digits.'%']))
+                    ->orWhereHas('studentProfile', fn ($profile) => $profile
+                        ->where('reg_no', 'like', $term)
+                        ->orWhere('cnic', 'like', $term)
+                        ->orWhere('father_name', 'like', $term)
+                        ->when($digits !== '', fn ($q) => $q
+                            ->orWhereRaw("replace(replace(coalesce(cnic, ''), '-', ''), ' ', '') like ?", ['%'.$digits.'%']))));
             })
+            ->when($name !== '', fn ($query) => $query->where('name', 'like', '%'.$name.'%'))
+            ->when($genders !== [], fn ($query) => $query
+                ->whereHas('studentProfile', function ($profile) use ($genders) {
+                    $profile->where(function ($inner) use ($genders) {
+                        foreach ($genders as $gender) {
+                            $inner->orWhereRaw('lower(gender) = ?', [$gender]);
+                        }
+                    });
+                }))
+            ->when($joinedFrom !== null, fn ($query) => $query
+                ->whereHas('studentProfile', fn ($profile) => $profile
+                    ->whereDate('date_of_joining', '>=', $joinedFrom)))
+            ->when($joinedTo !== null, fn ($query) => $query
+                ->whereHas('studentProfile', fn ($profile) => $profile
+                    ->whereDate('date_of_joining', '<=', $joinedTo)))
             ->when($request->filled('course'), fn ($query) => $query
                 ->whereHas('enrollments', fn ($inner) => $inner->where('course_id', $request->integer('course'))))
             ->when($status !== null, fn ($query) => $query->where('is_active', $status === 'active'))
@@ -99,12 +112,32 @@ class StudentController extends Controller
             ->latest()
             ->orderByDesc('id')
             ->paginate(12)
-            ->withQueryString();
+            // `partial` is a transport detail of live search — it must never end up
+            // inside the pagination links it renders.
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        $filters = [
+            'search' => (string) $request->query('search', ''),
+            'name' => $name,
+            'gender' => $genders,
+            'joined_from' => $joinedFrom?->toDateString(),
+            'joined_to' => $joinedTo?->toDateString(),
+        ];
+
+        // Live search re-renders only the results table, so typing never reloads
+        // the page and the cursor stays in the search box.
+        if ($request->boolean('partial')) {
+            return view('admin.students._results', [
+                'students' => $students,
+                'trashed' => $trashed,
+            ]);
+        }
 
         return view('admin.students.index', [
             'students' => $students,
             'status' => $status,
             'trashed' => $trashed,
+            'filters' => $filters,
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'totals' => [
                 'students' => User::role('student')->count(),
@@ -113,6 +146,22 @@ class StudentController extends Controller
                 'enrollments' => Enrollment::count(),
             ],
         ]);
+    }
+
+    /** Parse a yyyy-mm-dd filter value, ignoring anything unparseable. */
+    protected function asDate(mixed $value): ?\Illuminate\Support\Carbon
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($value)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function create(): View

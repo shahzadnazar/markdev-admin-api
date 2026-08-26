@@ -19,220 +19,255 @@
         <x-stat-widget label="Course enrollments" :value="number_format($totals['enrollments'])" icon="tag" tone="primary" />
     </div>
 
+
+    @php
+        // Everything except `status`, so the tabs keep the admin's filters.
+        $carry = array_filter([
+            'search' => $filters['search'],
+            'name' => $filters['name'],
+            'gender' => $filters['gender'],
+            'joined_from' => $filters['joined_from'],
+            'joined_to' => $filters['joined_to'],
+            'course' => request('course'),
+        ], fn ($value) => $value !== null && $value !== '' && $value !== []);
+        $hasFilters = $carry !== [];
+    @endphp
+
     {{-- Filters --}}
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-        @if ($trashed)
-            <div class="flex items-center gap-2.5 rounded-lg border border-error/20 bg-error-container/40 px-4 py-2.5">
-                <x-icon name="trash" class="size-4 shrink-0 text-error" />
-                <p class="text-sm text-on-surface-variant">
-                    {{ number_format($students->total()) }} removed {{ \Illuminate\Support\Str::plural('student', $students->total()) }}
-                    — restore them or remove permanently.
-                </p>
-            </div>
-        @else
-            <div class="inline-flex rounded-lg bg-white p-1 shadow-card">
-                @php
-                    $tabCounts = [null => $totals['students'], 'active' => $totals['active'], 'inactive' => $totals['students'] - $totals['active']];
-                @endphp
-                @foreach (['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
-                    @php $isActive = ($status ?? '') === $key; @endphp
-                    <a href="{{ route('admin.students.index', array_filter(['status' => $key, 'search' => request('search'), 'course' => request('course'), 'fields' => request('fields')])) }}"
-                        class="inline-flex items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium transition {{ $isActive ? 'bg-primary text-white shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
-                        {{ $label }}
-                        <span class="rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none {{ $isActive ? 'bg-white/20 text-white' : 'bg-surface-ice text-on-surface-variant' }}">{{ number_format($tabCounts[$key]) }}</span>
-                    </a>
-                @endforeach
-            </div>
-        @endif
+    <div class="mb-6 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            @if ($trashed)
+                <div class="flex items-center gap-2.5 rounded-lg border border-error/20 bg-error-container/40 px-4 py-2.5">
+                    <x-icon name="trash" class="size-4 shrink-0 text-error" />
+                    <p class="text-sm text-on-surface-variant">
+                        {{ number_format($students->total()) }} removed {{ \Illuminate\Support\Str::plural('student', $students->total()) }}
+                        — restore them or remove permanently.
+                    </p>
+                </div>
+            @else
+                <div class="inline-flex rounded-lg bg-white p-1 shadow-card">
+                    @php
+                        $tabCounts = [null => $totals['students'], 'active' => $totals['active'], 'inactive' => $totals['students'] - $totals['active']];
+                    @endphp
+                    @foreach (['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive'] as $key => $label)
+                        @php $isActive = ($status ?? '') === $key; @endphp
+                        <a href="{{ route('admin.students.index', array_filter(['status' => $key]) + $carry) }}"
+                            class="inline-flex items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium transition {{ $isActive ? 'bg-primary text-white shadow-card' : 'text-on-surface-variant hover:text-on-surface' }}">
+                            {{ $label }}
+                            <span class="rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none {{ $isActive ? 'bg-white/20 text-white' : 'bg-surface-ice text-on-surface-variant' }}">{{ number_format($tabCounts[$key]) }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+        </div>
 
-        @php
-            $searchFields = array_values(array_intersect(
-                (array) request('fields', []),
-                ['name', 'gender', 'joined'],
-            ));
-            $fieldLabels = ['name' => 'Name', 'gender' => 'Gender', 'joined' => 'Joined Date'];
-        @endphp
-
-        <form method="GET" action="{{ route('admin.students.index') }}"
-            class="flex flex-wrap items-center gap-2"
-            x-data="{
-                timer: null,
-                /* Debounced so we fire one request after typing stops, not one per keystroke. */
-                live() {
-                    clearTimeout(this.timer);
-                    this.timer = setTimeout(() => this.$refs.form.requestSubmit(), 400);
-                },
-            }"
-            x-ref="form">
+        <form id="student-filters" method="GET" action="{{ route('admin.students.index') }}"
+            class="rounded-2xl bg-white p-4 shadow-card">
             @if ($status)
                 <input type="hidden" name="status" value="{{ $status }}">
             @endif
-            <select name="course" class="field w-56" onchange="this.form.submit()">
-                <option value="">All courses</option>
-                @foreach ($courses as $course)
-                    <option value="{{ $course->id }}" @selected(request('course') == $course->id)>{{ $course->title }}</option>
-                @endforeach
-            </select>
 
-            <input type="search" name="search" value="{{ request('search') }}"
-                placeholder="Name, email, reg #, CNIC…" class="field w-64"
-                autocomplete="off"
-                x-on:input="live()"
-                x-on:search="live()">
+            {{-- Row 1 — free-text search across name, email, phone, reg #, CNIC, father name --}}
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="relative min-w-64 flex-1">
+                    <x-icon name="search" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-outline" />
+                    <input type="search" name="search" value="{{ $filters['search'] }}"
+                        placeholder="Search name, email, phone, reg # or CNIC…"
+                        class="field w-full pl-9" autocomplete="off" data-live>
+                </div>
 
-            {{-- Narrows which fields the search box matches. None checked = search everything. --}}
-            <div class="relative" x-data="{ open: false }" x-on:keydown.escape="open = false">
-                <button type="button" x-on:click="open = ! open"
-                    class="flex h-[42px] items-center gap-2 rounded-lg border border-outline-variant bg-white px-3 text-sm text-on-surface-variant hover:bg-surface-ice"
-                    :aria-expanded="open.toString()" aria-haspopup="true">
-                    <span>
-                        Filters
-                        @if ($searchFields)
-                            <span class="ml-1 rounded-full bg-primary px-1.5 py-0.5 font-mono text-[10px] leading-none text-white">{{ count($searchFields) }}</span>
-                        @endif
-                    </span>
-                    <x-icon name="chevron-down" class="size-4" />
-                </button>
+                <select name="course" class="field w-52" data-live>
+                    <option value="">All courses</option>
+                    @foreach ($courses as $course)
+                        <option value="{{ $course->id }}" @selected(request('course') == $course->id)>{{ $course->title }}</option>
+                    @endforeach
+                </select>
 
-                <div x-show="open" x-on:click.outside="open = false" x-cloak
-                    class="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-outline-variant bg-white p-2 shadow-lg">
-                    @foreach ($fieldLabels as $value => $label)
-                        <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface-ice">
-                            <input type="checkbox" name="fields[]" value="{{ $value }}"
-                                @checked(in_array($value, $searchFields, true))
-                                onchange="this.form.submit()" class="check">
+                @can('students.delete')
+                    <label class="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-outline-variant px-3">
+                        <input type="checkbox" name="trashed" value="1" @checked($trashed) class="check" data-live>
+                        <span class="text-sm text-on-surface-variant">Trash box</span>
+                    </label>
+                @endcan
+
+                <a href="{{ route('admin.students.index') }}" data-clear
+                    class="flex h-[42px] items-center rounded-lg px-3 text-sm font-medium text-on-surface-variant transition hover:bg-surface-ice hover:text-on-surface {{ $hasFilters ? '' : 'pointer-events-none opacity-40' }}">
+                    Clear all
+                </a>
+            </div>
+
+            {{-- Row 2 — each filter narrows the list on its own and combines with the rest --}}
+            <div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-surface-ice pt-3">
+                {{-- Name: typing ticks the box --}}
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" class="check" data-toggle="name"
+                        @checked($filters['name'] !== '') aria-label="Filter by name">
+                    <label class="text-sm font-medium text-on-surface-variant" for="filter-name">Name</label>
+                    <input id="filter-name" type="text" name="name" value="{{ $filters['name'] }}"
+                        placeholder="Student name…" class="field w-48" autocomplete="off"
+                        data-group="name" data-live>
+                </div>
+
+                {{-- Gender: ticking an option filters to it; tick both to see both --}}
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-on-surface-variant">Gender</span>
+                    @foreach (['male' => 'Male', 'female' => 'Female'] as $value => $label)
+                        <label class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline-variant px-2.5 py-1.5">
+                            <input type="checkbox" name="gender[]" value="{{ $value }}"
+                                @checked(in_array($value, $filters['gender'], true)) class="check" data-live>
                             <span class="text-sm text-on-surface-variant">{{ $label }}</span>
                         </label>
                     @endforeach
                 </div>
+
+                {{-- Joined date: same date in both boxes matches that single day --}}
+                <div class="flex flex-wrap items-center gap-2">
+                    <input type="checkbox" class="check" data-toggle="joined"
+                        @checked($filters['joined_from'] || $filters['joined_to']) aria-label="Filter by joined date">
+                    <span class="text-sm font-medium text-on-surface-variant">Joined date</span>
+                    <label class="text-sm text-outline" for="filter-joined-from">From</label>
+                    <input id="filter-joined-from" type="date" name="joined_from" value="{{ $filters['joined_from'] }}"
+                        class="field w-40" data-group="joined" data-live>
+                    <label class="text-sm text-outline" for="filter-joined-to">To</label>
+                    <input id="filter-joined-to" type="date" name="joined_to" value="{{ $filters['joined_to'] }}"
+                        class="field w-40" data-group="joined" data-live>
+                </div>
+
+                {{-- Live search handles submission; this is the no-JS fallback. --}}
+                <noscript><x-btn variant="secondary" size="md">Apply</x-btn></noscript>
             </div>
-
-            @can('students.delete')
-                <label class="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-white px-3">
-                    <input type="checkbox" name="trashed" value="1" @checked($trashed) onchange="this.form.submit()" class="check">
-                    <span class="text-sm text-on-surface-variant">Trash box</span>
-                </label>
-            @endcan
-
-            {{-- No submit button: search fires automatically. Kept for keyboard Enter / no-JS fallback. --}}
-            <noscript><x-btn variant="secondary" size="md">Search</x-btn></noscript>
         </form>
     </div>
 
-    <x-table>
-        <thead class="bg-surface-ice/60">
-            <tr>
-                <th class="th">Student</th>
-                <th class="th">CNIC / Contact</th>
-                <th class="th">Courses</th>
-                <th class="th">Joined</th>
-                <th class="th">Status</th>
-                <th class="th text-right">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($students as $student)
-                <tr class="row">
-                    <td class="td">
-                        <div class="flex items-center gap-3">
-                            @if ($student->avatar_url)
-                                <img src="{{ $student->avatar_url }}" alt="" class="size-10 shrink-0 rounded-full object-cover">
-                            @else
-                                <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-display text-sm font-semibold text-white">
-                                    {{ strtoupper(mb_substr($student->name, 0, 1)) }}
-                                </span>
-                            @endif
-                            <div class="min-w-0">
-                                @if ($student->trashed())
-                                    <p class="truncate font-medium text-on-surface">{{ $student->name }}</p>
-                                @else
-                                    <a href="{{ route('admin.students.show', $student) }}"
-                                        class="block truncate font-medium text-on-surface hover:text-primary">{{ $student->name }}</a>
-                                @endif
-                                <p class="truncate font-mono text-[11px] text-outline">
-                                    {{ $student->studentProfile?->reg_no ?? $student->email }}
-                                </p>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="td">
-                        <p class="font-mono text-xs text-on-surface">{{ $student->studentProfile?->cnic ?? '—' }}</p>
-                        <p class="font-mono text-xs text-outline">{{ $student->phone ?? $student->email }}</p>
-                    </td>
-                    <td class="td" style="max-width: 14rem;">
-                        @if ($student->enrollments->isEmpty())
-                            <span class="font-mono text-xs text-outline">not enrolled</span>
-                        @else
-                            <p class="truncate text-sm font-medium text-on-surface"
-                                title="{{ $student->enrollments->map(fn ($enrollment) => $enrollment->course?->title)->filter()->implode(', ') }}">
-                                {{ \Illuminate\Support\Str::limit($student->enrollments->first()->course?->title ?? '—', 26, '…') }}
-                            </p>
-                            @if ($student->enrollments->count() > 1)
-                                <p class="mt-0.5 font-mono text-[11px] text-primary">+{{ $student->enrollments->count() - 1 }} more course{{ $student->enrollments->count() > 2 ? 's' : '' }}</p>
-                            @endif
-                        @endif
-                    </td>
-                    <td class="td font-mono text-xs text-on-surface-variant" style="white-space: nowrap;">
-                        {{ ($student->studentProfile?->date_of_joining ?? $student->created_at)?->format('M j, Y') }}
-                    </td>
-                    <td class="td">
-                        @if ($student->trashed())
-                            <x-badge variant="danger">Removed</x-badge>
-                        @else
-                            <x-badge :variant="$student->is_active ? 'success' : 'neutral'">
-                                {{ $student->is_active ? 'active' : 'inactive' }}
-                            </x-badge>
-                        @endif
-                    </td>
-                    <td class="td text-right">
-                        <div class="inline-flex items-center gap-1">
-                            @if ($student->trashed())
-                                @can('students.delete')
-                                    <form method="POST" action="{{ route('admin.students.restore', $student) }}" class="inline-flex">
-                                        @csrf
-                                        <x-btn variant="success" size="sm" title="Restore student">
-                                            <x-icon name="restore" class="size-4" /> Restore
-                                        </x-btn>
-                                    </form>
-                                    <x-confirm-form :action="route('admin.students.force-destroy', $student)" method="DELETE" variant="danger"
-                                        :title="'Permanently remove ' . $student->name . '?'"
-                                        :message="'This cannot be undone — the student\'s account and records are removed for good.'"
-                                        confirm-label="Remove permanently"
-                                        class="rounded-lg p-2 text-on-surface-variant transition hover:bg-error/10 hover:text-error">
-                                        <x-icon name="trash" class="size-4" />
-                                    </x-confirm-form>
-                                @endcan
-                            @else
-                                <x-btn variant="ghost" size="sm" :href="route('admin.students.show', $student)" title="View profile">
-                                    <x-icon name="eye" class="size-4" />
-                                </x-btn>
-                                @can('students.update')
-                                    <x-btn variant="ghost" size="sm" :href="route('admin.students.edit', $student)" title="Edit">
-                                        <x-icon name="pencil" class="size-4" />
-                                    </x-btn>
-                                @endcan
-                                @can('students.delete')
-                                    <x-confirm-form :action="route('admin.students.destroy', $student)" method="DELETE"
-                                        title="Move student to trash?"
-                                        :message="'Move '.$student->name.' to trash? They lose portal access; restore from Users → Trashed.'"
-                                        confirm-label="Move to trash"
-                                        class="rounded-lg p-2 text-on-surface-variant transition hover:bg-error/10 hover:text-error">
-                                        <x-icon name="trash" class="size-4" />
-                                    </x-confirm-form>
-                                @endcan
-                            @endif
-                        </div>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="6"><x-empty-state icon="users" title="No students found"
-                    description="Register your first student, or adjust the filters." /></td></tr>
-            @endforelse
-        </tbody>
-        @if ($students->hasPages() || $students->total() > 0)
-            <x-slot:footer>
-                {{ $students->links() }}
-            </x-slot:footer>
-        @endif
-    </x-table>
+    <div id="student-results" class="transition-opacity duration-150">
+        @include('admin.students._results')
+    </div>
+    <script>
+        (() => {
+            const form = document.getElementById('student-filters');
+            const results = document.getElementById('student-results');
+            if (!form || !results) return;
+
+            const base = new URL(form.action, window.location.origin);
+            let timer = null;
+            let inflight = null;
+
+            const inputsOf = (group) => form.querySelectorAll(`[data-group="${group}"]`);
+
+            /* A group's box reflects whether that filter actually holds a value. */
+            const syncToggle = (group) => {
+                const box = form.querySelector(`[data-toggle="${group}"]`);
+                if (box) box.checked = [...inputsOf(group)].some((el) => el.value.trim() !== '');
+            };
+
+            const clearLink = form.querySelector('[data-clear]');
+
+            /* Only the results table is swapped, so the chrome around it has to be
+               kept in step by hand — otherwise "Clear all" stays greyed out while
+               filters are plainly active. */
+            const syncChrome = () => {
+                if (!clearLink) return;
+                const active = [...new FormData(form)].some(([key, value]) =>
+                    key !== 'status' && typeof value === 'string' && value.trim() !== '');
+                clearLink.classList.toggle('pointer-events-none', !active);
+                clearLink.classList.toggle('opacity-40', !active);
+            };
+
+            const buildUrl = (extra) => {
+                const params = new URLSearchParams();
+                for (const [key, value] of new FormData(form)) {
+                    if (typeof value === 'string' && value.trim() !== '') params.append(key, value);
+                }
+                if (extra) params.set(extra[0], extra[1]);
+                const url = new URL(base);
+                url.search = params.toString();
+                return url;
+            };
+
+            const render = (pageUrl) => {
+                /* Only the table is re-fetched, so the page never reloads and the
+                   caret stays exactly where the admin left it. */
+                const target = pageUrl ? new URL(pageUrl) : buildUrl();
+                const fetchUrl = new URL(target);
+                fetchUrl.searchParams.set('partial', '1');
+
+                if (inflight) inflight.abort();
+                inflight = new AbortController();
+                results.classList.add('opacity-50');
+
+                fetch(fetchUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    signal: inflight.signal,
+                })
+                    .then((response) => {
+                        if (!response.ok) throw new Error(response.status);
+                        return response.text();
+                    })
+                    .then((html) => {
+                        results.innerHTML = html;
+                        window.history.replaceState(null, '', target);
+                    })
+                    .catch((error) => {
+                        /* A superseded keystroke is not a failure; anything else
+                           falls back to a normal page load so nothing is lost. */
+                        if (error.name !== 'AbortError') form.submit();
+                    })
+                    .finally(() => {
+                        results.classList.remove('opacity-50');
+                        syncChrome();
+                    });
+            };
+
+            const debounce = () => {
+                syncChrome();
+                clearTimeout(timer);
+                timer = setTimeout(render, 300);
+            };
+
+            form.addEventListener('input', (event) => {
+                if (!event.target.matches('[data-live]')) return;
+                if (event.target.dataset.group) syncToggle(event.target.dataset.group);
+                debounce();
+            });
+
+            form.addEventListener('change', (event) => {
+                const group = event.target.dataset.toggle;
+                if (group && !event.target.checked) {
+                    inputsOf(group).forEach((el) => { el.value = ''; });
+                } else if (group) {
+                    return; /* ticking an empty box filters nothing yet */
+                } else if (!event.target.matches('[data-live]')) {
+                    return;
+                }
+                clearTimeout(timer);
+                render();
+            });
+
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                clearTimeout(timer);
+                render();
+            });
+
+            form.querySelector('[data-clear]')?.addEventListener('click', (event) => {
+                event.preventDefault();
+                form.reset();
+                form.querySelectorAll('[data-live]').forEach((el) => {
+                    if (el.type === 'checkbox') el.checked = false;
+                    else el.value = '';
+                });
+                form.querySelectorAll('[data-toggle]').forEach((el) => { el.checked = false; });
+                clearTimeout(timer);
+                render();
+            });
+
+            /* Pagination is inside the swapped markup, so delegate from the container. */
+            results.addEventListener('click', (event) => {
+                const link = event.target.closest('[data-pagination] a[href]');
+                if (!link) return;
+                event.preventDefault();
+                render(link.href);
+            });
+        })();
+    </script>
 </x-admin.layout>
