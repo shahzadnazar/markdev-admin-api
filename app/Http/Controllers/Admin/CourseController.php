@@ -78,11 +78,13 @@ class CourseController extends Controller
 
         $lessonIds = $course->modules->flatMap->lessons->pluck('id');
 
-        $watches = \App\Models\LessonVideoProgress::query()
-            ->whereIn('lesson_id', $lessonIds)
-            ->with('user:id,name,email')
-            ->get()
-            ->groupBy('lesson_id');
+        $watches = \App\Models\LessonVideoProgress::available()
+            ? \App\Models\LessonVideoProgress::query()
+                ->whereIn('lesson_id', $lessonIds)
+                ->with('user:id,name,email')
+                ->get()
+                ->groupBy('lesson_id')
+            : collect();
 
         $enrolledCount = $course->enrollments_count;
         $required = \App\Models\LessonVideoProgress::requiredPercent();

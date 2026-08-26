@@ -54,7 +54,7 @@ class LessonController extends ApiController
         // A video lesson is only done once enough of it has actually been played.
         // Seeking past a section never counts, so the check cannot be satisfied
         // by dragging the scrubber to the end.
-        if ($lesson->type === 'video' && $lesson->video()->exists()) {
+        if ($lesson->type === 'video' && $lesson->video()->exists() && LessonVideoProgress::available()) {
             $required = LessonVideoProgress::requiredPercent();
             $watch = LessonVideoProgress::where('user_id', $user->id)
                 ->where('lesson_id', $lesson->id)
@@ -101,6 +101,8 @@ class LessonController extends ApiController
         abort_unless($enrolled || $lesson->is_preview, 403, 'Enroll in the course to access this lesson.');
         abort_unless($lesson->course_id === $course->id, 404);
 
+        abort_unless(LessonVideoProgress::available(), 503, 'Video tracking is not available yet.');
+
         $progress = LessonVideoProgress::firstOrNew([
             'user_id' => $user->id,
             'lesson_id' => $lesson->id,
@@ -117,9 +119,11 @@ class LessonController extends ApiController
     {
         $required = LessonVideoProgress::requiredPercent();
 
-        $progress ??= LessonVideoProgress::where('user_id', $userId)
-            ->where('lesson_id', $lesson->id)
-            ->first();
+        $progress ??= LessonVideoProgress::available()
+            ? LessonVideoProgress::where('user_id', $userId)
+                ->where('lesson_id', $lesson->id)
+                ->first()
+            : null;
 
         return [
             'watched_seconds' => (int) ($progress->watched_seconds ?? 0),

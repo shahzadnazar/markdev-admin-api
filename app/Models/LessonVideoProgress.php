@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Per-student playback record for one lesson video.
@@ -40,6 +41,21 @@ class LessonVideoProgress extends Model
             'completed_at' => 'datetime',
             'last_seen_at' => 'datetime',
         ];
+    }
+
+    /** Memoised per request; the schema cannot change mid-request. */
+    protected static ?bool $tableExists = null;
+
+    /**
+     * Whether the watch table has been migrated yet.
+     *
+     * Watch reporting is additive — course and student pages have to keep
+     * working when the code is deployed before `migrate` has run, rather than
+     * failing with a missing-table error.
+     */
+    public static function available(): bool
+    {
+        return static::$tableExists ??= Schema::hasTable((new static)->getTable());
     }
 
     /** Coverage a student must reach before a video lesson counts as done. */

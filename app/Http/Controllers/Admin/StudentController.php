@@ -257,10 +257,12 @@ class StudentController extends Controller
 
         $invoices = Invoice::where('user_id', $student->id)->get(['id', 'amount', 'fine_amount', 'status']);
 
-        $watches = \App\Models\LessonVideoProgress::where('user_id', $student->id)
-            ->with(['lesson:id,title,course_id', 'course:id,title'])
-            ->orderByDesc('last_seen_at')
-            ->get();
+        $watches = \App\Models\LessonVideoProgress::available()
+            ? \App\Models\LessonVideoProgress::where('user_id', $student->id)
+                ->with(['lesson:id,title,course_id', 'course:id,title'])
+                ->orderByDesc('last_seen_at')
+                ->get()
+            : collect();
 
         return view('admin.students.show', [
             'student' => $student,
