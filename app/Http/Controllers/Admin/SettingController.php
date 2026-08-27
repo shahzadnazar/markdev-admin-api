@@ -59,8 +59,6 @@ class SettingController extends Controller
 
         $data['maintenance_mode'] = $request->boolean('maintenance_mode');
 
-        // Captured before the write so the change can be detected afterwards.
-        $modeBefore = \App\Support\AttendanceConfig::mode();
 
         // The PIN is stored hashed and only replaced when a new one is typed.
         if (! empty($data['attendance_edit_pin'])) {
@@ -76,20 +74,8 @@ class SettingController extends Controller
         // Only one source may write to the register, so instructors have to be
         // told which way it is being filled today — otherwise they either mark a
         // register that rejects them, or leave one unmarked expecting devices.
-        if ($data['attendance_mode'] !== $modeBefore) {
-            \App\Models\Setting::forgetCached('attendance_mode');
-
-            $instructors = \App\Models\User::role('instructor')->get();
-            \Illuminate\Support\Facades\Notification::send(
-                $instructors,
-                new \App\Notifications\AttendanceModeChanged($data['attendance_mode']),
-            );
-
-            AuditLogger::log('updated', 'settings', null,
-                ['attendance_mode' => $modeBefore],
-                ['attendance_mode' => $data['attendance_mode'], 'instructors_notified' => $instructors->count()],
-            );
-        }
+        \App\Support\AttendanceConfig::setMode($data['attendance_mode'], $request->user());
+        unset($data['attendance_mode']);
 
         // The layout reads these from cache on every render.
         Setting::forgetCached();

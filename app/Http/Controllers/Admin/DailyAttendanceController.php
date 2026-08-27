@@ -145,6 +145,32 @@ class DailyAttendanceController extends Controller
         return $pdf->stream('attendance-' . ($student->studentProfile?->reg_no ?? $student->id) . '.pdf');
     }
 
+    /**
+     * Switch how the register is filled, from the register itself.
+     *
+     * Settings is super-admin only in this install, so an admin running the
+     * daily register could see the mode but never change it. Gated on
+     * `attendance.daily`, which admins and managers hold and instructors
+     * do not.
+     */
+    public function setMode(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
+        ]);
+
+        $changed = \App\Support\AttendanceConfig::setMode($data['mode'], $request->user());
+
+        return back()->with(
+            'success',
+            $changed
+                ? ($data['mode'] === 'biometric'
+                    ? 'Attendance is now marked through biometric — instructors have been notified.'
+                    : 'Attendance is now marked manually — instructors have been notified.')
+                : 'Attendance mode unchanged.',
+        );
+    }
+
     /** First-time marking — no PIN, but only once per student per day. */
     public function mark(Request $request): RedirectResponse
     {

@@ -60,6 +60,47 @@ class AttendanceConfig
         return in_array($mode, self::MODES, true) ? $mode : self::MODE_MANUAL;
     }
 
+    /**
+     * Switch how the register is filled, telling instructors what changed.
+     *
+     * Both the Settings page and the daily register call this, so a switch
+     * behaves identically wherever it is made: nothing happens when the mode is
+     * unchanged, and every instructor is notified when it is.
+     *
+     * @return bool whether the mode actually changed
+     */
+    public static function setMode(string $mode, ?\App\Models\User $actor = null): bool
+    {
+        if (! in_array($mode, self::MODES, true)) {
+            return false;
+        }
+
+        $before = self::mode();
+
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'attendance_mode'],
+            ['value' => $mode, 'group' => 'general'],
+        );
+        \App\Models\Setting::forgetCached('attendance_mode');
+
+        if ($before === $mode) {
+            return false;
+        }
+
+        $instructors = \App\Models\User::role('instructor')->get();
+        \Illuminate\Support\Facades\Notification::send(
+            $instructors,
+            new \App\Notifications\AttendanceModeChanged($mode),
+        );
+
+        \App\Support\AuditLogger::log('updated', 'settings', null,
+            ['attendance_mode' => $before],
+            ['attendance_mode' => $mode, 'instructors_notified' => $instructors->count()],
+        );
+
+        return true;
+    }
+
     public static function isBiometric(): bool
     {
         return self::mode() === self::MODE_BIOMETRIC;
