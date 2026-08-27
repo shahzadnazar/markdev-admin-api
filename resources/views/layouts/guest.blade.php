@@ -8,8 +8,12 @@
         <title>{{ config('app.name', 'MarkDev') }} — Admin Portal</title>
 
         <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=hanken-grotesk:400,500,600,700|inter:400,500,600|jetbrains-mono:400,500,600&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+        {{-- Fetched without blocking first paint: a slow or unreachable font
+            host would otherwise hold the whole page blank until it times out.
+            Text renders in the fallback face and swaps in when the CSS lands. --}}
+        <link href="https://fonts.bunny.net/css?family=hanken-grotesk:400,500,600,700|inter:400,500,600|jetbrains-mono:400,500,600&display=swap" rel="stylesheet" media="print" onload="this.media='all'; this.onload=null">
+        <noscript><link href="https://fonts.bunny.net/css?family=hanken-grotesk:400,500,600,700|inter:400,500,600|jetbrains-mono:400,500,600&display=swap" rel="stylesheet"></noscript>
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
