@@ -57,8 +57,27 @@
                             <x-form.input label="Guardian contact" name="guardian_contact" :value="$profile?->guardian_contact" />
                             <x-form.input label="Current qualification" name="current_qualification" :value="$profile?->current_qualification" required />
                         </div>
-                        <x-form.input label="Applied course" name="applied_course" :value="$profile?->applied_course" required
-                            hint="What the student applied for, as written on the form. The actual enrollment is set under Office use." />
+                        @php
+                            // The column stores the course title, so the options are titles.
+                            // A profile saved before this was a dropdown may hold something
+                            // that is no longer in the catalogue — keep it as an option so
+                            // editing a student never silently rewrites their record.
+                            $appliedCourse = old('applied_course', $profile?->applied_course);
+                            $courseTitles = $courses->pluck('title');
+                            $extraApplied = $appliedCourse && ! $courseTitles->contains($appliedCourse)
+                                ? $appliedCourse
+                                : null;
+                        @endphp
+                        <x-form.select label="Applied course" name="applied_course" required
+                            hint="What the student applied for. The actual enrollment is set under Office use.">
+                            <option value="">— Select a course —</option>
+                            @foreach ($courseTitles as $title)
+                                <option value="{{ $title }}" @selected($appliedCourse === $title)>{{ $title }}</option>
+                            @endforeach
+                            @if ($extraApplied)
+                                <option value="{{ $extraApplied }}" selected>{{ $extraApplied }}</option>
+                            @endif
+                        </x-form.select>
                     </div>
                 </x-card>
 
@@ -102,9 +121,9 @@
                             </x-form.select>
                         </div>
                         <div class="grid gap-5 sm:grid-cols-3">
-                            <x-form.input type="number" label="Total fee (Rs)" name="total_fee" :value="$profile?->total_fee" min="0" step="0.01" />
-                            <x-form.input type="number" label="Submitted fee (Rs)" name="submitted_fee" :value="$profile?->submitted_fee" min="0" step="0.01" />
-                            <x-form.input type="number" label="Registration fee (Rs)" name="registration_fee" :value="$profile?->registration_fee ?? $defaultRegistrationFee" min="0" step="0.01"
+                            <x-form.input type="number" label="Total fee (Rs)" name="total_fee" :value="$profile?->total_fee" min="0" step="0.01" class="no-spinner" />
+                            <x-form.input type="number" label="Submitted fee (Rs)" name="submitted_fee" :value="$profile?->submitted_fee" min="0" step="0.01" class="no-spinner" />
+                            <x-form.input type="number" label="Registration fee (Rs)" name="registration_fee" :value="$profile?->registration_fee ?? $defaultRegistrationFee" min="0" step="0.01" class="no-spinner"
                                 hint="Collected today at admission — becomes its own invoice when a fee plan is generated. 0 = waived." />
                         </div>
                         <x-form.input label="Reference" name="reference" :value="$profile?->reference" hint="Who referred this student, if anyone." />

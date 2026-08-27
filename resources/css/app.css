@@ -198,3 +198,16 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-ticker { animation: none; }
 }
+
+/* Fee amounts are typed, not nudged — the stepper arrows only get in the way
+   and let a stray scroll change a figure. */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
