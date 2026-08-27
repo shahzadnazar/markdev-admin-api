@@ -156,6 +156,12 @@ class DailyAttendanceController extends Controller
             'arrived_at' => ['nullable', 'date_format:H:i'],
         ]);
 
+        // Only one source may write to the register; while devices own it, a
+        // manual mark would silently compete with the punch for the same day.
+        if (\App\Support\AttendanceConfig::isBiometric()) {
+            return back()->with('error', 'Attendance is set to biometric — device punches fill the register. An admin can switch to manual in Settings.');
+        }
+
         $student = User::findOrFail($data['user_id']);
         abort_unless($student->hasRole('student') && $student->is_active, 422, 'Not an active student.');
 
@@ -194,7 +200,15 @@ class DailyAttendanceController extends Controller
             'date' => ['required', 'date', 'before_or_equal:today'],
         ]);
 
-        $marked = DailyAttendance::whereDate('date', $data['date'])->pluck('user_id');
+        // Same rule as marking one student: while devices own the register,
+        // filling it by hand would compete with the punches.
+        if (\App\Support\AttendanceConfig::isBiometric()) {
+            return back()->with('error', 'Attendance is set to biometric — device punches fill the register. An admin can switch to manual in Settings.');
+        }
+
+        // Only genuinely decided days count as marked. A pending row is a day
+        // nobody has ruled on yet, so it should be filled, not skipped.
+        $marked = DailyAttendance::whereDate('date', $data['date'])->counted()->pluck('user_id');
 
         $remaining = User::role('student')
             ->where('is_active', true)
@@ -202,14 +216,15 @@ class DailyAttendanceController extends Controller
             ->get(['id', 'name']);
 
         foreach ($remaining as $student) {
-            DailyAttendance::create([
-                'user_id' => $student->id,
-                'date' => $data['date'],
-                'status' => 'present',
-                'source' => 'manual',
-                'marked_by' => $request->user()->id,
-                'marked_at' => now(),
-            ]);
+            DailyAttendance::updateOrCreate(
+                ['user_id' => $student->id, 'date' => $data['date']],
+                [
+                    'status' => 'present',
+                    'source' => 'manual',
+                    'marked_by' => $request->user()->id,
+                    'marked_at' => now(),
+                ],
+            );
         }
 
         AuditLogger::log('attendance_marked', 'daily_attendance', null, null, [
@@ -302,19 +317,28 @@ class DailyAttendanceController extends Controller
     {
         $cohortIds = $this->cohort($request, $courseId)->pluck('id');
 
+        // `counted` drops rows still pending: a day nobody has decided yet is
+        // unmarked, not a status, and must not reach a count or a percentage.
         $counts = DailyAttendance::whereDate('date', $date)
             ->whereIn('user_id', $cohortIds)
+            ->counted()
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
 
-        return [
+        $byStatus = [
             'present' => (int) ($counts['present'] ?? 0),
             'late' => (int) ($counts['late'] ?? 0),
             'absent' => (int) ($counts['absent'] ?? 0),
             'leave' => (int) ($counts['leave'] ?? 0),
-            'unmarked' => max(0, $cohortIds->count() - (int) $counts->sum()),
+        ];
+
+        return $byStatus + [
+            'unmarked' => max(0, $cohortIds->count() - array_sum($byStatus)),
             'total' => $cohortIds->count(),
+            // Weighted, not a headcount: a late arrival still attended and
+            // approved leave is not a mark against the student.
+            'weighted_percent' => DailyAttendance::weightedPercent($byStatus),
         ];
     }
 

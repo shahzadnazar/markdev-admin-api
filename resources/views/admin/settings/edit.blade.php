@@ -39,6 +39,33 @@
                         hint="How many days before the due date an installment opens." />
                 </div>
 
+                {{-- Only one source may write to the daily register: a device punch
+                     and an instructor disagreeing about the same day leaves no way
+                     to tell which is right. Switching notifies every instructor. --}}
+                <div class="border-t border-surface-ice pt-5">
+                    <p class="text-sm font-medium text-on-surface">How attendance is marked</p>
+                    <p class="mt-1 text-xs text-outline">
+                        Instructors are notified whenever this changes.
+                    </p>
+                    @php $mode = old('attendance_mode', $settings['attendance_mode']); @endphp
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                        @foreach ([
+                            'manual' => ['Manual', 'Instructors mark the register themselves. Device punches do not fill it.'],
+                            'biometric' => ['Biometric', 'Device punches fill the register. Manual marking is turned off.'],
+                        ] as $value => [$title, $description])
+                            <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition {{ $mode === $value ? 'border-primary bg-primary/[0.04] ring-1 ring-primary/20' : 'border-outline-variant hover:border-primary/40' }}">
+                                <input type="radio" name="attendance_mode" value="{{ $value }}"
+                                    @checked($mode === $value) class="mt-0.5 shrink-0">
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-medium text-on-surface">{{ $title }}</span>
+                                    <span class="mt-0.5 block text-xs leading-5 text-on-surface-variant">{{ $description }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <x-form.error name="attendance_mode" />
+                </div>
+
                 <div class="grid gap-5 border-t border-surface-ice pt-5 sm:grid-cols-2">
                     <x-form.input type="time" label="Attendance day starts at" name="attendance_day_start"
                         :value="$settings['attendance_day_start']" required

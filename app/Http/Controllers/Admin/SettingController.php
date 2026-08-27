@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class SettingController extends Controller
@@ -30,6 +31,7 @@ class SettingController extends Controller
                 'maintenance_mode' => (bool) ($settings['maintenance_mode'] ?? false),
                 'attendance_pin_set' => \App\Support\AttendanceConfig::hasEditPin(),
                 'attendance_day_start' => \App\Support\AttendanceConfig::dayStart(),
+                'attendance_mode' => \App\Support\AttendanceConfig::mode(),
                 'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
             ],
             'backups' => $this->backups(),
@@ -52,9 +54,13 @@ class SettingController extends Controller
             'attendance_edit_pin' => ['nullable', 'digits_between:4,8'],
             'attendance_day_start' => ['required', 'date_format:H:i'],
             'attendance_late_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
+            'attendance_mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
         ]);
 
         $data['maintenance_mode'] = $request->boolean('maintenance_mode');
+
+        // Captured before the write so the change can be detected afterwards.
+        $modeBefore = \App\Support\AttendanceConfig::mode();
 
         // The PIN is stored hashed and only replaced when a new one is typed.
         if (! empty($data['attendance_edit_pin'])) {
@@ -65,6 +71,24 @@ class SettingController extends Controller
 
         foreach ($data as $key => $value) {
             Setting::updateOrCreate(['key' => $key], ['value' => $value, 'group' => 'general']);
+        }
+
+        // Only one source may write to the register, so instructors have to be
+        // told which way it is being filled today — otherwise they either mark a
+        // register that rejects them, or leave one unmarked expecting devices.
+        if ($data['attendance_mode'] !== $modeBefore) {
+            \App\Models\Setting::forgetCached('attendance_mode');
+
+            $instructors = \App\Models\User::role('instructor')->get();
+            \Illuminate\Support\Facades\Notification::send(
+                $instructors,
+                new \App\Notifications\AttendanceModeChanged($data['attendance_mode']),
+            );
+
+            AuditLogger::log('updated', 'settings', null,
+                ['attendance_mode' => $modeBefore],
+                ['attendance_mode' => $data['attendance_mode'], 'instructors_notified' => $instructors->count()],
+            );
         }
 
         // The layout reads these from cache on every render.

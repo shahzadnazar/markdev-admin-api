@@ -84,7 +84,9 @@ class BiometricAttendanceService
             ->whereDate('date', $punch->punched_at->toDateString())
             ->exists();
 
-        if (! $dailyMarked) {
+        // In manual mode instructors own the daily register, so a punch records
+        // the class session but must not fill the day on their behalf.
+        if (! $dailyMarked && \App\Support\AttendanceConfig::isBiometric()) {
             // The daily register judges late against the ACADEMY day start
             // (Settings), independent of any per-device class session.
             $dailyStatus = \App\Support\AttendanceConfig::statusForArrival($punch->punched_at);

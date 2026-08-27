@@ -37,6 +37,39 @@ class AttendanceConfig
     /* ------------------------------- Timing ------------------------------- */
 
     /** Academy day start, HH:MM (24h). Default 09:00. */
+    /* --------------------------- Marking mode ---------------------------- */
+
+    public const MODE_MANUAL = 'manual';
+    public const MODE_BIOMETRIC = 'biometric';
+    public const MODES = [self::MODE_MANUAL, self::MODE_BIOMETRIC];
+
+    /**
+     * How the daily register is filled — only one source may write to it.
+     *
+     * Letting both in would mean a device punch and an instructor disagreeing
+     * about the same day, with no way to tell which is right.
+     */
+    public static function mode(): string
+    {
+        $mode = rescue(
+            fn () => \App\Models\Setting::cached('attendance_mode'),
+            null,
+            false,
+        );
+
+        return in_array($mode, self::MODES, true) ? $mode : self::MODE_MANUAL;
+    }
+
+    public static function isBiometric(): bool
+    {
+        return self::mode() === self::MODE_BIOMETRIC;
+    }
+
+    public static function isManual(): bool
+    {
+        return self::mode() === self::MODE_MANUAL;
+    }
+
     public static function dayStart(): string
     {
         $value = (string) (Setting::where('key', 'attendance_day_start')->value('value') ?? '09:00');

@@ -16,6 +16,13 @@
         :crumbs="['Dashboard' => route('admin.dashboard'), 'Attendance' => null, 'Daily register' => null]">
         <x-slot:meta>
             <span class="font-mono text-xs text-on-surface-variant">{{ $date->format('D, M j, Y') }}{{ $date->isToday() ? ' · today' : '' }}</span>
+            @if ($counts['weighted_percent'] !== null)
+                {{-- Weighted, not a headcount: present 100, late 70, leave 50, absent 0. --}}
+                <span class="ml-3 inline-flex items-center gap-1.5 rounded-full bg-primary/[0.06] px-2.5 py-1 font-mono text-xs text-primary ring-1 ring-inset ring-primary/10"
+                    title="Weighted: present 100%, late 70%, leave 50%, absent 0%">
+                    {{ $counts['weighted_percent'] }}% attendance
+                </span>
+            @endif
         </x-slot:meta>
         <x-slot:actions>
             <x-btn variant="secondary" size="sm" :href="route('admin.attendance.daily.print', request()->query())" target="_blank">

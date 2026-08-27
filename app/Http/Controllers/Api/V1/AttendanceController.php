@@ -45,6 +45,7 @@ class AttendanceController extends ApiController
     public function daily(Request $request): JsonResponse
     {
         $records = \App\Models\DailyAttendance::where('user_id', $request->user()->id)
+            ->counted()
             ->orderByDesc('date')
             ->paginate($this->perPage($request))
             ->withQueryString();
@@ -65,6 +66,16 @@ class AttendanceController extends ApiController
                 'last_page' => $records->lastPage(),
                 'per_page' => $records->perPage(),
                 'total' => $records->total(),
+                // Across the student's whole register, not just this page, and
+                // weighted: present 100, late 70, leave 50, absent 0.
+                'weighted_percent' => \App\Models\DailyAttendance::weightedPercent(
+                    \App\Models\DailyAttendance::where('user_id', $request->user()->id)
+                        ->counted()
+                        ->selectRaw('status, count(*) as total')
+                        ->groupBy('status')
+                        ->pluck('total', 'status')
+                        ->toArray(),
+                ),
             ],
         ]);
     }

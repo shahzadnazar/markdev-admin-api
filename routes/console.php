@@ -15,6 +15,9 @@ Artisan::command('inspire', function () {
 | Run with: php artisan schedule:work (or a cron entry for schedule:run).
 */
 
+// Settles the daily register: anything still unmarked at 11pm becomes an
+// absence. Runs before midnight so the day it closes is the day just ending.
+Schedule::command('attendance:close-day')->dailyAt('23:00');
 Schedule::command('billing:sweep')->dailyAt('00:15');
 Schedule::command('sanctum:prune-expired', ['--hours' => 24])->daily();
 Schedule::command('backup:clean')->dailyAt('01:00');
