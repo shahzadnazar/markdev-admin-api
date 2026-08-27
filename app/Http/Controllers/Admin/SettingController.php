@@ -67,6 +67,9 @@ class SettingController extends Controller
             Setting::updateOrCreate(['key' => $key], ['value' => $value, 'group' => 'general']);
         }
 
+        // The layout reads these from cache on every render.
+        Setting::forgetCached();
+
         return redirect()->route('admin.settings.edit')->with('success', 'Settings saved.');
     }
 

@@ -1,8 +1,10 @@
 @props(['title' => null])
 
 @php
-$maintenance = rescue(fn () => (bool) \App\Models\Setting::query()->where('key', 'maintenance_mode')->value('value'), false, false);
-$siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_name')->value('value'), null, false) ?: config('app.name', 'MarkDev');
+// Two settings were read from the database on every page render. They change
+// rarely, so they are cached and cleared when settings are saved.
+$maintenance = (bool) \App\Models\Setting::cached('maintenance_mode');
+$siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'MarkDev');
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">

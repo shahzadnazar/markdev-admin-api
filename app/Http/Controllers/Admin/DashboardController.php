@@ -28,9 +28,27 @@ class DashboardController extends Controller
             return $this->instructorDashboard($mine);
         }
 
+        // One grouped query instead of a role-joined count per role, each of
+        // which repeated the same roles lookup before counting.
+        $byRole = User::query()
+            ->join('model_has_roles', function ($join) {
+                $join->on('model_has_roles.model_id', '=', 'users.id')
+                    ->where('model_has_roles.model_type', '=', User::class);
+            })
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->whereNull('users.deleted_at')
+            ->groupBy('roles.name')
+            ->selectRaw('roles.name as role')
+            ->selectRaw('count(*) as total')
+            ->selectRaw('sum(case when users.is_active = 1 then 1 else 0 end) as active')
+            ->get()
+            ->keyBy('role');
+
+        $activeStudents = (int) ($byRole->get('student')->active ?? 0);
+
         $stats = [
-            'students' => User::role('student')->count(),
-            'instructors' => User::role('instructor')->count(),
+            'students' => (int) ($byRole->get('student')->total ?? 0),
+            'instructors' => (int) ($byRole->get('instructor')->total ?? 0),
             'courses' => Course::count(),
             'lessons' => Lesson::count(),
             'pending_submissions' => AssignmentSubmission::whereNull('graded_at')->count(),
@@ -58,7 +76,7 @@ class DashboardController extends Controller
             ],
             [
                 'label' => "Students unmarked in today's register",
-                'count' => max(0, User::role('student')->where('is_active', true)->count()
+                'count' => max(0, $activeStudents
                     - \App\Models\DailyAttendance::whereDate('date', today())->count()),
                 'url' => route('admin.attendance.daily'),
             ],

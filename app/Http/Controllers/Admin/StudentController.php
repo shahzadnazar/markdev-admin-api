@@ -139,13 +139,33 @@ class StudentController extends Controller
             'trashed' => $trashed,
             'filters' => $filters,
             'courses' => Course::orderBy('title')->get(['id', 'title']),
-            'totals' => [
-                'students' => User::role('student')->count(),
-                'active' => User::role('student')->where('is_active', true)->count(),
-                'new_month' => User::role('student')->where('created_at', '>=', now()->startOfMonth())->count(),
-                'enrollments' => Enrollment::count(),
-            ],
+            'totals' => $this->cohortTotals(),
         ]);
+    }
+
+    /**
+     * Cohort figures for the stat row.
+     *
+     * One aggregate rather than three role-joined counts: each of those
+     * repeated the same roles lookup, so the page paid for the join four
+     * times over to show four numbers.
+     *
+     * @return array<string, int>
+     */
+    protected function cohortTotals(): array
+    {
+        $row = User::role('student')
+            ->selectRaw('count(*) as students')
+            ->selectRaw('sum(case when is_active = 1 then 1 else 0 end) as active')
+            ->selectRaw('sum(case when created_at >= ? then 1 else 0 end) as new_month', [now()->startOfMonth()])
+            ->first();
+
+        return [
+            'students' => (int) ($row->students ?? 0),
+            'active' => (int) ($row->active ?? 0),
+            'new_month' => (int) ($row->new_month ?? 0),
+            'enrollments' => Enrollment::count(),
+        ];
     }
 
     /** Parse a yyyy-mm-dd filter value, ignoring anything unparseable. */
