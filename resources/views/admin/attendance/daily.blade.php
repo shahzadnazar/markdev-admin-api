@@ -25,32 +25,6 @@
             @endif
         </x-slot:meta>
         <x-slot:actions>
-            @php $mode = \App\Support\AttendanceConfig::mode(); @endphp
-            @can('attendance.daily')
-                {{-- Settings is super-admin only here, so the switch also lives on
-                     the register an admin actually runs. Instructors lack
-                     attendance.daily and see the state read-only below. --}}
-                <form method="POST" action="{{ route('admin.attendance.mode') }}"
-                    class="inline-flex items-center rounded-full bg-surface-ice p-0.5"
-                    x-data x-on:change="$el.requestSubmit()">
-                    @csrf
-                    @foreach (['manual' => 'Manual', 'biometric' => 'Biometric'] as $value => $label)
-                        <label class="cursor-pointer">
-                            <input type="radio" name="mode" value="{{ $value }}" class="peer sr-only"
-                                @checked($mode === $value)>
-                            <span class="block rounded-full px-3 py-1.5 text-xs font-medium transition peer-checked:bg-white peer-checked:text-primary peer-checked:shadow-card text-on-surface-variant hover:text-on-surface">
-                                {{ $label }}
-                            </span>
-                        </label>
-                    @endforeach
-                </form>
-            @else
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-surface-ice px-3 py-1.5 text-xs text-on-surface-variant"
-                    title="Set by an admin in the daily register or Settings.">
-                    Marked {{ $mode === 'biometric' ? 'through biometric' : 'manually' }}
-                </span>
-            @endcan
-
             <x-btn variant="secondary" size="sm" :href="route('admin.attendance.daily.print', request()->query())" target="_blank">
                 <x-icon name="printer" class="size-4" /> Print PDF
             </x-btn>

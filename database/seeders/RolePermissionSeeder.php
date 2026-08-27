@@ -58,11 +58,12 @@ class RolePermissionSeeder extends Seeder
         // Super Admin owns everything (also enforced by Gate::before).
         Role::findOrCreate('super-admin', 'web')->syncPermissions($all);
 
-        // Admin: everything except role management, system settings and backups.
+        // Admin: everything except role management and backups. Settings is
+        // included because the attendance marking mode lives there and admins
+        // are the ones who switch it.
         Role::findOrCreate('admin', 'web')->syncPermissions(
             collect($all)->reject(
                 fn(string $name) => str_starts_with($name, 'roles.')
-                    || str_starts_with($name, 'settings.')
                     || str_starts_with($name, 'backups.')
             )->values()->all()
         );

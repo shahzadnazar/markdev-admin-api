@@ -201,7 +201,6 @@ Route::prefix('admin')
             Route::get('attendance/daily/print', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'print'])->name('attendance.daily.print');
             Route::post('attendance/daily', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'mark'])->name('attendance.daily.mark');
             Route::post('attendance/daily/bulk-present', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'bulkPresent'])->name('attendance.daily.bulk');
-            Route::post('attendance/mode', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'setMode'])->name('attendance.mode');
             Route::get('attendance/daily/{student}', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'show'])->name('attendance.daily.show');
             Route::get('attendance/daily/{student}/print', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'printStudent'])->name('attendance.daily.show-print');
             Route::put('attendance/daily/{record}', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'update'])->name('attendance.daily.update');
