@@ -67,40 +67,61 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
                     @endphp
 
                     @if ($liveAnnouncements->isNotEmpty())
-                        @php $tickerText = $liveAnnouncements->pluck('title')->implode('   •   '); @endphp
+                        @php
+                            // Bodies may carry basic HTML; the ticker is one plain line,
+                            // and long ones are cut so the loop doesn't stall.
+                            $tickerEntries = $liveAnnouncements->map(function ($announcement) {
+                                $body = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($announcement->body ?? ''))));
+                                return [
+                                    'title' => $announcement->title,
+                                    'body' => \Illuminate\Support\Str::limit($body, 180),
+                                ];
+                            });
+                            $tickerText = $tickerEntries
+                                ->map(fn ($e) => $e['body'] ? $e['title'].': '.$e['body'] : $e['title'])
+                                ->implode('   •   ');
+                        @endphp
                         {{-- Two copies of the run slide by exactly half the track, so
                              the sequence meets its own start with no visible seam. --}}
-                        {{-- Scrolls only when the text is too wide for the space: the
-                             seamless loop needs a second copy of the run, and when it
-                             fits that copy would sit on screen showing the same
-                             headline twice. --}}
+                        {{-- Two identical runs slide by exactly half the track, so the
+                             sequence meets its own start with no seam. Each run is at
+                             least as wide as the viewport, which keeps the second copy
+                             off screen — otherwise a short notice shows up twice. --}}
                         <div class="group relative ml-4 hidden min-w-0 flex-1 items-center gap-2 md:flex"
                             role="status" aria-live="polite" aria-label="Announcements: {{ $tickerText }}"
-                            x-data="{ overflows: false }"
+                            x-data="{ runWidth: 0 }"
                             x-init="
-                                const measure = () => overflows = $refs.run.scrollWidth > $refs.viewport.clientWidth;
-                                measure();
-                                new ResizeObserver(measure).observe($refs.viewport);
+                                /* Each run must be at least the viewport wide or the second
+                                   copy shows alongside the first. A CSS percentage can't say
+                                   that — the run sits in a content-sized track — so measure. */
+                                /* $refs for child elements aren't registered when x-init
+                                   fires, so wait a tick before measuring. */
+                                $nextTick(() => {
+                                    const measure = () => runWidth = $refs.viewport.clientWidth;
+                                    measure();
+                                    new ResizeObserver(measure).observe($refs.viewport);
+                                });
                             ">
                             <x-icon name="megaphone" class="size-4 shrink-0 text-primary" />
                             <div x-ref="viewport" class="relative min-w-0 flex-1 overflow-hidden"
-                                :style="overflows ? 'mask-image: linear-gradient(to right, transparent, black 2rem, black calc(100% - 2rem), transparent)' : ''">
-                                <div class="flex w-max group-hover:[animation-play-state:paused]"
-                                    :class="overflows ? 'admin-ticker' : ''"
-                                    style="--ticker-duration: {{ max(20, (int) round(strlen($tickerText) / 40) * 2 + 20) }}s">
-                                    <div x-ref="run" class="flex shrink-0 items-center gap-8 pr-8">
-                                        @foreach ($liveAnnouncements as $announcement)
-                                            <a href="{{ route('admin.announcements.index') }}"
-                                                class="shrink-0 whitespace-nowrap text-sm text-on-surface transition-colors hover:text-primary">
-                                                <span class="font-semibold">{{ $announcement->title }}</span>
-                                            </a>
-                                        @endforeach
-                                    </div>
-                                    <div class="flex shrink-0 items-center gap-8 pr-8" aria-hidden="true" x-show="overflows" x-cloak>
-                                        @foreach ($liveAnnouncements as $announcement)
-                                            <span class="shrink-0 whitespace-nowrap text-sm font-semibold text-on-surface">{{ $announcement->title }}</span>
-                                        @endforeach
-                                    </div>
+                                style="mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)">
+                                <div class="admin-ticker flex w-max group-hover:[animation-play-state:paused]"
+                                    style="--ticker-duration: {{ max(24, (int) round(strlen($tickerText) / 40) * 2 + 16) }}s">
+                                    @foreach ([1, 2] as $pass)
+                                        <div class="flex shrink-0 items-center gap-10 pr-10"
+                                            :style="runWidth ? `min-width:${runWidth}px` : ''"
+                                            @if ($pass === 2) aria-hidden="true" @endif>
+                                            @foreach ($tickerEntries as $entry)
+                                                <a href="{{ route('admin.announcements.index') }}"
+                                                    class="shrink-0 whitespace-nowrap text-sm text-on-surface transition-colors hover:text-primary">
+                                                    <span class="font-semibold">{{ $entry['title'] }}</span>
+                                                    @if ($entry['body'])
+                                                        <span class="text-on-surface-variant">: {{ $entry['body'] }}</span>
+                                                    @endif
+                                                </a>
+                                            @endforeach
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>
