@@ -1,11 +1,23 @@
 <aside class="admin-sidebar flex h-full w-[280px] flex-col border-r border-primary/10 bg-white">
-    {{-- Brand --}}
-    <div class="sidebar-brand flex items-center gap-3 px-6 pb-6 pt-7">
+    {{-- Brand + the control that collapses this panel. Collapsed leaves only
+         76px, too narrow for the logo and the button side by side, so they
+         stack. `collapsed` comes from the layout's Alpine scope. --}}
+    <div class="sidebar-brand flex items-center gap-3 px-6 pb-6 pt-7" :class="collapsed ? 'flex-col gap-2' : ''">
         <x-brand-mark class="size-10 shrink-0" gradient-id="sidebar" />
         <div class="sidebar-brand-text min-w-0 leading-tight">
             <p class="font-display text-lg font-bold tracking-[-0.01em] text-on-surface">MarkDev</p>
             <p class="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-primary">Admin Portal</p>
         </div>
+
+        <button type="button"
+            class="hidden shrink-0 rounded-lg p-2 text-on-surface-variant transition hover:bg-surface-ice hover:text-primary lg:inline-flex"
+            :class="collapsed ? '' : 'ml-auto'"
+            x-on:click="collapsed = ! collapsed"
+            :aria-expanded="(! collapsed).toString()"
+            :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+            :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+            <svg class="size-5 transition-transform duration-200" :class="collapsed ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5 12 12.75l6.75-6.75M11.25 19.5 4.5 12.75l6.75-6.75" /></svg>
+        </button>
     </div>
 
     {{-- Navigation --}}

@@ -50,13 +50,6 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
                         <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
                     </button>
 
-                    <button type="button" class="hidden rounded-lg p-2 text-on-surface-variant hover:bg-white hover:text-primary lg:inline-flex"
-                        x-on:click="collapsed = ! collapsed"
-                        :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-                        :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
-                        <svg class="size-5 transition-transform duration-200" :class="collapsed ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5 12 12.75l6.75-6.75M11.25 19.5 4.5 12.75l6.75-6.75" /></svg>
-                    </button>
-
                     @if ($title)
                         <p class="hidden font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-outline sm:block">{{ $title }}</p>
                     @endif
