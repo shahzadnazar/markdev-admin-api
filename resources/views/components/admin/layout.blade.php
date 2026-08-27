@@ -87,7 +87,10 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
                              sequence meets its own start with no seam. Each run is at
                              least as wide as the viewport, which keeps the second copy
                              off screen — otherwise a short notice shows up twice. --}}
-                        <div class="group relative ml-4 hidden min-w-0 flex-1 items-center gap-2 md:flex"
+                        {{-- A tinted band rather than loose text on the bar: it marks the
+                             strip as one thing and stops the moving words reading as page
+                             content. --}}
+                        <div class="group relative ml-4 hidden min-w-0 flex-1 items-center gap-2.5 rounded-full bg-primary/[0.06] py-1.5 pl-3.5 pr-2 ring-1 ring-inset ring-primary/10 md:flex"
                             role="status" aria-live="polite" aria-label="Announcements: {{ $tickerText }}"
                             x-data="{ runWidth: 0 }"
                             x-init="
@@ -104,7 +107,7 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
                             ">
                             <x-icon name="megaphone" class="size-4 shrink-0 text-primary" />
                             <div x-ref="viewport" class="relative min-w-0 flex-1 overflow-hidden"
-                                style="mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)">
+                                style="mask-image: linear-gradient(to right, transparent, black 1rem, black calc(100% - 1rem), transparent)">
                                 <div class="admin-ticker flex w-max group-hover:[animation-play-state:paused]"
                                     style="--ticker-duration: {{ max(24, (int) round(strlen($tickerText) / 40) * 2 + 16) }}s">
                                     @foreach ([1, 2] as $pass)
