@@ -48,6 +48,41 @@ class AnnouncementController extends ApiController
         return AnnouncementResource::collection($announcements);
     }
 
+    /**
+     * Announcements still inside their live window, split by how they surface.
+     *
+     * The portal polls this for the top-bar ticker and the popup, so it stays
+     * deliberately small — no pagination, no body search, just what has to be
+     * shown right now.
+     */
+    public function live(Request $request): JsonResponse
+    {
+        $announcements = Announcement::live()
+            ->where(fn (Builder $q) => $q->whereNull('course_id')->orWhereIn('course_id', $this->enrolledCourseIds($request)))
+            ->with(['author', 'course'])
+            ->orderByDesc('is_pinned')
+            ->orderByDesc('published_at')
+            ->limit(20)
+            ->get();
+
+        $payload = fn (Announcement $a) => [
+            'id' => $a->id,
+            'title' => $a->title,
+            'body' => $a->body,
+            'author' => ['id' => $a->author?->id, 'name' => $a->author?->name],
+            'course' => $a->course ? ['id' => $a->course->id, 'title' => $a->course->title] : null,
+            'published_at' => $a->published_at?->toISOString(),
+            'live_until' => $a->liveUntil()?->toISOString(),
+        ];
+
+        $grouped = $announcements->groupBy(fn (Announcement $a) => $a->display());
+
+        return response()->json(['data' => [
+            'ticker' => $grouped->get('ticker', collect())->map($payload)->values(),
+            'popup' => $grouped->get('popup', collect())->map($payload)->values(),
+        ]]);
+    }
+
     public function show(Request $request, Announcement $announcement): AnnouncementResource
     {
         $this->authorizeVisibility($request, $announcement);

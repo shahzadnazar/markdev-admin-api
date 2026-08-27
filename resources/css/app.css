@@ -183,3 +183,18 @@
         justify-content: center;
     }
 }
+
+/* Announcement ticker: the track carries two copies of the run, so sliding it
+   exactly half its width lands on an identical frame and the loop is seamless. */
+@keyframes admin-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.admin-ticker {
+  animation: admin-ticker var(--ticker-duration, 30s) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-ticker { animation: none; }
+}

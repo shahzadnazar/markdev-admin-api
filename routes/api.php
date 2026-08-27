@@ -106,6 +106,7 @@ Route::prefix('v1')->group(function () {
         Route::get('progress', ProgressController::class);
         Route::get('leaderboard', LeaderboardController::class);
 
+        Route::get('announcements/live', [AnnouncementController::class, 'live']);
         Route::get('announcements', [AnnouncementController::class, 'index']);
         Route::get('announcements/{announcement}', [AnnouncementController::class, 'show']);
         Route::post('announcements/{announcement}/read', [AnnouncementController::class, 'read']);

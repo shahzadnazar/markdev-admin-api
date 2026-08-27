@@ -59,6 +59,58 @@ $siteName = rescue(fn () => \App\Models\Setting::query()->where('key', 'site_nam
                         <p class="hidden font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-outline sm:block">{{ $title }}</p>
                     @endif
 
+                    @php
+                        // Instructors get the staff ticker in their top bar; admins
+                        // publish these themselves and read them in Announcements.
+                        $showTicker = auth()->user()->hasRole('instructor')
+                            && ! auth()->user()->hasAnyRole(['super-admin', 'admin', 'manager']);
+                        $liveAnnouncements = $showTicker
+                            ? \App\Models\Announcement::live()->whereNull('course_id')
+                                ->with('author')->orderByDesc('published_at')->limit(10)->get()
+                                ->filter(fn ($a) => $a->display() === 'ticker')->values()
+                            : collect();
+                    @endphp
+
+                    @if ($liveAnnouncements->isNotEmpty())
+                        @php $tickerText = $liveAnnouncements->pluck('title')->implode('   •   '); @endphp
+                        {{-- Two copies of the run slide by exactly half the track, so
+                             the sequence meets its own start with no visible seam. --}}
+                        {{-- Scrolls only when the text is too wide for the space: the
+                             seamless loop needs a second copy of the run, and when it
+                             fits that copy would sit on screen showing the same
+                             headline twice. --}}
+                        <div class="group relative ml-4 hidden min-w-0 flex-1 items-center gap-2 md:flex"
+                            role="status" aria-live="polite" aria-label="Announcements: {{ $tickerText }}"
+                            x-data="{ overflows: false }"
+                            x-init="
+                                const measure = () => overflows = $refs.run.scrollWidth > $refs.viewport.clientWidth;
+                                measure();
+                                new ResizeObserver(measure).observe($refs.viewport);
+                            ">
+                            <x-icon name="megaphone" class="size-4 shrink-0 text-primary" />
+                            <div x-ref="viewport" class="relative min-w-0 flex-1 overflow-hidden"
+                                :style="overflows ? 'mask-image: linear-gradient(to right, transparent, black 2rem, black calc(100% - 2rem), transparent)' : ''">
+                                <div class="flex w-max group-hover:[animation-play-state:paused]"
+                                    :class="overflows ? 'admin-ticker' : ''"
+                                    style="--ticker-duration: {{ max(20, (int) round(strlen($tickerText) / 40) * 2 + 20) }}s">
+                                    <div x-ref="run" class="flex shrink-0 items-center gap-8 pr-8">
+                                        @foreach ($liveAnnouncements as $announcement)
+                                            <a href="{{ route('admin.announcements.index') }}"
+                                                class="shrink-0 whitespace-nowrap text-sm text-on-surface transition-colors hover:text-primary">
+                                                <span class="font-semibold">{{ $announcement->title }}</span>
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                    <div class="flex shrink-0 items-center gap-8 pr-8" aria-hidden="true" x-show="overflows" x-cloak>
+                                        @foreach ($liveAnnouncements as $announcement)
+                                            <span class="shrink-0 whitespace-nowrap text-sm font-semibold text-on-surface">{{ $announcement->title }}</span>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="ml-auto flex items-center gap-2">
                         {{-- Notifications --}}
                         @php $unreadNotifications = auth()->user()->unreadNotifications()->latest()->limit(8)->get(); @endphp
