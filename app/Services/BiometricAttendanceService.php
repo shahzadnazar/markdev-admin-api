@@ -81,7 +81,7 @@ class BiometricAttendanceService
         // A punch also proves daily presence at the academy - fill the daily
         // register (never overwriting an already-marked day).
         $dailyMarked = \App\Models\DailyAttendance::where('user_id', $user->id)
-            ->whereDate('date', $punch->punched_at->toDateString())
+            ->where('date', $punch->punched_at->toDateString())
             ->exists();
 
         // In manual mode instructors own the daily register, so a punch records

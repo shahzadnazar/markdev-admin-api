@@ -96,7 +96,9 @@
                 @forelse ($students as $student)
                 @php
                 $record = $records->get($student->id);
-                $studentHistory = $previousAttendance->get($student->id, collect());
+                // Counts, rate and the last five days arrive already summarised
+                // from the controller, so the page does no counting of its own.
+                $studentHistory = $history[$student->id] ?? ['present' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0, 'total' => 0, 'rate' => null, 'recent' => []];
                 $payload = [
                 'student' => [
                 'id' => $student->id,
@@ -105,29 +107,7 @@
                 'avatar' => $student->avatar_url,
                 ],
 
-                'history' => [
-                'present' => $studentHistory->where('status', 'present')->count(),
-                'late' => $studentHistory->where('status', 'late')->count(),
-                'absent' => $studentHistory->where('status', 'absent')->count(),
-                'leave' => $studentHistory->where('status', 'leave')->count(),
-
-                'total' => $studentHistory->count(),
-
-                'rate' => $studentHistory->count() > 0
-                ? round(
-                (
-                $studentHistory->whereIn('status', ['present', 'late', 'leave'])->count()
-                / $studentHistory->count()
-                ) * 100,
-                1
-                )
-                : null,
-
-                'recent' => $studentHistory->take(5)->map(fn ($attendance) => [
-                'date' => $attendance->date->format('M j, Y'),
-                'status' => $attendance->status,
-                ])->values()->all(),
-                ],
+                'history' => $studentHistory,
 
                 'record' => $record ? [
                 'id' => $record->id,

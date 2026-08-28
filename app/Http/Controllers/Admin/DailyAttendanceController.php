@@ -31,33 +31,30 @@ class DailyAttendanceController extends Controller
         $statusFilter = $this->statusFilter($request);
         $courseId = $request->filled('course') ? $request->integer('course') : null;
 
+        $day = $date->toDateString();
+
         $students = $this->cohort($request, $courseId)
             ->with(['studentProfile:id,user_id,reg_no,cnic', 'enrollments.course:id,title'])
             ->when($statusFilter === 'unmarked', fn($query) => $query
-                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)))
+                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->where('date', $day)))
             ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn($query) => $query
-                ->whereHas('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)->where('status', $statusFilter)))
+                ->whereHas('dailyAttendance', fn($inner) => $inner->where('date', $day)->where('status', $statusFilter)))
             ->orderBy('name')
             ->paginate(25)
             ->withQueryString();
 
-        $records = DailyAttendance::whereDate('date', $date)
-            ->whereIn('user_id', $students->pluck('id'))
+        $studentIds = $students->pluck('id');
+
+        $records = DailyAttendance::where('date', $day)
+            ->whereIn('user_id', $studentIds)
             ->with(['marker:id,name', 'marker.roles:id,name', 'updater:id,name'])
             ->get()
             ->keyBy('user_id');
 
-        $previousAttendance = DailyAttendance::whereIn('user_id', $students->pluck('id'))
-            ->whereDate('date', '<', $date)
-            ->orderByDesc('date')
-            ->get()
-            ->groupBy('user_id');
-
-
         return view('admin.attendance.daily', [
     'students' => $students,
     'records' => $records,
-    'previousAttendance' => $previousAttendance,
+    'history' => $this->historyFor($studentIds, $date),
     'date' => $date,
     'statusFilter' => $statusFilter,
     'courseId' => $courseId,
@@ -74,17 +71,19 @@ class DailyAttendanceController extends Controller
         $statusFilter = $this->statusFilter($request);
         $courseId = $request->filled('course') ? $request->integer('course') : null;
 
+        $day = $date->toDateString();
+
         $students = $this->cohort($request, $courseId)
             ->with(['studentProfile:id,user_id,reg_no', 'enrollments.course:id,title'])
             ->when($statusFilter === 'unmarked', fn($query) => $query
-                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)))
+                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->where('date', $day)))
             ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn($query) => $query
-                ->whereHas('dailyAttendance', fn($inner) => $inner->whereDate('date', $date)->where('status', $statusFilter)))
+                ->whereHas('dailyAttendance', fn($inner) => $inner->where('date', $day)->where('status', $statusFilter)))
             ->orderBy('name')
             ->limit(1000)
             ->get();
 
-        $records = DailyAttendance::whereDate('date', $date)
+        $records = DailyAttendance::where('date', $day)
             ->whereIn('user_id', $students->pluck('id'))
             ->with(['marker:id,name', 'marker.roles:id,name'])
             ->get()
@@ -166,7 +165,7 @@ class DailyAttendanceController extends Controller
         abort_unless($student->hasRole('student') && $student->is_active, 422, 'Not an active student.');
 
         $exists = DailyAttendance::where('user_id', $student->id)
-            ->whereDate('date', $data['date'])
+            ->where('date', $data['date'])
             ->exists();
 
         if ($exists) {
@@ -208,7 +207,7 @@ class DailyAttendanceController extends Controller
 
         // Only genuinely decided days count as marked. A pending row is a day
         // nobody has ruled on yet, so it should be filled, not skipped.
-        $marked = DailyAttendance::whereDate('date', $data['date'])->counted()->pluck('user_id');
+        $marked = DailyAttendance::where('date', $data['date'])->counted()->pluck('user_id');
 
         $remaining = User::role('student')
             ->where('is_active', true)
@@ -312,15 +311,96 @@ class DailyAttendanceController extends Controller
                 ->whereHas('enrollments', fn($inner) => $inner->where('course_id', $courseId)));
     }
 
+    /**
+     * Prior attendance for the students on this page, summarised in the database.
+     *
+     * The register shows four counts, a rate and the last five days per student.
+     * It used to get those by loading every historical row for the page and
+     * counting them in PHP, so the work grew with the whole table rather than
+     * with the page — on a register with a few terms behind it that is enough
+     * to run a request into its time limit. Now the database returns only the
+     * numbers shown.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $studentIds
+     * @return array<int, array<string, mixed>>
+     */
+    protected function historyFor($studentIds, \Illuminate\Support\Carbon $date): array
+    {
+        $blank = ['present' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0, 'total' => 0, 'rate' => null, 'recent' => []];
+
+        if ($studentIds->isEmpty()) {
+            return [];
+        }
+
+        $day = $date->toDateString();
+        $history = [];
+        foreach ($studentIds as $id) {
+            $history[$id] = $blank;
+        }
+
+        $counts = DailyAttendance::query()
+            ->whereIn('user_id', $studentIds)
+            ->where('date', '<', $day)
+            ->counted()
+            ->selectRaw('user_id, status, count(*) as total')
+            ->groupBy('user_id', 'status')
+            ->get();
+
+        foreach ($counts as $row) {
+            if (isset($history[$row->user_id])) {
+                $history[$row->user_id][$row->status] = (int) $row->total;
+            }
+        }
+
+        // Only five days are shown per student, so only five are fetched. The
+        // window function ranks each student's days inside a single query,
+        // rather than one query per row on the page.
+        $ranked = DailyAttendance::query()
+            ->select('user_id', 'date', 'status')
+            ->selectRaw('row_number() over (partition by user_id order by date desc) as rn')
+            ->whereIn('user_id', $studentIds)
+            ->where('date', '<', $day)
+            ->counted()
+            ->toBase();
+
+        $recent = \Illuminate\Support\Facades\DB::query()
+            ->fromSub($ranked, 'ranked')
+            ->where('rn', '<=', 5)
+            ->get()
+            ->groupBy('user_id');
+
+        foreach ($history as $id => $entry) {
+            $total = $entry['present'] + $entry['late'] + $entry['absent'] + $entry['leave'];
+            $history[$id]['total'] = $total;
+            // Approved leave counts as attended — only genuine absences hurt.
+            $history[$id]['rate'] = $total > 0
+                ? round(($entry['present'] + $entry['late'] + $entry['leave']) / $total * 100, 1)
+                : null;
+            $history[$id]['recent'] = $recent->get($id, collect())
+                ->sortBy('rn')
+                ->map(fn ($row) => [
+                    'date' => \Illuminate\Support\Carbon::parse($row->date)->format('M j, Y'),
+                    'status' => $row->status,
+                ])
+                ->values()
+                ->all();
+        }
+
+        return $history;
+    }
+
     /** Day summary for the filtered cohort (search + course aware). */
     protected function dayCounts(Request $request, \Illuminate\Support\Carbon $date, ?int $courseId): array
     {
-        $cohortIds = $this->cohort($request, $courseId)->pluck('id');
+        $cohort = $this->cohort($request, $courseId);
+        $cohortTotal = (clone $cohort)->count();
 
         // `counted` drops rows still pending: a day nobody has decided yet is
         // unmarked, not a status, and must not reach a count or a percentage.
-        $counts = DailyAttendance::whereDate('date', $date)
-            ->whereIn('user_id', $cohortIds)
+        // The cohort goes in as a subquery: pulling every id out first meant
+        // shipping thousands of them back as an IN list on every page load.
+        $counts = DailyAttendance::where('date', $date->toDateString())
+            ->whereIn('user_id', (clone $cohort)->select('users.id'))
             ->counted()
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
@@ -334,8 +414,8 @@ class DailyAttendanceController extends Controller
         ];
 
         return $byStatus + [
-            'unmarked' => max(0, $cohortIds->count() - array_sum($byStatus)),
-            'total' => $cohortIds->count(),
+            'unmarked' => max(0, $cohortTotal - array_sum($byStatus)),
+            'total' => $cohortTotal,
             // Weighted, not a headcount: a late arrival still attended and
             // approved leave is not a mark against the student.
             'weighted_percent' => DailyAttendance::weightedPercent($byStatus),
@@ -354,13 +434,16 @@ class DailyAttendanceController extends Controller
             $range = 'month'; // custom without dates falls back
         }
 
+        // Plain comparisons rather than whereDate(): wrapping the column in a
+        // date() call stops MySQL using the (user_id, date) index, and `date`
+        // is already a date column so the two mean the same thing.
         $query = DailyAttendance::where('user_id', $student->id)
-            ->when($range === 'today', fn($inner) => $inner->whereDate('date', today()))
-            ->when($range === 'yesterday', fn($inner) => $inner->whereDate('date', today()->subDay()))
-            ->when($range === 'week', fn($inner) => $inner->whereDate('date', '>=', today()->startOfWeek()))
-            ->when($range === 'month', fn($inner) => $inner->whereDate('date', '>=', today()->startOfMonth()))
-            ->when($from !== null, fn($inner) => $inner->whereDate('date', '>=', $from))
-            ->when($to !== null, fn($inner) => $inner->whereDate('date', '<=', $to))
+            ->when($range === 'today', fn($inner) => $inner->where('date', today()->toDateString()))
+            ->when($range === 'yesterday', fn($inner) => $inner->where('date', today()->subDay()->toDateString()))
+            ->when($range === 'week', fn($inner) => $inner->where('date', '>=', today()->startOfWeek()->toDateString()))
+            ->when($range === 'month', fn($inner) => $inner->where('date', '>=', today()->startOfMonth()->toDateString()))
+            ->when($from !== null, fn($inner) => $inner->where('date', '>=', $from->toDateString()))
+            ->when($to !== null, fn($inner) => $inner->where('date', '<=', $to->toDateString()))
             ->when($statusFilter !== null, fn($inner) => $inner->where('status', $statusFilter));
 
         return [$range, $statusFilter, $query];
