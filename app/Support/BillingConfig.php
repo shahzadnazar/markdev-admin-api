@@ -11,19 +11,19 @@ class BillingConfig
     /** Days before the due date an installment becomes payable. */
     public static function activationDays(): int
     {
-        return (int) (Setting::where('key', 'billing_activation_days')->value('value') ?? 5);
+        return (int) (Setting::cached('billing_activation_days') ?? 5);
     }
 
     /** Warning window after the due date before the student defaults. */
     public static function graceDays(): int
     {
-        return (int) (Setting::where('key', 'billing_grace_days')->value('value') ?? 5);
+        return (int) (Setting::cached('billing_grace_days') ?? 5);
     }
 
     /** One-time registration fee collected at admission (per-admission override allowed). */
     public static function registrationFee(): float
     {
-        return (float) (Setting::where('key', 'registration_fee')->value('value') ?? 2000);
+        return (float) (Setting::cached('registration_fee') ?? 2000);
     }
 
     /** Default defaulter fine per day; a plan may override it. */
@@ -33,6 +33,6 @@ class BillingConfig
             return (float) $plan->fine_per_day;
         }
 
-        return (float) (Setting::where('key', 'defaulter_fine_per_day')->value('value') ?? 100);
+        return (float) (Setting::cached('defaulter_fine_per_day') ?? 100);
     }
 }

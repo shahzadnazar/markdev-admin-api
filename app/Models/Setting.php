@@ -22,45 +22,43 @@ class Setting extends Model
         ];
     }
 
-    /** Resolved once per request on top of the cache. */
-    protected static array $memo = [];
+    /**
+     * Every setting, loaded once per request. Null until the first read.
+     *
+     * @var array<string, mixed>|null
+     */
+    protected static ?array $memo = null;
 
     /**
-     * Read a setting without hitting the database on every page render.
+     * Read a setting without querying once per key.
      *
-     * The admin layout reads two of these for each request; they change rarely,
-     * so they are cached and flushed when settings are saved. A missing table
-     * or cache store must never take the panel down, hence the rescue.
+     * This used to go through Cache::remember. On a database cache store that
+     * was a bad trade: each key cost a read of the cache table, a read of
+     * settings on a miss, and an upsert to write it back — putting writes into
+     * the render path of every admin page, where they can queue behind a lock.
+     * The whole table is a handful of rows, so one plain SELECT for all of them
+     * is fewer queries than the cache path and writes nothing.
+     *
+     * A missing table must never take the panel down, hence the rescue.
      */
     public static function cached(string $key, mixed $default = null): mixed
     {
-        if (array_key_exists($key, static::$memo)) {
-            return static::$memo[$key] ?? $default;
+        if (static::$memo === null) {
+            static::$memo = rescue(
+                fn () => static::query()->get(['key', 'value'])->pluck('value', 'key')->all(),
+                [],
+                false,
+            );
         }
 
-        $value = rescue(
-            fn () => \Illuminate\Support\Facades\Cache::remember(
-                "setting:{$key}",
-                now()->addMinutes(10),
-                fn () => static::query()->where('key', $key)->value('value'),
-            ),
-            null,
-            false,
-        );
-
-        static::$memo[$key] = $value;
-
-        return $value ?? $default;
+        return static::$memo[$key] ?? $default;
     }
 
-    /** Drop cached values so a save takes effect immediately. */
+    /** Drop the loaded settings so a save takes effect immediately. */
     public static function forgetCached(?string $key = null): void
     {
-        $keys = $key !== null ? [$key] : static::query()->pluck('key')->all();
-
-        foreach ($keys as $name) {
-            rescue(fn () => \Illuminate\Support\Facades\Cache::forget("setting:{$name}"), null, false);
-            unset(static::$memo[$name]);
-        }
+        // Settings are resolved as one set, so a single key cannot be dropped
+        // on its own; clearing all of them costs one query on the next read.
+        static::$memo = null;
     }
 }

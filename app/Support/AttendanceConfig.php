@@ -51,11 +51,7 @@ class AttendanceConfig
      */
     public static function mode(): string
     {
-        $mode = rescue(
-            fn () => \App\Models\Setting::cached('attendance_mode'),
-            null,
-            false,
-        );
+        $mode = Setting::cached('attendance_mode');
 
         return in_array($mode, self::MODES, true) ? $mode : self::MODE_MANUAL;
     }
@@ -113,7 +109,9 @@ class AttendanceConfig
 
     public static function dayStart(): string
     {
-        $value = (string) (Setting::where('key', 'attendance_day_start')->value('value') ?? '09:00');
+        // Through the shared per-request load rather than its own query: the
+        // register reads this once per student when nobody has a slot.
+        $value = (string) (Setting::cached('attendance_day_start') ?? '09:00');
 
         return preg_match('/^\d{2}:\d{2}$/', $value) ? $value : '09:00';
     }
@@ -121,7 +119,7 @@ class AttendanceConfig
     /** Grace minutes after day start before an arrival counts as late. */
     public static function lateAfterMinutes(): int
     {
-        return (int) (Setting::where('key', 'attendance_late_after_minutes')->value('value') ?? 15);
+        return (int) (Setting::cached('attendance_late_after_minutes') ?? 15);
     }
 
     /* ------------------------------- Slots -------------------------------- */
