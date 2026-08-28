@@ -21,6 +21,7 @@ class StudentProfile extends Model
         'address',
         'cnic',
         'batch_no',
+        'attendance_slot_id',
         'guardian_contact',
         'current_qualification',
         'applied_course',
@@ -62,6 +63,17 @@ class StudentProfile extends Model
     public function registrar(): BelongsTo
     {
         return $this->belongsTo(User::class, 'registered_by');
+    }
+
+    /**
+     * The daily slot this student attends, which decides when they are late.
+     *
+     * Left null for students admitted before slots existed; they fall back to
+     * the academy-wide day start.
+     */
+    public function attendanceSlot(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceSlot::class);
     }
 
     /* ------------------------------ Documents ------------------------------ */

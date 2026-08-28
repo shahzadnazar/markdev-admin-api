@@ -80,7 +80,7 @@ class DashboardController extends Controller
                 // `counted` keeps pending days on the unmarked side, which is
                 // how the register itself counts them.
                 'count' => max(0, $activeStudents
-                    - \App\Models\DailyAttendance::where('date', today()->toDateString())->counted()->count()),
+                    - \App\Models\DailyAttendance::onDate(today())->counted()->count()),
                 'url' => route('admin.attendance.daily'),
             ],
         ])->filter(fn ($item) => $item['count'] > 0)->values();

@@ -66,13 +66,39 @@
                     <x-form.error name="attendance_mode" />
                 </div>
 
+                {{-- Students attend in different slots, so lateness is judged per
+                     slot. These two remain the fallback for anyone not on one. --}}
+                <div class="border-t border-surface-ice pt-5">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-on-surface">Attendance slots</p>
+                            <p class="mt-1 text-xs text-outline">
+                                {{ $slotCount }} slot(s) configured — {{ $activeSlotCount }} offered on the registration form.
+                                Each slot sets its own start, end and grace period, and a student is judged against the slot they were admitted into.
+                            </p>
+                        </div>
+                        <x-btn variant="secondary" size="sm" :href="route('admin.attendance-slots.index')">
+                            <x-icon name="clock" class="size-4" /> Manage slots
+                        </x-btn>
+                    </div>
+                    @if ($slots->isNotEmpty())
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            @foreach ($slots as $slot)
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-primary/[0.06] px-2.5 py-1 font-mono text-[11px] text-primary ring-1 ring-inset ring-primary/10 {{ $slot->is_active ? '' : 'opacity-50' }}">
+                                    {{ $slot->label() }}
+                                </span>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
                 <div class="grid gap-5 border-t border-surface-ice pt-5 sm:grid-cols-2">
-                    <x-form.input type="time" label="Attendance day starts at" name="attendance_day_start"
+                    <x-form.time-12h label="Fallback day starts at" name="attendance_day_start"
                         :value="$settings['attendance_day_start']" required
-                        hint="Biometric punches after start + grace are auto-marked late." />
+                        hint="Used only for students who are not on a slot. Punches after start + grace are auto-marked late." />
                     <x-form.input type="number" label="Late after (minutes)" name="attendance_late_after_minutes"
                         :value="$settings['attendance_late_after_minutes']" required min="0" max="240"
-                        hint="Grace window after the day starts." />
+                        hint="Grace window for students who are not on a slot." />
                 </div>
 
                 <div class="border-t border-surface-ice pt-5">

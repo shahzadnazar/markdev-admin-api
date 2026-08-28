@@ -115,7 +115,8 @@
             <x-admin.nav-item :href="route('admin.reports.index')" icon="chart" :active="request()->routeIs('admin.reports.*')">Reports</x-admin.nav-item>
             @endcan
             @can('settings.view')
-            <x-admin.nav-item :href="route('admin.settings.edit')" icon="cog" :active="request()->routeIs('admin.settings.*')">Settings</x-admin.nav-item>
+            <x-admin.nav-item :href="route('admin.settings.edit')" icon="cog" :active="request()->routeIs('admin.settings.edit') || request()->routeIs('admin.settings.backups.*')">Settings</x-admin.nav-item>
+            <x-admin.nav-item :href="route('admin.attendance-slots.index')" icon="clock" :active="request()->routeIs('admin.attendance-slots.*')">Attendance Slots</x-admin.nav-item>
             @endcan
         </x-admin.nav-section>
         @endcanany

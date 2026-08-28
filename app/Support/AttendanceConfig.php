@@ -124,17 +124,70 @@ class AttendanceConfig
         return (int) (Setting::where('key', 'attendance_late_after_minutes')->value('value') ?? 15);
     }
 
-    /** The moment a given day flips from present to late. */
-    public static function lateThreshold(Carbon $day): Carbon
-    {
-        [$hour, $minute] = array_map('intval', explode(':', static::dayStart()));
+    /* ------------------------------- Slots -------------------------------- */
 
-        return $day->copy()->setTime($hour, $minute)->addMinutes(static::lateAfterMinutes());
+    /**
+     * The slot a student attends, or null if they have none.
+     *
+     * An inactive slot still counts here. Deactivating one stops it being
+     * offered to new students; it must not silently move the students already
+     * on it onto a different schedule.
+     */
+    public static function slotFor(?\App\Models\User $student): ?\App\Models\AttendanceSlot
+    {
+        if ($student === null) {
+            return null;
+        }
+
+        return rescue(
+            fn () => $student->relationLoaded('studentProfile')
+                ? $student->studentProfile?->attendanceSlot
+                : $student->studentProfile()->with('attendanceSlot')->first()?->attendanceSlot,
+            null,
+            false,
+        );
     }
 
-    /** present|late for an arrival moment, per academy timing settings. */
-    public static function statusForArrival(Carbon $arrivedAt): string
+    /**
+     * When the student's day begins, on the day they arrived.
+     *
+     * Their slot supplies the time and the arrival supplies the date, so one
+     * stored slot governs every day without anyone entering a date. Students
+     * with no slot fall back to the academy-wide day start, which is how every
+     * student worked before slots existed.
+     */
+    public static function sessionStart(Carbon $day, ?\App\Models\User $student = null): Carbon
     {
-        return $arrivedAt->greaterThan(static::lateThreshold($arrivedAt)) ? 'late' : 'present';
+        $slot = static::slotFor($student);
+
+        if ($slot !== null) {
+            return $slot->startsOn($day);
+        }
+
+        [$hour, $minute] = array_map('intval', explode(':', static::dayStart()));
+
+        return $day->copy()->setTime($hour, $minute);
+    }
+
+    /** Grace minutes that apply to this student — their slot's, or the global one. */
+    public static function graceMinutesFor(?\App\Models\User $student = null): int
+    {
+        return static::slotFor($student)?->late_after_minutes ?? static::lateAfterMinutes();
+    }
+
+    /**
+     * The moment an arrival stops being on time.
+     *
+     * late_threshold = date(arrival) + slot.start_time + slot.late_after_minutes
+     */
+    public static function lateThreshold(Carbon $day, ?\App\Models\User $student = null): Carbon
+    {
+        return static::sessionStart($day, $student)->addMinutes(static::graceMinutesFor($student));
+    }
+
+    /** present|late for an arrival moment, judged against that student's slot. */
+    public static function statusForArrival(Carbon $arrivedAt, ?\App\Models\User $student = null): string
+    {
+        return $arrivedAt->greaterThan(static::lateThreshold($arrivedAt, $student)) ? 'late' : 'present';
     }
 }

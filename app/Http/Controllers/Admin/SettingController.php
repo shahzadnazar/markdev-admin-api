@@ -34,6 +34,11 @@ class SettingController extends Controller
                 'attendance_mode' => \App\Support\AttendanceConfig::mode(),
                 'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
             ],
+            // Lateness is judged per slot now; the two keys above are what a
+            // student without one falls back to.
+            'slots' => \App\Models\AttendanceSlot::ordered()->get(),
+            'slotCount' => \App\Models\AttendanceSlot::count(),
+            'activeSlotCount' => \App\Models\AttendanceSlot::active()->count(),
             'backups' => $this->backups(),
             'timezones' => \DateTimeZone::listIdentifiers(),
         ]);
@@ -52,10 +57,28 @@ class SettingController extends Controller
             'timezone' => ['required', 'timezone:all'],
             'maintenance_mode' => ['nullable', 'boolean'],
             'attendance_edit_pin' => ['nullable', 'digits_between:4,8'],
-            'attendance_day_start' => ['required', 'date_format:H:i'],
+            // Entered 12-hour with an AM/PM selector, like slot times; stored
+            // as the same 24-hour H:i string this key has always held.
+            'attendance_day_start_hour' => ['required', 'integer', 'min:1', 'max:12'],
+            'attendance_day_start_minute' => ['required', 'integer', 'min:0', 'max:59'],
+            'attendance_day_start_meridiem' => ['required', Rule::in(['AM', 'PM'])],
             'attendance_late_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'attendance_mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
         ]);
+
+        $data['attendance_day_start'] = \Illuminate\Support\Carbon::createFromFormat(
+            'g:i A',
+            sprintf('%d:%02d %s',
+                $data['attendance_day_start_hour'],
+                $data['attendance_day_start_minute'],
+                $data['attendance_day_start_meridiem'],
+            ),
+        )->format('H:i');
+        unset(
+            $data['attendance_day_start_hour'],
+            $data['attendance_day_start_minute'],
+            $data['attendance_day_start_meridiem'],
+        );
 
         $data['maintenance_mode'] = $request->boolean('maintenance_mode');
 

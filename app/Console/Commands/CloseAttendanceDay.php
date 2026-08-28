@@ -42,7 +42,7 @@ class CloseAttendanceDay extends Command
             return self::SUCCESS;
         }
 
-        $existing = DailyAttendance::where('date', $date)
+        $existing = DailyAttendance::onDate($date)
             ->whereIn('user_id', $students)
             ->pluck('status', 'user_id');
 
@@ -61,7 +61,7 @@ class CloseAttendanceDay extends Command
 
         DB::transaction(function () use ($date, $pendingIds, $missingIds) {
             if ($pendingIds->isNotEmpty()) {
-                DailyAttendance::where('date', $date)
+                DailyAttendance::onDate($date)
                     ->whereIn('user_id', $pendingIds)
                     ->update([
                         'status' => 'absent',

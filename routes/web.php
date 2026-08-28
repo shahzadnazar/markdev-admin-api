@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AttendanceController;
+use App\Http\Controllers\Admin\AttendanceSlotController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\PaymentMethodController;
@@ -319,6 +320,19 @@ Route::prefix('admin')
             Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
             Route::put('settings', [SettingController::class, 'update'])->middleware('can:settings.update')->name('settings.update');
             Route::post('settings/backups/run', [SettingController::class, 'runBackup'])->middleware('can:backups.run')->name('settings.backups.run');
+
+            // The slots students are admitted into, which decide when each of
+            // them counts as late. Part of Settings, so it rides the same gate.
+            Route::get('settings/attendance-slots', [AttendanceSlotController::class, 'index'])->name('attendance-slots.index');
+            Route::middleware('can:settings.update')->group(function () {
+                Route::get('settings/attendance-slots/create', [AttendanceSlotController::class, 'create'])->name('attendance-slots.create');
+                Route::post('settings/attendance-slots', [AttendanceSlotController::class, 'store'])->name('attendance-slots.store');
+                Route::get('settings/attendance-slots/{attendanceSlot}/edit', [AttendanceSlotController::class, 'edit'])->name('attendance-slots.edit');
+                Route::put('settings/attendance-slots/{attendanceSlot}', [AttendanceSlotController::class, 'update'])->name('attendance-slots.update');
+                Route::post('settings/attendance-slots/{attendanceSlot}/toggle', [AttendanceSlotController::class, 'toggle'])->name('attendance-slots.toggle');
+                Route::post('settings/attendance-slots/{attendanceSlot}/move', [AttendanceSlotController::class, 'move'])->name('attendance-slots.move');
+                Route::delete('settings/attendance-slots/{attendanceSlot}', [AttendanceSlotController::class, 'destroy'])->name('attendance-slots.destroy');
+            });
         });
     });
 

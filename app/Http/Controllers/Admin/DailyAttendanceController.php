@@ -34,18 +34,18 @@ class DailyAttendanceController extends Controller
         $day = $date->toDateString();
 
         $students = $this->cohort($request, $courseId)
-            ->with(['studentProfile:id,user_id,reg_no,cnic', 'enrollments.course:id,title'])
+            ->with(['studentProfile:id,user_id,reg_no,cnic,attendance_slot_id', 'studentProfile.attendanceSlot:id,name,start_time,end_time', 'enrollments.course:id,title'])
             ->when($statusFilter === 'unmarked', fn($query) => $query
-                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->where('date', $day)))
+                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->onDate($day)))
             ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn($query) => $query
-                ->whereHas('dailyAttendance', fn($inner) => $inner->where('date', $day)->where('status', $statusFilter)))
+                ->whereHas('dailyAttendance', fn($inner) => $inner->onDate($day)->where('status', $statusFilter)))
             ->orderBy('name')
             ->paginate(25)
             ->withQueryString();
 
         $studentIds = $students->pluck('id');
 
-        $records = DailyAttendance::where('date', $day)
+        $records = DailyAttendance::onDate($day)
             ->whereIn('user_id', $studentIds)
             ->with(['marker:id,name', 'marker.roles:id,name', 'updater:id,name'])
             ->get()
@@ -76,14 +76,14 @@ class DailyAttendanceController extends Controller
         $students = $this->cohort($request, $courseId)
             ->with(['studentProfile:id,user_id,reg_no', 'enrollments.course:id,title'])
             ->when($statusFilter === 'unmarked', fn($query) => $query
-                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->where('date', $day)))
+                ->whereDoesntHave('dailyAttendance', fn($inner) => $inner->onDate($day)))
             ->when($statusFilter !== null && $statusFilter !== 'unmarked', fn($query) => $query
-                ->whereHas('dailyAttendance', fn($inner) => $inner->where('date', $day)->where('status', $statusFilter)))
+                ->whereHas('dailyAttendance', fn($inner) => $inner->onDate($day)->where('status', $statusFilter)))
             ->orderBy('name')
             ->limit(1000)
             ->get();
 
-        $records = DailyAttendance::where('date', $day)
+        $records = DailyAttendance::onDate($day)
             ->whereIn('user_id', $students->pluck('id'))
             ->with(['marker:id,name', 'marker.roles:id,name'])
             ->get()
@@ -165,7 +165,7 @@ class DailyAttendanceController extends Controller
         abort_unless($student->hasRole('student') && $student->is_active, 422, 'Not an active student.');
 
         $exists = DailyAttendance::where('user_id', $student->id)
-            ->where('date', $data['date'])
+            ->onDate($data['date'])
             ->exists();
 
         if ($exists) {
@@ -207,7 +207,7 @@ class DailyAttendanceController extends Controller
 
         // Only genuinely decided days count as marked. A pending row is a day
         // nobody has ruled on yet, so it should be filled, not skipped.
-        $marked = DailyAttendance::where('date', $data['date'])->counted()->pluck('user_id');
+        $marked = DailyAttendance::onDate($data['date'])->counted()->pluck('user_id');
 
         $remaining = User::role('student')
             ->where('is_active', true)
@@ -399,7 +399,7 @@ class DailyAttendanceController extends Controller
         // unmarked, not a status, and must not reach a count or a percentage.
         // The cohort goes in as a subquery: pulling every id out first meant
         // shipping thousands of them back as an IN list on every page load.
-        $counts = DailyAttendance::where('date', $date->toDateString())
+        $counts = DailyAttendance::onDate($date)
             ->whereIn('user_id', (clone $cohort)->select('users.id'))
             ->counted()
             ->selectRaw('status, count(*) as total')
@@ -438,8 +438,8 @@ class DailyAttendanceController extends Controller
         // date() call stops MySQL using the (user_id, date) index, and `date`
         // is already a date column so the two mean the same thing.
         $query = DailyAttendance::where('user_id', $student->id)
-            ->when($range === 'today', fn($inner) => $inner->where('date', today()->toDateString()))
-            ->when($range === 'yesterday', fn($inner) => $inner->where('date', today()->subDay()->toDateString()))
+            ->when($range === 'today', fn($inner) => $inner->onDate(today()))
+            ->when($range === 'yesterday', fn($inner) => $inner->onDate(today()->subDay()))
             ->when($range === 'week', fn($inner) => $inner->where('date', '>=', today()->startOfWeek()->toDateString()))
             ->when($range === 'month', fn($inner) => $inner->where('date', '>=', today()->startOfMonth()->toDateString()))
             ->when($from !== null, fn($inner) => $inner->where('date', '>=', $from->toDateString()))

@@ -145,6 +145,12 @@
                                 <a href="{{ route('admin.attendance.daily.show', $student) }}"
                                     class="block truncate font-medium text-on-surface hover:text-primary">{{ $student->name }}</a>
                                 <p class="truncate font-mono text-[11px] text-outline">{{ $student->studentProfile?->reg_no ?? $student->email }}</p>
+                                {{-- Lateness is judged against this slot, so the register says which one. --}}
+                                @if ($student->studentProfile?->attendanceSlot)
+                                    <p class="truncate font-mono text-[11px] text-primary" title="Lateness is judged against this slot">
+                                        {{ $student->studentProfile->attendanceSlot->label() }}
+                                    </p>
+                                @endif
                             </div>
                         </div>
                     </td>

@@ -111,6 +111,15 @@
                                 :value="$profile?->batch_no"
                                 placeholder="e.g. Batch 01"
                                 hint="Assigned by office/admin only." />
+                            {{-- The slot decides when this student counts as late.
+                                 Only slots the admin still offers are listed. --}}
+                            <x-form.select label="Attendance slot" name="attendance_slot_id"
+                                hint="Which part of the day this student attends. Leave blank to use the academy-wide day start.">
+                                <option value="">— No slot (academy day start) —</option>
+                                @foreach ($attendanceSlots as $slot)
+                                    <option value="{{ $slot->id }}" @selected(old('attendance_slot_id', $profile?->attendance_slot_id) == $slot->id)>{{ $slot->label() }}</option>
+                                @endforeach
+                            </x-form.select>
                             <x-form.select label="Course enrollment" name="course_id"
                                 :hint="$student ? 'Enrollments are managed from the Enrollments screen after registration.' : 'Optional — enrolls the student right away.'"
                                 :disabled="(bool) $student">

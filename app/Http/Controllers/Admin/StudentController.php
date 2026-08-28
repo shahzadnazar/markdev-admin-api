@@ -189,6 +189,7 @@ class StudentController extends Controller
         return view('admin.students.form', [
             'student' => null,
             'profile' => null,
+            'attendanceSlots' => $this->slotOptions(null),
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'nextRegNo' => StudentProfile::nextRegNo(),
             'defaultFinePerDay' => BillingConfig::finePerDay(),
@@ -305,6 +306,7 @@ class StudentController extends Controller
         return view('admin.students.form', [
             'student' => $student,
             'profile' => $student->studentProfile,
+            'attendanceSlots' => $this->slotOptions($student->studentProfile),
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'nextRegNo' => $student->studentProfile?->reg_no ?? StudentProfile::nextRegNo(),
             'defaultFinePerDay' => BillingConfig::finePerDay(),
@@ -412,6 +414,7 @@ class StudentController extends Controller
             // Office use only
             'date_of_joining' => ['required', 'date'],
             'batch_no' => ['nullable', 'string', 'max:50'],
+            'attendance_slot_id' => ['nullable', Rule::exists('attendance_slots', 'id')->whereNull('deleted_at')],
             'course_id' => ['nullable', Rule::exists('courses', 'id')],
             'reference' => ['nullable', 'string', 'max:255'],
             'total_fee' => [$withPlan ? 'required' : 'nullable', 'numeric', 'min:0', 'max:99999999'],
@@ -435,6 +438,25 @@ class StudentController extends Controller
             'cnic_doc.max' => 'The CNIC document must not be larger than 1 MB.',
             'degree_doc.max' => 'The degree document must not be larger than 1 MB.',
         ]);
+    }
+
+    /**
+     * Slots the registration form may offer for this student.
+     *
+     * Only slots still on offer, plus whichever one the student is already on
+     * — otherwise re-saving a student whose slot has since been hidden would
+     * quietly drop their assignment.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\AttendanceSlot>
+     */
+    protected function slotOptions(?StudentProfile $profile)
+    {
+        return \App\Models\AttendanceSlot::query()
+            ->where(fn ($query) => $query
+                ->active()
+                ->orWhere('id', $profile?->attendance_slot_id))
+            ->ordered()
+            ->get();
     }
 
     /** Store any uploaded documents, replacing (and deleting) old files. */
