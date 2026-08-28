@@ -159,6 +159,10 @@
                     </div>
                     <dl class="space-y-3 text-sm">
                         @foreach ([
+                        // What the office assigned at admission, listed ahead of the money.
+                        'Registration #' => $profile->reg_no,
+                        'Batch no' => $profile->batch_no,
+                        'Attendance slot' => $profile->attendanceSlot?->label(),
                         'Date of joining' => $profile->date_of_joining?->format('M j, Y'),
                         'Total fee' => $profile->total_fee !== null ? 'Rs '.number_format((float) $profile->total_fee) : null,
                         'Submitted fee' => $profile->submitted_fee !== null ? 'Rs '.number_format((float) $profile->submitted_fee) : null,
@@ -221,11 +225,19 @@
             </div>
 
             @php
-            $documents = [
+            // A path with no file behind it looks exactly like a broken image,
+            // which reads as "the upload didn't work". It is usually a deleted
+            // file or a missing storage link, so it is called out separately
+            // from a document that was never uploaded.
+            $documents = collect([
             ['label' => 'Profile picture', 'path' => $profile?->photo_path],
             ['label' => 'CNIC / B-Form copy', 'path' => $profile?->cnic_doc_path],
             ['label' => 'Last degree / certificate', 'path' => $profile?->degree_doc_path],
-            ];
+            ])->map(fn ($document) => $document + [
+            'stored' => $document['path']
+            ? rescue(fn () => \Illuminate\Support\Facades\Storage::disk('public')->exists($document['path']), false, false)
+            : false,
+            ]);
             @endphp
 
             <div class="space-y-4">
@@ -233,26 +245,34 @@
                 <div class="overflow-hidden rounded-xl border border-outline/15">
                     <div class="flex items-center justify-between gap-3 bg-surface-ice/60 px-4 py-2.5">
                         <p class="text-[13px] font-medium text-on-surface">{{ $document['label'] }}</p>
-                        @if ($document['path'])
+                        @if ($document['stored'])
                         <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" target="_blank"
                             class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                             <x-icon name="external" class="size-3.5" /> Open
                         </a>
+                        @elseif ($document['path'])
+                        <x-badge variant="danger">file missing</x-badge>
                         @else
-                        <x-badge variant="warning">missing</x-badge>
+                        <x-badge variant="warning">not uploaded</x-badge>
                         @endif
                     </div>
-                    @if ($document['path'] && \App\Models\StudentProfile::isImagePath($document['path']))
+                    @if ($document['stored'] && \App\Models\StudentProfile::isImagePath($document['path']))
                     <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" target="_blank">
                         <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" alt="{{ $document['label'] }}"
                             class="max-h-56 w-full object-cover transition hover:opacity-90">
                     </a>
-                    @elseif ($document['path'])
+                    @elseif ($document['stored'])
                     <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" target="_blank"
                         class="flex items-center gap-3 px-4 py-4 transition hover:bg-surface-ice/40">
                         <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-error/10 font-mono text-[11px] font-bold text-error">PDF</span>
                         <span class="text-sm text-on-surface-variant">Open document in a new tab</span>
                     </a>
+                    @elseif ($document['path'])
+                    <p class="px-4 py-4 text-xs text-error">
+                        Recorded as <span class="font-mono">{{ $document['path'] }}</span>, but no such file is on disk.
+                        Re-upload it from the edit screen; if every document reads this way, the storage link is missing
+                        (<span class="font-mono">php artisan storage:link</span>).
+                    </p>
                     @else
                     <p class="px-4 py-4 text-xs text-outline">Not uploaded yet — add it from the edit screen.</p>
                     @endif

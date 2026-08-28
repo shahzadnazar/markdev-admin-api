@@ -274,7 +274,7 @@ class StudentController extends Controller
     {
         abort_unless($student->hasRole('student'), 404);
 
-        $student->load(['studentProfile.registrar:id,name', 'enrollments.course:id,title,level']);
+        $student->load(['studentProfile.registrar:id,name', 'studentProfile.attendanceSlot', 'enrollments.course:id,title,level']);
 
         $invoices = Invoice::where('user_id', $student->id)->get(['id', 'amount', 'fine_amount', 'status']);
 
