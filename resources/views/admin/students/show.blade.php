@@ -157,9 +157,9 @@
                         <x-icon name="banknotes" class="size-4 text-primary" />
                         <h2 class="font-mono text-label-md uppercase text-on-surface">Admission record</h2>
                     </div>
+                    {{-- What the office assigns at admission leads, ahead of the money. --}}
                     <dl class="space-y-3 text-sm">
                         @foreach ([
-                        // What the office assigned at admission, listed ahead of the money.
                         'Registration #' => $profile->reg_no,
                         'Batch no' => $profile->batch_no,
                         'Attendance slot' => $profile->attendanceSlot?->label(),
