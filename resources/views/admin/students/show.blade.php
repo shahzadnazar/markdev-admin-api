@@ -246,7 +246,7 @@
                     <div class="flex items-center justify-between gap-3 bg-surface-ice/60 px-4 py-2.5">
                         <p class="text-[13px] font-medium text-on-surface">{{ $document['label'] }}</p>
                         @if ($document['stored'])
-                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" target="_blank"
+                        <a href="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" target="_blank"
                             class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                             <x-icon name="external" class="size-3.5" /> Open
                         </a>
@@ -257,12 +257,16 @@
                         @endif
                     </div>
                     @if ($document['stored'] && \App\Models\StudentProfile::isImagePath($document['path']))
-                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" target="_blank">
-                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" alt="{{ $document['label'] }}"
-                            class="max-h-56 w-full object-cover transition hover:opacity-90">
+                    {{-- object-contain, not cover: a document is there to be read, and
+                         cropping a CNIC to the middle of the box hides the photo and the
+                         number — which looks like the image failed to load. --}}
+                    <a href="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" target="_blank"
+                        class="block bg-surface-ice/50">
+                        <img src="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" alt="{{ $document['label'] }}"
+                            class="mx-auto max-h-72 w-full object-contain transition hover:opacity-90">
                     </a>
                     @elseif ($document['stored'])
-                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($document['path']) }}" target="_blank"
+                    <a href="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" target="_blank"
                         class="flex items-center gap-3 px-4 py-4 transition hover:bg-surface-ice/40">
                         <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-error/10 font-mono text-[11px] font-bold text-error">PDF</span>
                         <span class="text-sm text-on-surface-variant">Open document in a new tab</span>

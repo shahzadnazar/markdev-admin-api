@@ -61,6 +61,11 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                // Without a connect timeout a stalled MySQL waits out the whole
+                // request, and PHP reports "Maximum execution time exceeded" at
+                // whatever file it happened to be in — which says nothing about
+                // the database. Failing fast names the real problem instead.
+                PDO::ATTR_TIMEOUT => (int) env('DB_CONNECT_TIMEOUT', 10),
             ]) : [],
         ],
 

@@ -124,7 +124,7 @@ class UserController extends Controller
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'password' => [$user ? 'nullable' : 'required', 'confirmed', Password::defaults()],
             'phone' => ['nullable', 'string', 'max:30'],
-            'biometric_id' => ['nullable', 'string', 'max:64', \Illuminate\Validation\Rule::unique('users', 'biometric_id')->ignore($user?->id)],
+            'biometric_id' => ['nullable', 'string', 'max:64', Rule::unique('users', 'biometric_id')->ignore($user?->id)],
             'headline' => ['nullable', 'string', 'max:255'],
             'is_active' => ['nullable', 'boolean'],
             'roles' => ['nullable', 'array'],

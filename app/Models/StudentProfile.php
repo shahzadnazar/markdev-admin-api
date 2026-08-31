@@ -83,6 +83,27 @@ class StudentProfile extends Model
         return $path ? Storage::disk('public')->url($path) : null;
     }
 
+    /**
+     * Browser path for a stored document, relative to whatever host is serving.
+     *
+     * Storage::url() builds on APP_URL, so an admin panel opened on a different
+     * host or port than APP_URL names gets image URLs pointing at somewhere that
+     * serves nothing — which looks exactly like a document that failed to
+     * upload. The panel is always same-origin, so a root-relative path is both
+     * correct and immune to that drift. The API keeps absolute URLs, since the
+     * portal reads them from another origin.
+     */
+    public static function documentSrc(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $url = Storage::disk('public')->url($path);
+
+        return parse_url($url, PHP_URL_PATH) ?: $url;
+    }
+
     public static function isImagePath(?string $path): bool
     {
         return $path !== null && in_array(

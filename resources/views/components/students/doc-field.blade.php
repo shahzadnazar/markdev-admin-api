@@ -1,7 +1,7 @@
 @props(['name', 'label', 'accept', 'required' => false, 'existing' => null, 'kind' => 'any'])
 
 @php
-    $existingUrl = $existing ? \Illuminate\Support\Facades\Storage::disk('public')->url($existing) : null;
+    $existingUrl = $existing ? \App\Models\StudentProfile::documentSrc($existing) : null;
     $existingIsImage = \App\Models\StudentProfile::isImagePath($existing);
 @endphp
 
