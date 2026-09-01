@@ -42,6 +42,44 @@ Seeded accounts (password: `password`):
 
 Background workers: `php artisan queue:work` and `php artisan schedule:work` (backups, invoice past-due sweeps, token pruning).
 
+### Local dev on Windows
+
+`php artisan serve` runs the PHP **CLI**, where OPcache is off by default. Composer's
+`files` autoloader pulls in 120 files on every request — 80 of them from
+`thecodingmachine/safe`, which dompdf's CSS parser depends on — so without OPcache
+the server re-reads and re-compiles all of them each time. Measured on this repo:
+
+| | first request | steady state |
+| --- | --- | --- |
+| OPcache off | 3.87 s | 18 ms |
+| OPcache on | 0.34 s | 19 ms |
+
+Steady state looks fine on Linux because the OS page cache makes the re-reads cheap.
+On Windows it is not cheap: Defender re-scans each file on every open, so the cost is
+paid on every request and can exceed PHP's 30-second limit. That surfaces as
+`Maximum execution time of 30 seconds exceeded` pointing at an arbitrary file — a
+Blade view, a vendor trait, an autoloader stub — because PHP reports a timeout
+wherever it happens to be, not where the time went.
+
+Two settings fix it. In `php.ini` (XAMPP: `C:\xampp\php\php.ini`; confirm which file
+is live with `php --ini`):
+
+```ini
+zend_extension=opcache
+opcache.enable=1
+opcache.enable_cli=1            ; artisan serve is CLI
+opcache.memory_consumption=192
+opcache.max_accelerated_files=20000
+opcache.validate_timestamps=1   ; keep these two so edits still apply instantly
+opcache.revalidate_freq=0
+```
+
+Then exclude the project folder and `php.exe` from Windows Defender real-time
+scanning (Settings → Virus & threat protection → Exclusions).
+
+Verify with `php -r "var_dump(opcache_get_status(false)['opcache_enabled']);"` — it
+should print `true`.
+
 ## Architecture
 
 - **`routes/api.php`** — versioned student-facing REST API under `/api/v1`, Sanctum-authenticated. The contract is defined by the portal repo's `docs/API.md` and TypeScript types; API Resources here serialize to exactly those shapes.
