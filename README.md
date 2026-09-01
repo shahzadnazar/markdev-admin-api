@@ -61,14 +61,21 @@ paid on every request and can exceed PHP's 30-second limit. That surfaces as
 Blade view, a vendor trait, an autoloader stub — because PHP reports a timeout
 wherever it happens to be, not where the time went.
 
-Two settings fix it. In `php.ini` (XAMPP: `C:\xampp\php\php.ini`; confirm which file
-is live with `php --ini`):
+Find the php.ini that `artisan serve` actually uses — `php --ini`, and read the
+`Loaded Configuration File` line. It is often a standalone PHP install rather than
+the one bundled with XAMPP, since XAMPP's Apache and the CLI can be different builds.
+
+Stock php.ini ships an `[opcache]` section with every line commented out, and no
+`zend_extension` line at all, so the settings below are ignored until the extension
+is loaded. Uncomment and edit in place rather than appending a second `[opcache]`
+block — duplicate keys later in the file win.
 
 ```ini
-zend_extension=opcache
+zend_extension=opcache          ; missing by default; without it the rest is ignored
 opcache.enable=1
-opcache.enable_cli=1            ; artisan serve is CLI
+opcache.enable_cli=1            ; artisan serve is CLI, where the default is 0
 opcache.memory_consumption=192
+opcache.interned_strings_buffer=16
 opcache.max_accelerated_files=20000
 opcache.validate_timestamps=1   ; keep these two so edits still apply instantly
 opcache.revalidate_freq=0
