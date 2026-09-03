@@ -42,6 +42,32 @@ Seeded accounts (password: `password`):
 
 Background workers: `php artisan queue:work` and `php artisan schedule:work` (backups, invoice past-due sweeps, token pruning).
 
+### RBAC changes ship as migrations
+
+`RolePermissionSeeder` is the single definition of the permission matrix, but
+`php artisan migrate` does not run seeders — so before this, a fresh checkout came
+up with whatever grants its database happened to have. That is how one machine
+showed Settings to admins and another hid it.
+
+Editing the matrix in the seeder is therefore only half the change. Add a
+migration that invokes it, so the command everyone already runs after a pull
+applies it and the migrations table records that it has:
+
+```php
+public function up(): void
+{
+    (new RolePermissionSeeder())->run();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+}
+```
+
+See `2026_09_03_120000_sync_role_permissions.php`. The seeder stays the source of
+truth; the migration only decides *when* every database picks the change up.
+
+Note that the seeder uses `syncPermissions`, which replaces a role's grants
+outright. Roles hand-edited in the admin's Roles & Permissions screen are reset
+to the matrix when such a migration runs.
+
 ### Local dev on Windows
 
 `php artisan serve` runs the PHP **CLI**, where OPcache is off by default. Composer's
