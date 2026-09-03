@@ -10,7 +10,6 @@ class SettingsTest extends ApiTestCase
 
         $this->getJson('/api/v1/settings')->assertOk()->assertJson([
             'data' => [
-                'timezone' => 'UTC',
                 'language' => 'en',
                 'notifications' => [
                     'email_announcements' => true,
@@ -29,33 +28,33 @@ class SettingsTest extends ApiTestCase
         $user = $this->actingAsStudent();
 
         $this->putJson('/api/v1/settings', [
-            'timezone' => 'Europe/Berlin',
             'notifications' => ['push_announcements' => false],
         ])->assertOk()
-            ->assertJsonPath('data.timezone', 'Europe/Berlin')
             ->assertJsonPath('data.language', 'en')
             ->assertJsonPath('data.notifications.push_announcements', false)
             ->assertJsonPath('data.notifications.email_announcements', true);
 
         // A later partial update keeps earlier choices.
         $this->putJson('/api/v1/settings', ['language' => 'de'])->assertOk()
-            ->assertJsonPath('data.timezone', 'Europe/Berlin')
             ->assertJsonPath('data.language', 'de')
             ->assertJsonPath('data.notifications.push_announcements', false);
 
         $this->assertDatabaseHas('user_settings', [
             'user_id' => $user->id,
-            'timezone' => 'Europe/Berlin',
             'language' => 'de',
         ]);
     }
 
-    public function test_timezone_is_validated(): void
+    public function test_timezone_is_not_a_stored_setting(): void
     {
-        $this->actingAsStudent();
+        $user = $this->actingAsStudent();
 
-        $this->putJson('/api/v1/settings', ['timezone' => 'Mars/Olympus_Mons'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('timezone');
+        // Sending one is accepted and ignored rather than 422-ing, so an older
+        // build of the portal keeps working; it just has nowhere to land.
+        $this->putJson('/api/v1/settings', ['timezone' => 'Europe/Berlin', 'language' => 'de'])
+            ->assertOk()
+            ->assertJsonMissingPath('data.timezone');
+
+        $this->assertDatabaseHas('user_settings', ['user_id' => $user->id, 'language' => 'de']);
     }
 }

@@ -9,7 +9,6 @@ class UserSetting extends Model
 {
     protected $fillable = [
         'user_id',
-        'timezone',
         'language',
         'notifications',
     ];

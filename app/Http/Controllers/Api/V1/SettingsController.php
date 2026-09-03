@@ -28,10 +28,6 @@ class SettingsController extends ApiController
     {
         $settings = UserSetting::firstOrNew(['user_id' => $request->user()->id]);
 
-        if ($request->has('timezone')) {
-            $settings->timezone = $request->string('timezone')->value();
-        }
-
         if ($request->has('language')) {
             $settings->language = $request->string('language')->value();
         }
@@ -57,7 +53,6 @@ class SettingsController extends ApiController
     protected function present(?UserSetting $settings): array
     {
         return [
-            'timezone' => $settings?->timezone ?? 'UTC',
             'language' => $settings?->language ?? 'en',
             'notifications' => array_merge(self::NOTIFICATION_DEFAULTS, $settings?->notifications ?? []),
         ];

@@ -27,7 +27,6 @@ class SettingController extends Controller
                 'defaulter_fine_per_day' => $settings['defaulter_fine_per_day'] ?? 100,
                 'billing_grace_days' => $settings['billing_grace_days'] ?? 5,
                 'billing_activation_days' => $settings['billing_activation_days'] ?? 5,
-                'timezone' => $settings['timezone'] ?? config('app.timezone'),
                 'maintenance_mode' => (bool) ($settings['maintenance_mode'] ?? false),
                 'attendance_pin_set' => \App\Support\AttendanceConfig::hasEditPin(),
                 'attendance_day_start' => \App\Support\AttendanceConfig::dayStart(),
@@ -40,7 +39,6 @@ class SettingController extends Controller
             'slotCount' => \App\Models\AttendanceSlot::count(),
             'activeSlotCount' => \App\Models\AttendanceSlot::active()->count(),
             'backups' => $this->backups(),
-            'timezones' => \DateTimeZone::listIdentifiers(),
         ]);
     }
 
@@ -54,7 +52,6 @@ class SettingController extends Controller
             'defaulter_fine_per_day' => ['required', 'numeric', 'min:0', 'max:100000'],
             'billing_grace_days' => ['required', 'integer', 'min:0', 'max:60'],
             'billing_activation_days' => ['required', 'integer', 'min:0', 'max:28'],
-            'timezone' => ['required', 'timezone:all'],
             'maintenance_mode' => ['nullable', 'boolean'],
             'attendance_edit_pin' => ['nullable', 'digits_between:4,8'],
             // Entered 12-hour with an AM/PM selector, like slot times; stored

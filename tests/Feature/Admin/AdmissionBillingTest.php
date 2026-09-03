@@ -257,10 +257,16 @@ class AdmissionBillingTest extends TestCase
             'defaulter_fine_per_day' => 100,
             'billing_grace_days' => 5,
             'billing_activation_days' => 5,
-            'timezone' => 'Asia/Karachi',
-            'attendance_day_start' => '09:00',
+            'attendance_day_start_hour' => 9,
+            'attendance_day_start_minute' => 0,
+            'attendance_day_start_meridiem' => 'AM',
             'attendance_late_after_minutes' => 15,
+            'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
         ])->assertSessionHas('success');
+
+        // The form no longer posts a timezone; the academy is fixed to
+        // Asia/Karachi in config/app.php.
+        $this->assertDatabaseMissing('settings', ['key' => 'timezone']);
 
         $this->assertEquals(3500.0, \App\Support\BillingConfig::registrationFee());
     }

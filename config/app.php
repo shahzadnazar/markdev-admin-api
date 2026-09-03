@@ -59,9 +59,11 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | The academy runs in Pakistan and nowhere else, so this is fixed at
+    | Asia/Karachi. It is deliberately not configurable at runtime: every
+    | date the app renders or judges (attendance lateness above all) is a
+    | local wall-clock time, and a per-user or per-site override would only
+    | make those disagree with the clock on the wall.
     |
     */
 

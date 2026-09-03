@@ -18,12 +18,6 @@
                 <x-form.input label="Support phone" name="support_phone" :value="$settings['support_phone']"
                     hint="Shown on the student fee-payment screen." placeholder="+92 300 1234567" />
 
-                <x-form.select label="Default timezone" name="timezone" required>
-                    @foreach ($timezones as $timezone)
-                        <option value="{{ $timezone }}" @selected(old('timezone', $settings['timezone']) === $timezone)>{{ $timezone }}</option>
-                    @endforeach
-                </x-form.select>
-
                 <div class="grid gap-5 sm:grid-cols-3 border-t border-surface-ice pt-5">
                     <x-form.input type="number" label="Registration fee (Rs)" name="registration_fee"
                         :value="$settings['registration_fee']" required min="0" step="0.01"

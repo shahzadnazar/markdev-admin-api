@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateSettingsRequest extends FormRequest
 {
@@ -16,7 +15,6 @@ class UpdateSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'timezone' => ['sometimes', 'string', Rule::in(timezone_identifiers_list())],
             'language' => ['sometimes', 'string', 'max:10'],
             'notifications' => ['sometimes', 'array'],
             'notifications.email_announcements' => ['sometimes', 'boolean'],
