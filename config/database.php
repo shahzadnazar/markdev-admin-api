@@ -86,6 +86,11 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                // Same reason as the mysql connection above. XAMPP ships
+                // MariaDB, so this is the connection a local Windows install
+                // actually uses — without the timeout a crashed server hangs
+                // `artisan migrate` with no output at all.
+                PDO::ATTR_TIMEOUT => (int) env('DB_CONNECT_TIMEOUT', 10),
             ]) : [],
         ],
 
