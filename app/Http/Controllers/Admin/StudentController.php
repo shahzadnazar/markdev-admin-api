@@ -15,7 +15,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -201,7 +200,12 @@ class StudentController extends Controller
     {
         $data = $this->validated($request);
 
-        $password = $request->filled('password') ? $request->string('password')->toString() : Str::random(10);
+        // Blank means "use the standard one" rather than "generate something":
+        // the office hands the student a credential at the desk, so it has to be
+        // known in advance, not read off a flash message that is gone on reload.
+        $password = $request->filled('password')
+            ? $request->string('password')->toString()
+            : (string) config('auth.default_account_password', 'password');
 
         $student = DB::transaction(function () use ($request, $data, $password) {
             $student = User::create([
@@ -264,7 +268,7 @@ class StudentController extends Controller
 
         $message = "Student registered — {$student->studentProfile->reg_no}.";
         if (! $request->filled('password')) {
-            $message .= " Portal password: {$password} (share it once; the student can change it).";
+            $message .= " Portal password: {$password} — the default. The student can change it after signing in.";
         }
 
         return redirect()->route('admin.students.show', $student)->with('success', $message);

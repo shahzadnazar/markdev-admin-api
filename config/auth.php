@@ -114,4 +114,19 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Default password for admin-created accounts
+    |--------------------------------------------------------------------------
+    |
+    | The registration form's password field is optional. When the office
+    | leaves it blank the account is created with this password, so staff can
+    | hand a student a known credential instead of copying a generated one off
+    | a flash message. It is deliberately weak and shared — change it here, or
+    | set DEFAULT_ACCOUNT_PASSWORD, before this reaches anything public.
+    |
+    */
+
+    'default_account_password' => env('DEFAULT_ACCOUNT_PASSWORD', 'password'),
+
 ];
