@@ -222,6 +222,10 @@ class StudentController extends Controller
                 'reg_no' => StudentProfile::nextRegNo(),
                 'terms_accepted_at' => now(),
             ]);
+            // `name` lives in NON_PROFILE_FIELDS because it belongs to the
+            // account, so the fill above drops it. The admission record keeps
+            // its own copy, written from the same submitted value.
+            $profile->name = $data['name'];
             $profile->user_id = $student->id;
             $profile->registered_by = $request->user()->id;
 
@@ -338,6 +342,9 @@ class StudentController extends Controller
         $profile->fill(
             collect($data)->except(self::NON_PROFILE_FIELDS)->all()
         );
+        // Renaming the account renames the admission record with it, so the
+        // two copies cannot drift apart.
+        $profile->name = $data['name'];
         $profile->user_id = $student->id;
 
         $this->storeDocuments($request, $student, $profile);
