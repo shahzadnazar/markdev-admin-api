@@ -30,6 +30,9 @@ class BillingController extends ApiController
             ->values();
 
         $supportPhone = Setting::where('key', 'support_phone')->value('value');
+        // The invoice header used to print "MARKDEV" no matter what the academy
+        // had renamed itself to in Settings.
+        $siteName = Setting::cached('site_name') ?: config('app.name', 'MarkDev');
 
         if ($plan === null) {
             return response()->json([
@@ -51,6 +54,7 @@ class BillingController extends ApiController
                     'payment_methods' => \App\Models\PaymentMethod::availableForCourse(null)
                         ->map(fn ($method) => $this->methodPayload($method))->values(),
                     'support_phone' => $supportPhone,
+                'site_name' => $siteName,
                     'installments' => null,
                     'admission' => null,
                 ],
@@ -107,6 +111,7 @@ class BillingController extends ApiController
                 'payment_methods' => \App\Models\PaymentMethod::availableForCourse($plan->course_id)
                     ->map(fn ($method) => $this->methodPayload($method))->values(),
                 'support_phone' => $supportPhone,
+                'site_name' => $siteName,
                 'admission' => $admissionInvoices->isEmpty() ? null : [
                     'invoices' => $admissionInvoices->map(fn ($invoice) => (new InvoiceResource($invoice))->resolve())->values(),
                     'total_due' => round($admissionInvoices->whereIn('status', ['open', 'past_due'])

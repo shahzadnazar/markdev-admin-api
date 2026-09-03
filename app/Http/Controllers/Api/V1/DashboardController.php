@@ -88,6 +88,12 @@ class DashboardController extends ApiController
                         ->exists(),
                     'pending_leaves' => LeaveApplication::where('user_id', $user->id)->pending()->count(),
                     'points' => (int) $user->points,
+                    // The dashboard tile linking to Notes had no number behind
+                    // it, so it read "View" among tiles that all show counts.
+                    'notes_available' => \App\Models\Note::whereIn(
+                        'course_id',
+                        $user->enrollments()->select('course_id'),
+                    )->count(),
                 ],
                 'continue_learning' => CourseProgressResource::collection($continueLearning),
                 'upcoming' => array_slice($calendar->eventsBetween($user, now(), now()->addDays(90)), 0, 5),
