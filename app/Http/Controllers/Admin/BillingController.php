@@ -26,7 +26,7 @@ class BillingController extends Controller
 
         $plans = FeePlan::query()
             ->with(['user.studentProfile:id,user_id,reg_no', 'course:id,title'])
-            ->with(['invoices' => fn ($query) => $query->select('id', 'fee_plan_id', 'type', 'status', 'amount', 'fine_amount', 'due_at', 'sequence_no')])
+            ->with(['invoices' => fn ($query) => $query->select('id', 'fee_plan_id', 'type', 'status', 'amount', 'fine_amount', 'absence_fine_amount', 'absence_fine_credit', 'due_at', 'sequence_no')])
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.trim($request->string('search')).'%';
                 $query->where(fn ($inner) => $inner->where('title', 'like', $term)
@@ -42,7 +42,7 @@ class BillingController extends Controller
 
         $outstanding = Invoice::whereIn('status', ['open', 'pending', 'past_due'])
             ->whereNotNull('fee_plan_id')
-            ->selectRaw('coalesce(sum(amount + fine_amount), 0) as total')
+            ->selectRaw('coalesce(sum(amount + fine_amount + absence_fine_amount - absence_fine_credit), 0) as total')
             ->value('total');
 
         return view('admin.billing.plans.index', [
@@ -78,10 +78,10 @@ class BillingController extends Controller
                 'paid_count' => $installments->where('status', 'paid')->count(),
                 'total_count' => $installments->count(),
                 'due_now' => $invoices->whereIn('status', ['open', 'past_due'])
-                    ->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
-                'collected' => $paid->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
-                'outstanding' => $openLike->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
-                'fines' => $invoices->sum(fn ($invoice) => (float) $invoice->fine_amount),
+                    ->sum(fn ($invoice) => $invoice->payable_total),
+                'collected' => $paid->sum(fn ($invoice) => $invoice->payable_total),
+                'outstanding' => $openLike->sum(fn ($invoice) => $invoice->payable_total),
+                'fines' => $invoices->sum(fn ($invoice) => (float) $invoice->fine_amount + (float) $invoice->absence_fine_amount),
                 'next_due' => $invoices->whereIn('status', ['upcoming', 'open', 'pending', 'past_due'])->sortBy('due_at')->first()?->due_at,
             ],
             'graceDays' => \App\Support\BillingConfig::graceDays(),

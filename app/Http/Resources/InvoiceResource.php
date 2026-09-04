@@ -21,6 +21,9 @@ class InvoiceResource extends JsonResource
             'amount' => (float) $this->amount,
             'fine_amount' => (float) $this->fine_amount,
             'fine_days' => (int) $this->fine_days,
+            // Kept apart from fine_amount, which is the late-payment fine.
+            'absence_fine_amount' => (float) $this->absence_fine_amount,
+            'absence_fine_credit' => (float) $this->absence_fine_credit,
             'payable_total' => $this->payable_total,
             'currency' => $this->currency,
             'status' => $this->status,

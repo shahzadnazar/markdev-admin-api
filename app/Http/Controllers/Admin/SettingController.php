@@ -33,6 +33,8 @@ class SettingController extends Controller
                 'attendance_mode' => \App\Support\AttendanceConfig::mode(),
                 'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
                 'monthly_leave_allowance' => \App\Support\LeaveAllowance::perMonth(),
+                'monthly_absent_allowance' => \App\Support\AbsenceFine::allowance(),
+                'absent_fine_amount' => \App\Support\AbsenceFine::perAbsence(),
             ],
             // Lateness is judged per slot now; the two keys above are what a
             // student without one falls back to.
@@ -64,10 +66,16 @@ class SettingController extends Controller
             // At least one: zero would not be an allowance, it would be a ban,
             // and there is a toggle-shaped way to say that if it is ever wanted.
             'monthly_leave_allowance' => ['required', 'integer', 'min:1', 'max:31'],
+            'monthly_absent_allowance' => ['required', 'integer', 'min:1', 'max:31'],
+            // Zero is meaningful here, unlike the allowances: it is how an
+            // academy says absences are tracked but never charged for.
+            'absent_fine_amount' => ['required', 'numeric', 'min:0', 'max:100000'],
             'attendance_mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
         ], [
             'monthly_leave_allowance.min' => 'Monthly leave allowance must be at least 1.',
             'monthly_leave_allowance.required' => 'Monthly leave allowance must be at least 1.',
+            'monthly_absent_allowance.min' => 'Monthly absent allowance must be at least 1.',
+            'monthly_absent_allowance.required' => 'Monthly absent allowance must be at least 1.',
         ]);
 
         $data['attendance_day_start'] = \Illuminate\Support\Carbon::createFromFormat(

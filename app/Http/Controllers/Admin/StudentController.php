@@ -284,7 +284,7 @@ class StudentController extends Controller
 
         $student->load(['studentProfile.registrar:id,name', 'studentProfile.attendanceSlot', 'enrollments.course:id,title,level']);
 
-        $invoices = Invoice::where('user_id', $student->id)->get(['id', 'amount', 'fine_amount', 'status']);
+        $invoices = Invoice::where('user_id', $student->id)->get(['id', 'amount', 'fine_amount', 'absence_fine_amount', 'absence_fine_credit', 'status']);
 
         $watches = \App\Models\LessonVideoProgress::available()
             ? \App\Models\LessonVideoProgress::where('user_id', $student->id)
@@ -299,9 +299,9 @@ class StudentController extends Controller
             'watches' => $watches,
             'requiredPercent' => \App\Models\LessonVideoProgress::requiredPercent(),
             'fees' => [
-                'paid' => $invoices->where('status', 'paid')->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
+                'paid' => $invoices->where('status', 'paid')->sum(fn ($invoice) => $invoice->payable_total),
                 'outstanding' => $invoices->whereIn('status', ['open', 'pending', 'past_due'])
-                    ->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount),
+                    ->sum(fn ($invoice) => $invoice->payable_total),
                 'invoices' => $invoices->count(),
             ],
         ]);

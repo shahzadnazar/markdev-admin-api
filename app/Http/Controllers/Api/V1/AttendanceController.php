@@ -101,6 +101,12 @@ class AttendanceController extends ApiController
                 // 50, absent 0 -- rather than a second definition of the rate
                 // that would disagree with the one the list reports.
                 'attendance_rate' => \App\Models\DailyAttendance::weightedPercent($counts->all()) ?? 0,
+                // What this month's absences are costing. Every number comes
+                // from the admin settings; the portal computes none of it.
+                'absence_balance' => \App\Support\AbsenceFine::balance(
+                    $request->user()->id,
+                    \Illuminate\Support\Carbon::now(),
+                ),
             ],
         ]);
     }

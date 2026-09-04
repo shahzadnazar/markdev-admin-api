@@ -23,6 +23,8 @@ class Invoice extends Model
         'amount',
         'fine_amount',
         'fine_days',
+        'absence_fine_amount',
+        'absence_fine_credit',
         'currency',
         'status',
         'issued_at',
@@ -39,6 +41,8 @@ class Invoice extends Model
             'amount' => 'decimal:2',
             'fine_amount' => 'decimal:2',
             'fine_days' => 'integer',
+            'absence_fine_amount' => 'decimal:2',
+            'absence_fine_credit' => 'decimal:2',
             'sequence_no' => 'integer',
             'activates_at' => 'date',
             'grace_notified_at' => 'datetime',
@@ -81,10 +85,24 @@ class Invoice extends Model
 
     /* --------------------------- Installment helpers ------------------------ */
 
-    /** Installment amount plus any accrued defaulter fine. */
+    /**
+     * Everything this invoice asks for, as one number.
+     *
+     * Tuition, the late-payment fine SweepInstallments accrues, the absence
+     * fine charged at month end, less any credit from a corrected absence.
+     * The three extras are never folded into `amount`: each is its own line on
+     * the bill, and `fine_amount` and `absence_fine_amount` are different
+     * charges that happen to share a word.
+     */
     public function getPayableTotalAttribute(): float
     {
-        return round((float) $this->amount + (float) $this->fine_amount, 2);
+        return round(
+            (float) $this->amount
+            + (float) $this->fine_amount
+            + (float) $this->absence_fine_amount
+            - (float) $this->absence_fine_credit,
+            2,
+        );
     }
 
     /** Due date has passed but the grace window hasn't ended yet. */

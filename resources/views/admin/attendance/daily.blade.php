@@ -110,6 +110,10 @@
                 // form says so rather than failing on submit.
                 'cutoff_passed' => (bool) ($cutoffs[$student->id]['passed'] ?? false),
                 'cutoff_at' => $cutoffs[$student->id]['at'] ?? null,
+                // An absence can cost the student money, so undoing one is
+                // admin territory. The controller enforces it; this is so the
+                // form says so rather than failing on submit.
+                'may_undo_absence' => auth()->user()->can('attendance.correct-absent'),
                 ],
 
                 'history' => $studentHistory,
@@ -414,7 +418,14 @@
                                     x-text="'Last corrected ' + record.updated_at + ' by ' + (record.updated_by || '—') + ' — ' + (record.update_reason || '')"></p>
                             </template>
 
-                            <div class="rounded-xl border border-warning/30 bg-warning/10 p-3.5">
+                            <template x-if="record.status === 'absent' && ! student.may_undo_absence">
+                                <p class="rounded-xl border border-error/30 bg-error/10 px-3.5 py-3 text-sm text-error">
+                                    Absent is final. Ask an admin to correct it.
+                                </p>
+                            </template>
+
+                            <div x-show="record.status !== 'absent' || student.may_undo_absence"
+                                class="rounded-xl border border-warning/30 bg-warning/10 p-3.5">
                                 <label class="mb-1.5 flex items-center gap-2 text-[13px] font-medium text-on-surface" for="update-pin">
                                     <x-icon name="shield" class="size-4 text-warning" /> Security PIN
                                 </label>

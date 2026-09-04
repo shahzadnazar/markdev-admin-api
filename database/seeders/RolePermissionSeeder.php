@@ -26,7 +26,7 @@ class RolePermissionSeeder extends Seeder
         'enrollments' => ['view', 'create', 'update', 'delete'],
         'assignments' => ['view', 'create', 'update', 'delete', 'grade'],
         'quizzes' => ['view', 'create', 'update', 'delete'],
-        'attendance' => ['view', 'manage', 'daily'],
+        'attendance' => ['view', 'manage', 'daily', 'correct-absent'],
         'devices' => ['view', 'manage'],
         'certificates' => ['view', 'issue', 'delete'],
         'announcements' => ['view', 'create', 'update', 'delete'],

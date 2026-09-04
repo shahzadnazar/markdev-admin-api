@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\DailyAttendance;
 use App\Models\User;
+use App\Support\AbsenceFine;
 use App\Support\AttendanceConfig;
 use App\Support\AuditLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -135,6 +136,42 @@ class DailyAttendanceController extends Controller
         return "{$student->name} cannot be marked present — the late cutoff ({$cutoff->format('g:i A')}) has passed. Mark them late instead.";
     }
 
+    /**
+     * An absence is final unless an admin says otherwise.
+     *
+     * An absence can cost the student money, so talking one away is not
+     * something the person who recorded it should be able to do alone. Gated
+     * on `attendance.correct-absent`, which the RBAC matrix grants to admin
+     * and super-admin only.
+     *
+     * Enforced here rather than by hiding a control: a hand-made POST meets
+     * the same rule and is refused outright.
+     */
+    protected function assertMayUndoAbsence(Request $request, ?DailyAttendance $record, string $newStatus): void
+    {
+        if ($record === null || $record->status !== 'absent' || $newStatus === 'absent') {
+            return;
+        }
+
+        abort_unless(
+            $request->user()->can('attendance.correct-absent'),
+            403,
+            'Absent is final. Ask an admin to correct it.',
+        );
+    }
+
+    /**
+     * A day that stops being a chargeable absence changes what the month costs.
+     *
+     * Runs after any correction. If that month was already billed the
+     * difference comes back as a credit on the next invoice — the issued one
+     * is never edited, paid or not.
+     */
+    protected function reconcileAbsenceFine(DailyAttendance $record): void
+    {
+        AbsenceFine::reconcile($record->user_id, $record->date->copy()->startOfMonth());
+    }
+
     /** Per-student attendance history with range filters. */
     public function show(Request $request, User $student): View
     {
@@ -200,9 +237,13 @@ class DailyAttendanceController extends Controller
             return back()->with('error', $error);
         }
 
-        $exists = DailyAttendance::where('user_id', $student->id)
+        $existing = DailyAttendance::where('user_id', $student->id)
             ->onDate($data['date'])
-            ->exists();
+            ->first();
+
+        $this->assertMayUndoAbsence($request, $existing, $data['status']);
+
+        $exists = $existing !== null;
 
         if ($exists) {
             return back()->with('error', "{$student->name} is already marked for this date — use Update instead.");
@@ -242,7 +283,9 @@ class DailyAttendanceController extends Controller
         }
 
         // Only genuinely decided days count as marked. A pending row is a day
-        // nobody has ruled on yet, so it should be filled, not skipped.
+        // nobody has ruled on yet, so it should be filled, not skipped. An
+        // absence is decided, so this skips it like any other mark — a bulk
+        // action is not a way round the rule that an absence is final.
         $marked = DailyAttendance::onDate($data['date'])->counted()->pluck('user_id');
 
         $remaining = User::role('student')
@@ -296,6 +339,8 @@ class DailyAttendanceController extends Controller
             'reason.required' => 'A reason is required for every attendance correction.',
         ]);
 
+        $this->assertMayUndoAbsence($request, $record, $data['status']);
+
         if (! AttendanceConfig::hasEditPin()) {
             return back()->with('error', 'No attendance security PIN is configured yet — set one in System → Settings first.');
         }
@@ -318,6 +363,7 @@ class DailyAttendanceController extends Controller
         RateLimiter::clear($throttleKey);
 
         $old = ['status' => $record->status, 'remarks' => $record->remarks];
+        $wasAbsent = $record->status === 'absent';
 
         $record->update([
             'status' => $data['status'],
@@ -335,6 +381,10 @@ class DailyAttendanceController extends Controller
             'remarks' => $data['remarks'] ?? null,
             'reason' => $data['reason'],
         ]);
+
+        if ($wasAbsent) {
+            $this->reconcileAbsenceFine($record);
+        }
 
         return back()->with('success', 'Attendance updated — correction logged with your reason.');
     }

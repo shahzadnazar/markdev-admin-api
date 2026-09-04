@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\LeaveApplication;
 use App\Notifications\LeaveApplicationReviewed;
+use App\Models\DailyAttendance;
+use App\Support\AbsenceFine;
 use App\Support\AuditLogger;
 use App\Support\LeaveAllowance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -119,6 +122,8 @@ class LeaveApplicationController extends Controller
                 'reviewed_at' => now(),
             ]);
 
+            $this->releaseClosedAbsences($request, $leave, $approvedDates);
+
             return $status;
         });
 
@@ -142,5 +147,59 @@ class LeaveApplicationController extends Controller
             'rejected' => "Leave declined for {$leave->user?->name}.",
             default => "Leave partly approved for {$leave->user?->name} — {$approved} day(s) approved, {$declined} declined.",
         });
+    }
+
+    /**
+     * Turn an already-closed absence into leave when its day is approved.
+     *
+     * Reviewing does not write the register — the day close does, reading the
+     * approved days. But a day that closed before anyone got to the
+     * application is already marked absent, and the close will not revisit a
+     * day it has settled. Without this, applying in time and being approved
+     * late would still cost the student the absence, and possibly a fine.
+     *
+     * Only an absence is touched. A student recorded present or late actually
+     * turned up, and that stands whatever their application said.
+     *
+     * @param  array<int, string>  $approvedDates
+     */
+    protected function releaseClosedAbsences(Request $request, LeaveApplication $leave, array $approvedDates): void
+    {
+        if ($approvedDates === []) {
+            return;
+        }
+
+        $approved = collect($approvedDates)->map(fn ($date) => Carbon::parse($date)->toDateString());
+
+        // Matched on Y-m-d in PHP: `date` is a date-cast column, so an
+        // equality against "2026-09-02" finds nothing on SQLite.
+        $rows = DailyAttendance::where('user_id', $leave->user_id)
+            ->where('date', '>=', $leave->from_date->toDateString())
+            ->where('date', '<', $leave->to_date->copy()->addDay()->toDateString())
+            ->where('status', 'absent')
+            ->get()
+            ->filter(fn (DailyAttendance $row) => $approved->contains($row->date->toDateString()));
+
+        foreach ($rows as $row) {
+            $old = ['status' => $row->status, 'remarks' => $row->remarks];
+
+            $row->update([
+                'status' => 'leave',
+                'remarks' => 'Approved leave',
+                'last_updated_by' => $request->user()->id,
+                'last_update_reason' => 'Leave application approved after the day closed',
+                'last_updated_at' => now(),
+            ]);
+
+            AuditLogger::log('attendance_corrected', 'daily_attendance', $row->user_id, $old, [
+                'student' => $leave->user?->name,
+                'date' => $row->date->toDateString(),
+                'status' => 'leave',
+                'reason' => 'Leave application approved after the day closed',
+            ]);
+
+            // It has stopped being a chargeable absence.
+            AbsenceFine::reconcile($row->user_id, $row->date->copy()->startOfMonth());
+        }
     }
 }

@@ -96,6 +96,12 @@
                     <x-form.input type="number" label="Leave days per month" name="monthly_leave_allowance"
                         :value="$settings['monthly_leave_allowance']" required min="1" max="31"
                         hint="How many days of leave a student may take in a calendar month. Unused days do not carry over — every month starts at this number again." />
+                    <x-form.input type="number" label="Free absences per month" name="monthly_absent_allowance"
+                        :value="$settings['monthly_absent_allowance']" required min="1" max="31"
+                        hint="Absences a student may collect in a month before any fine applies. Does not carry over." />
+                    <x-form.input type="number" label="Absence fine (Rs)" name="absent_fine_amount"
+                        :value="$settings['absent_fine_amount']" required min="0" max="100000" step="0.01"
+                        hint="Charged once for each absence beyond the allowance, totalled at month end onto the next invoice. Zero means absences are tracked but never charged. This is not the late-payment fine above." />
                 </div>
 
                 <div class="border-t border-surface-ice pt-5">

@@ -68,15 +68,27 @@
         @endif
         @if ($invoice->fine_amount > 0)
             <tr>
-                <td class="label">Late fine included</td>
+                <td class="label">Late-payment fine</td>
                 <td class="value">{{ $invoice->currency }} {{ number_format((float) $invoice->fine_amount, 0) }} ({{ $invoice->fine_days }} days)</td>
+            </tr>
+        @endif
+        @if ((float) $invoice->absence_fine_amount > 0)
+            <tr>
+                <td class="label">Absence fine</td>
+                <td class="value">{{ $invoice->currency }} {{ number_format((float) $invoice->absence_fine_amount, 0) }}</td>
+            </tr>
+        @endif
+        @if ((float) $invoice->absence_fine_credit > 0)
+            <tr>
+                <td class="label">Credit — corrected absence</td>
+                <td class="value">− {{ $invoice->currency }} {{ number_format((float) $invoice->absence_fine_credit, 0) }}</td>
             </tr>
         @endif
     </table>
 
     <div class="amount-row">
         <div class="amount-label">Amount paid</div>
-        <div class="amount">{{ $invoice->currency }} {{ number_format((float) $invoice->amount + (float) $invoice->fine_amount, 0) }}</div>
+        <div class="amount">{{ $invoice->currency }} {{ number_format((float) $invoice->payable_total, 0) }}</div>
     </div>
 
     <div class="footer">

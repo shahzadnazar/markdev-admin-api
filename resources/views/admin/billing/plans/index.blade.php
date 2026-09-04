@@ -78,7 +78,7 @@
                     $paidCount = $installmentRows->where('status', 'paid')->count();
                     $total = $installmentRows->count();
                     $outstanding = $rows->whereIn('status', ['open', 'pending', 'past_due'])
-                        ->sum(fn ($invoice) => (float) $invoice->amount + (float) $invoice->fine_amount);
+                        ->sum(fn ($invoice) => $invoice->payable_total);
                     $hasDefault = $rows->contains(fn ($invoice) => $invoice->status === 'past_due');
                     $hasGrace = $rows->contains(fn ($invoice) => $invoice->status === 'open' && $invoice->due_at?->isPast());
                     [$state, $stateBadge] = match (true) {
