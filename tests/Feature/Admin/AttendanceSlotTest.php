@@ -6,6 +6,7 @@ use App\Models\AttendanceSlot;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -258,6 +259,25 @@ class AttendanceSlotTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame(2, AttendanceSlot::count());
+    }
+
+    /**
+     * The stored key is a cache of the rule, and a cache can be stale: a row
+     * written before the key column existed, or before the rule last changed,
+     * or straight through the query builder. The check has to hold anyway.
+     */
+    public function test_a_slot_whose_stored_key_is_stale_still_blocks_a_duplicate(): void
+    {
+        $slot = $this->existing('slot 2', '09:00:00', '11:00:00');
+
+        // The key the previous rule would have written -- case folded, spacing
+        // left alone -- as an un-run re-key migration would leave it.
+        DB::table('attendance_slots')->where('id', $slot->id)->update(['name_key' => 'slot 2']);
+
+        $this->create(array_merge(['name' => 'slot2'], $this->at('2:00 PM', '4:00 PM')))
+            ->assertSessionHasErrors('name');
+
+        $this->assertSame(1, AttendanceSlot::count());
     }
 
     public function test_saving_a_slot_keeps_its_own_name(): void

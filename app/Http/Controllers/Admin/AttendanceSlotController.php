@@ -168,14 +168,22 @@ class AttendanceSlotController extends Controller
             return;
         }
 
+        $key = AttendanceSlot::normaliseName($name);
+
         $taken = AttendanceSlot::query()
             ->when($slot, fn ($query) => $query->whereKeyNot($slot->getKey()))
-            // Matched against the stored normalised key, which is also what
-            // the unique index sits on, so the form and the database always
-            // agree on what "the same name" means. Comparing the raw column
-            // instead would leave them free to disagree, and did: lower(name)
-            // let "Slot 1" and "Slot1" both through.
-            ->where('name_key', AttendanceSlot::normaliseName($name))
+            ->where(function ($query) use ($key) {
+                // The stored key first: it is what the unique index sits on,
+                // so the form and the database agree on what "the same name"
+                // means, and it is indexed.
+                $query->where('name_key', $key)
+                    // Then the name itself, normalised in SQL. A stored key
+                    // can be stale -- a row written before the key existed, or
+                    // before the rule last changed, or straight through the
+                    // query builder -- and a check that trusted it alone would
+                    // wave the duplicate through. This half cannot go stale.
+                    ->orWhereRaw("lower(replace(name, ' ', '')) = ?", [$key]);
+            })
             ->exists();
 
         if ($taken) {
