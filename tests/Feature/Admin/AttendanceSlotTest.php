@@ -237,6 +237,29 @@ class AttendanceSlotTest extends TestCase
             ->assertSessionHasErrors('start_time');
     }
 
+    public function test_a_name_differing_only_in_inner_spacing_is_rejected(): void
+    {
+        $this->existing('Slot 1', '09:00:00', '11:00:00');
+
+        $this->create(array_merge(['name' => 'Slot1'], $this->at('2:00 PM', '4:00 PM')))
+            ->assertSessionHasErrors(['name' => 'A slot named "Slot1" already exists.']);
+
+        $this->create(array_merge(['name' => 'slot  1'], $this->at('2:00 PM', '4:00 PM')))
+            ->assertSessionHasErrors('name');
+
+        $this->assertSame(1, AttendanceSlot::count());
+    }
+
+    public function test_names_that_differ_by_more_than_spacing_are_still_allowed(): void
+    {
+        $this->existing('Slot 1', '09:00:00', '11:00:00');
+
+        $this->create(array_merge(['name' => 'Slot 2'], $this->at('2:00 PM', '4:00 PM')))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(2, AttendanceSlot::count());
+    }
+
     public function test_saving_a_slot_keeps_its_own_name(): void
     {
         $slot = $this->existing('Morning', '09:00:00', '11:00:00');

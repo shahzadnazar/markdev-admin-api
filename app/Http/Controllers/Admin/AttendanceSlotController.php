@@ -170,10 +170,12 @@ class AttendanceSlotController extends Controller
 
         $taken = AttendanceSlot::query()
             ->when($slot, fn ($query) => $query->whereKeyNot($slot->getKey()))
-            // lower() on both sides rather than Rule::unique, whose comparison
-            // follows the column collation: case-insensitive on MariaDB but
-            // case-sensitive on SQLite, so "morning" would slip past there.
-            ->whereRaw('lower(name) = ?', [AttendanceSlot::normaliseName($name)])
+            // Matched against the stored normalised key, which is also what
+            // the unique index sits on, so the form and the database always
+            // agree on what "the same name" means. Comparing the raw column
+            // instead would leave them free to disagree, and did: lower(name)
+            // let "Slot 1" and "Slot1" both through.
+            ->where('name_key', AttendanceSlot::normaliseName($name))
             ->exists();
 
         if ($taken) {

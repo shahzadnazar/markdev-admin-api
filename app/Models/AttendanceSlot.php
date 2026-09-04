@@ -68,12 +68,15 @@ class AttendanceSlot extends Model
     /**
      * The form of a name that decides whether two slots share one.
      *
-     * "Morning", "morning" and "  Morning  " are the same slot to an admin
-     * reading the list, so they are the same name here.
+     * Case and spacing carry no meaning in a slot name: "Morning", "morning"
+     * and "  Morning  " are one slot to an admin reading the list, and so are
+     * "Slot 1" and "Slot1". Every space is dropped rather than merely
+     * collapsed, because that pair differs by whether a space is there at all,
+     * not by how many.
      */
     public static function normaliseName(?string $name): string
     {
-        return mb_strtolower(trim((string) $name));
+        return mb_strtolower((string) preg_replace('/\s+/u', '', (string) $name));
     }
 
     /* ------------------------------ Relations ------------------------------ */
