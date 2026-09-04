@@ -68,6 +68,20 @@ Note that the seeder uses `syncPermissions`, which replaces a role's grants
 outright. Roles hand-edited in the admin's Roles & Permissions screen are reset
 to the matrix when such a migration runs.
 
+### After pulling a change to the admin UI
+
+`public/build` is gitignored, and Tailwind only emits the utility classes it can
+see in the source at build time. Pulling a Blade change therefore brings the
+markup but not the CSS it needs, and a control styled with classes the old build
+never generated renders unstyled — a checkbox that toggles nothing visible reads
+as a control that does not work at all. Run the build after any pull that touches
+`resources/`:
+
+```
+npm install   # only when package.json changed
+npm run build # or: npm run dev, which rebuilds as you edit
+```
+
 ### Local dev on Windows
 
 `php artisan serve` runs the PHP **CLI**, where OPcache is off by default. Composer's
