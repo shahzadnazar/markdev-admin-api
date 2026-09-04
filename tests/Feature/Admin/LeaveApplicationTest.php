@@ -30,6 +30,24 @@ class LeaveApplicationTest extends TestCase
 
         $this->student = User::factory()->create(['name' => 'Aliya Khan']);
         $this->student->assignRole('student');
+
+        // Wide enough that the tests about reviewing are not really tests
+        // about the allowance; the allowance ones set their own.
+        $this->setAllowance(5);
+    }
+
+    protected function setAllowance(int $days): void
+    {
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'monthly_leave_allowance'],
+            ['value' => $days, 'group' => 'general'],
+        );
+        \App\Models\Setting::forgetCached();
+    }
+
+    protected function balance(?User $student = null, ?\Illuminate\Support\Carbon $month = null): array
+    {
+        return \App\Support\LeaveAllowance::balance(($student ?? $this->student)->id, $month ?? now());
     }
 
     protected function makeLeave(array $overrides = []): LeaveApplication
@@ -369,6 +387,246 @@ class LeaveApplicationTest extends TestCase
         $this->assertSame(1, DailyAttendance::onDate(today())->where('user_id', $this->student->id)->count());
         $this->assertSame($first->status, $second->status);
         $this->assertEquals($first->updated_at, $second->updated_at);
+    }
+
+    /* --------------------------- Monthly allowance -------------------------- */
+
+    protected function apply(string $from, string $to, string $reason = 'Away'): \Illuminate\Testing\TestResponse
+    {
+        Sanctum::actingAs($this->student);
+
+        return $this->postJson('/api/v1/leaves', [
+            'from_date' => $from,
+            'to_date' => $to,
+            'reason' => $reason,
+        ]);
+    }
+
+    public function test_applying_opens_one_pending_day_row_per_day(): void
+    {
+        $this->apply(today()->addDay()->toDateString(), today()->addDays(3)->toDateString())
+            ->assertCreated();
+
+        $leave = LeaveApplication::first();
+        $this->assertSame(3, $leave->decisions()->count());
+        $this->assertSame(3, $leave->decisions()->where('status', 'pending')->count());
+    }
+
+    public function test_reviewing_updates_those_rows_rather_than_adding_more(): void
+    {
+        $this->apply(today()->addDay()->toDateString(), today()->addDays(3)->toDateString());
+        $leave = LeaveApplication::first();
+
+        $this->review($leave, [
+            'days' => [today()->addDay()->toDateString(), today()->addDays(2)->toDateString()],
+            'review_note' => 'The third clashes with the assessment.',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(3, $leave->decisions()->count());
+        $this->assertSame(2, $leave->decisions()->where('status', 'approved')->count());
+        $this->assertSame(1, $leave->decisions()->where('status', 'declined')->count());
+        $this->assertSame(0, $leave->decisions()->where('status', 'pending')->count());
+    }
+
+    public function test_an_unused_allowance_reports_nothing_spent(): void
+    {
+        $this->setAllowance(2);
+
+        Sanctum::actingAs($this->student);
+        $this->getJson('/api/v1/leaves')->assertOk()
+            ->assertJsonPath('balance.allowance', 2)
+            ->assertJsonPath('balance.used', 0)
+            ->assertJsonPath('balance.remaining', 2);
+
+        $this->apply(today()->addDay()->toDateString(), today()->addDay()->toDateString())
+            ->assertCreated();
+    }
+
+    public function test_a_spent_allowance_refuses_the_next_application(): void
+    {
+        $this->setAllowance(2);
+        $this->apply(today()->addDay()->toDateString(), today()->addDays(2)->toDateString())->assertCreated();
+        $leave = LeaveApplication::first();
+        $this->review($leave, ['days' => collect($leave->days())->map->toDateString()->all()]);
+
+        $this->apply(today()->addDays(5)->toDateString(), today()->addDays(5)->toDateString())
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('from_date');
+
+        $this->assertSame('No leave remaining in '.now()->format('F').'.',
+            $this->apply(today()->addDays(6)->toDateString(), today()->addDays(6)->toDateString())
+                ->json('errors.from_date.0'));
+
+        $this->assertSame(0, $this->balance()['remaining']);
+    }
+
+    public function test_a_pending_day_holds_its_place_in_the_balance(): void
+    {
+        $this->setAllowance(2);
+        $this->apply(today()->addDay()->toDateString(), today()->addDay()->toDateString())->assertCreated();
+
+        // Reserved while it waits — not 2.
+        $this->assertSame(1, $this->balance()['remaining']);
+        $this->assertSame(1, $this->balance()['used']);
+    }
+
+    public function test_declining_a_day_gives_it_back(): void
+    {
+        $this->setAllowance(2);
+        $this->apply(today()->addDay()->toDateString(), today()->addDay()->toDateString())->assertCreated();
+        $this->assertSame(1, $this->balance()['remaining']);
+
+        $leave = LeaveApplication::first();
+        $this->review($leave, ['decline_all' => 1, 'review_note' => 'Not this time']);
+
+        $this->assertSame(2, $this->balance()['remaining']);
+        $this->assertSame(0, $this->balance()['used']);
+    }
+
+    public function test_a_range_longer_than_the_balance_is_refused_and_names_the_number(): void
+    {
+        $this->setAllowance(2);
+        $this->apply(today()->addDay()->toDateString(), today()->addDay()->toDateString())->assertCreated();
+        $leave = LeaveApplication::first();
+        $this->review($leave, ['days' => [today()->addDay()->toDateString()]]);
+
+        $this->assertSame(1, $this->balance()['remaining']);
+
+        $response = $this->apply(today()->addDays(3)->toDateString(), today()->addDays(7)->toDateString())
+            ->assertUnprocessable();
+
+        $this->assertSame(
+            'Only 1 leave remaining in '.now()->format('F').'.',
+            $response->json('errors.from_date.0'),
+        );
+
+        $this->assertSame(1, LeaveApplication::count());
+    }
+
+    public function test_a_three_day_leave_spends_three_days(): void
+    {
+        $this->setAllowance(5);
+        $this->apply(today()->addDay()->toDateString(), today()->addDays(3)->toDateString())->assertCreated();
+
+        $this->assertSame(3, $this->balance()['used']);
+        $this->assertSame(2, $this->balance()['remaining']);
+    }
+
+    public function test_a_range_crossing_a_month_is_split_between_the_two(): void
+    {
+        $this->setAllowance(3);
+        // 28 Feb – 2 Mar: one day in February, two in March.
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-02-20 09:00'));
+
+        $this->apply('2027-02-28', '2027-03-02')->assertCreated();
+
+        $feb = $this->balance(month: \Illuminate\Support\Carbon::parse('2027-02-01'));
+        $mar = $this->balance(month: \Illuminate\Support\Carbon::parse('2027-03-01'));
+
+        $this->assertSame(1, $feb['used']);
+        $this->assertSame(2, $feb['remaining']);
+        $this->assertSame(2, $mar['used']);
+        $this->assertSame(1, $mar['remaining']);
+    }
+
+    public function test_an_unused_month_never_adds_to_the_next(): void
+    {
+        $this->setAllowance(3);
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-02-10 09:00'));
+
+        // February goes entirely unused.
+        $this->assertSame(3, $this->balance(month: \Illuminate\Support\Carbon::parse('2027-02-01'))['remaining']);
+
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-03-10 09:00'));
+        $this->assertSame(3, $this->balance()['remaining']);
+
+        // And a four-day March request is still one too many.
+        $this->apply('2027-03-15', '2027-03-18')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('from_date');
+    }
+
+    public function test_a_crossing_range_is_refused_for_the_month_that_is_short(): void
+    {
+        $this->setAllowance(3);
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-02-20 09:00'));
+
+        // March already has two days spoken for; February is untouched.
+        $this->apply('2027-03-10', '2027-03-11')->assertCreated();
+
+        // 28 Feb – 2 Mar needs 1 in Feb (fine) and 2 in March (only 1 left).
+        $response = $this->apply('2027-02-28', '2027-03-02')->assertUnprocessable();
+
+        $this->assertSame('Only 1 leave remaining in March.', $response->json('errors.from_date.0'));
+    }
+
+    public function test_a_pending_day_is_marked_absent_when_that_day_closes(): void
+    {
+        $this->setAllowance(5);
+        $this->apply(today()->toDateString(), today()->toDateString())->assertCreated();
+
+        // Nobody has ruled on it, so it is not leave — it is an unexplained
+        // absence like any other unmarked day.
+        $this->artisan('attendance:close-day')->assertSuccessful();
+
+        $this->assertSame('absent', DailyAttendance::onDate(today())->where('user_id', $this->student->id)->value('status'));
+    }
+
+    public function test_the_allowance_cannot_be_saved_as_zero(): void
+    {
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('super-admin');
+
+        $this->actingAs($superAdmin)->put('/admin/settings', [
+            'site_name' => 'MarkDev',
+            'registration_fee' => 2000,
+            'defaulter_fine_per_day' => 100,
+            'billing_grace_days' => 5,
+            'billing_activation_days' => 5,
+            'attendance_day_start_hour' => 9,
+            'attendance_day_start_minute' => 0,
+            'attendance_day_start_meridiem' => 'AM',
+            'attendance_late_after_minutes' => 15,
+            'monthly_leave_allowance' => 0,
+            'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
+        ])->assertSessionHasErrors(['monthly_leave_allowance' => 'Monthly leave allowance must be at least 1.']);
+
+        \App\Models\Setting::forgetCached();
+        $this->assertSame(5, \App\Support\LeaveAllowance::perMonth());
+    }
+
+    public function test_a_new_month_starts_the_balance_over(): void
+    {
+        $this->setAllowance(2);
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-04-10 09:00'));
+
+        $this->apply('2027-04-20', '2027-04-21')->assertCreated();
+        $this->assertSame(0, $this->balance()['remaining']);
+
+        // The apply endpoint says so too, and says when it changes.
+        Sanctum::actingAs($this->student);
+        $this->getJson('/api/v1/leaves')->assertOk()
+            ->assertJsonPath('balance.remaining', 0)
+            ->assertJsonPath('balance.resets_on', '2027-05-01');
+
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-05-02 09:00'));
+        $this->assertSame(2, $this->balance()['remaining']);
+        $this->apply('2027-05-10', '2027-05-11')->assertCreated();
+    }
+
+    public function test_changing_the_setting_moves_the_balance_at_once(): void
+    {
+        $this->setAllowance(2);
+
+        Sanctum::actingAs($this->student);
+        $this->getJson('/api/v1/leaves')->assertOk()->assertJsonPath('balance.allowance', 2);
+
+        $this->setAllowance(7);
+
+        Sanctum::actingAs($this->student);
+        $this->getJson('/api/v1/leaves')->assertOk()
+            ->assertJsonPath('balance.allowance', 7)
+            ->assertJsonPath('balance.remaining', 7);
     }
 
     /* ---------------------------- Attendance math -------------------------- */

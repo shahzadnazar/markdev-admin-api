@@ -68,6 +68,13 @@
                             @endunless
                         </p>
                         <p class="font-mono text-[11px] text-outline">{{ $daysCount }} {{ \Illuminate\Support\Str::plural('day', $daysCount) }} · applied {{ $leave->created_at->diffForHumans() }}</p>
+                        @php $balance = $balances[$leave->id] ?? null; @endphp
+                        @if ($balance)
+                            <p class="mt-0.5 font-mono text-[11px] text-outline"
+                                title="Leave taken in {{ $balance['month_label'] }}, this request included. The allowance does not carry over.">
+                                {{ $balance['month_label'] }}: {{ $balance['used'] }}/{{ $balance['allowance'] }} used · {{ $balance['remaining'] }} left
+                            </p>
+                        @endif
                     </td>
                     <td class="td max-w-[16rem]">
                         <p class="break-words text-sm text-on-surface-variant" title="{{ $leave->reason }}">{{ \Illuminate\Support\Str::limit($leave->reason, 80) }}</p>
@@ -151,6 +158,14 @@
                         Review leave — {{ $leave->user?->name }}
                     </h3>
                     <p class="text-sm text-on-surface-variant">{{ $leave->reason }}</p>
+                    @php $balance = $balances[$leave->id] ?? null; @endphp
+                    @if ($balance)
+                        <p class="rounded-xl bg-surface-ice/60 px-4 py-2.5 font-mono text-[11px] text-on-surface-variant">
+                            {{ $leave->user?->name }} in {{ $balance['month_label'] }}:
+                            {{ $balance['used'] }} of {{ $balance['allowance'] }} used, {{ $balance['remaining'] }} left.
+                            Days you decline go back to their balance.
+                        </p>
+                    @endif
 
                     @if ($isSingleDay)
                         <input type="hidden" name="days[]" value="{{ $leaveDays[0]->toDateString() }}">

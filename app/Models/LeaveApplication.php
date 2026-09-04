@@ -80,16 +80,25 @@ class LeaveApplication extends Model
             ->intersect(collect($this->days())->map->toDateString())
             ->unique();
 
-        $this->decisions()->delete();
+        // The rows already exist — applying created them as pending, which is
+        // what reserves the days against the student's allowance. Reviewing
+        // settles them in place rather than replacing them.
+        $existing = $this->existingDecisions();
 
-        $this->decisions()->createMany(
-            collect($this->days())->map(fn (Carbon $day) => [
-                'date' => $day->toDateString(),
-                'status' => $approved->contains($day->toDateString())
-                    ? LeaveApplicationDay::APPROVED
-                    : LeaveApplicationDay::DECLINED,
-            ])->all(),
-        );
+        foreach ($this->days() as $day) {
+            $date = $day->toDateString();
+            $status = $approved->contains($date)
+                ? LeaveApplicationDay::APPROVED
+                : LeaveApplicationDay::DECLINED;
+
+            if ($row = $existing->get($date)) {
+                $row->update(['status' => $status]);
+
+                continue;
+            }
+
+            $this->decisions()->create(['date' => $date, 'status' => $status]);
+        }
 
         return match (true) {
             $approved->isEmpty() => 'rejected',
@@ -103,6 +112,42 @@ class LeaveApplication extends Model
      *
      * @return array<int, string>
      */
+    /**
+     * Open one row per day of the range, reserving them against the month's
+     * allowance until somebody rules on them.
+     */
+    public function openDecisions(): void
+    {
+        $existing = $this->existingDecisions();
+
+        foreach ($this->days() as $day) {
+            if ($existing->has($day->toDateString())) {
+                continue;
+            }
+
+            $this->decisions()->create([
+                'date' => $day->toDateString(),
+                'status' => LeaveApplicationDay::PENDING,
+            ]);
+        }
+    }
+
+    /**
+     * This application's day rows, keyed by Y-m-d.
+     *
+     * Matched in PHP rather than with a where on `date`: it is a date-cast
+     * column, so the stored value comes back as a full datetime on SQLite and
+     * an equality against "2027-03-02" finds nothing — which would quietly
+     * make a second row for a day that already had one.
+     *
+     * @return \Illuminate\Support\Collection<string, LeaveApplicationDay>
+     */
+    protected function existingDecisions(): \Illuminate\Support\Collection
+    {
+        return $this->decisions()->get()
+            ->keyBy(fn (LeaveApplicationDay $day) => Carbon::parse($day->date)->toDateString());
+    }
+
     public function approvedDates(): array
     {
         return $this->decisions()

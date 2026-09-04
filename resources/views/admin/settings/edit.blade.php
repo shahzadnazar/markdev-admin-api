@@ -93,6 +93,9 @@
                     <x-form.input type="number" label="Late after (minutes)" name="attendance_late_after_minutes"
                         :value="$settings['attendance_late_after_minutes']" required min="0" max="240"
                         hint="Grace window for students who are not on a slot." />
+                    <x-form.input type="number" label="Leave days per month" name="monthly_leave_allowance"
+                        :value="$settings['monthly_leave_allowance']" required min="1" max="31"
+                        hint="How many days of leave a student may take in a calendar month. Unused days do not carry over — every month starts at this number again." />
                 </div>
 
                 <div class="border-t border-surface-ice pt-5">

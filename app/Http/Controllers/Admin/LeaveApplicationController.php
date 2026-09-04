@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LeaveApplication;
 use App\Notifications\LeaveApplicationReviewed;
 use App\Support\AuditLogger;
+use App\Support\LeaveAllowance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,8 +41,18 @@ class LeaveApplicationController extends Controller
             ->paginate(25)
             ->withQueryString();
 
+        // The student's standing in the month each request falls in. An
+        // over-limit request cannot reach this screen, so this is context for
+        // the reviewer rather than a warning: it says how much of the month
+        // this one request is spending.
+        $balances = $leaves->getCollection()
+            ->mapWithKeys(fn (LeaveApplication $leave) => [
+                $leave->id => LeaveAllowance::balance($leave->user_id, $leave->from_date),
+            ]);
+
         return view('admin.leaves.index', [
             'leaves' => $leaves,
+            'balances' => $balances,
             'status' => $status,
             'pendingCount' => LeaveApplication::pending()->count(),
         ]);

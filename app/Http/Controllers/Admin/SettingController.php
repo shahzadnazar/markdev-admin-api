@@ -32,6 +32,7 @@ class SettingController extends Controller
                 'attendance_day_start' => \App\Support\AttendanceConfig::dayStart(),
                 'attendance_mode' => \App\Support\AttendanceConfig::mode(),
                 'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
+                'monthly_leave_allowance' => \App\Support\LeaveAllowance::perMonth(),
             ],
             // Lateness is judged per slot now; the two keys above are what a
             // student without one falls back to.
@@ -60,7 +61,13 @@ class SettingController extends Controller
             'attendance_day_start_minute' => ['required', 'integer', 'min:0', 'max:59'],
             'attendance_day_start_meridiem' => ['required', Rule::in(['AM', 'PM'])],
             'attendance_late_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
+            // At least one: zero would not be an allowance, it would be a ban,
+            // and there is a toggle-shaped way to say that if it is ever wanted.
+            'monthly_leave_allowance' => ['required', 'integer', 'min:1', 'max:31'],
             'attendance_mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
+        ], [
+            'monthly_leave_allowance.min' => 'Monthly leave allowance must be at least 1.',
+            'monthly_leave_allowance.required' => 'Monthly leave allowance must be at least 1.',
         ]);
 
         $data['attendance_day_start'] = \Illuminate\Support\Carbon::createFromFormat(

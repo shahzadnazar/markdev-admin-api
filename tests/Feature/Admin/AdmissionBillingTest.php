@@ -261,6 +261,7 @@ class AdmissionBillingTest extends TestCase
             'attendance_day_start_minute' => 0,
             'attendance_day_start_meridiem' => 'AM',
             'attendance_late_after_minutes' => 15,
+            'monthly_leave_allowance' => 2,
             'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
         ])->assertSessionHas('success');
 
