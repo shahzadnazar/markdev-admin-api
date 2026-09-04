@@ -68,6 +68,32 @@ Note that the seeder uses `syncPermissions`, which replaces a role's grants
 outright. Roles hand-edited in the admin's Roles & Permissions screen are reset
 to the matrix when such a migration runs.
 
+### Keeping the register settled
+
+`attendance:close-day` marks every expected student absent for a day nobody
+marked them on. It only fills a blank: present, late and approved leave are left
+exactly as they are, and a leave approved after the close still rewrites that day.
+Students whose slot does not run that weekday are not expected and collect no
+absence.
+
+It is scheduled for 23:00 with `--catch-up=7`, so a run the scheduler missed is
+made good the next time it fires. **The scheduler has to be running for any of
+that to happen** — on a laptop with no cron, nothing settles. Either leave
+
+```
+php artisan schedule:work
+```
+
+running alongside `artisan serve`, or add a Windows Task Scheduler entry running
+`php artisan schedule:run` every minute. To settle by hand, with a preview first:
+
+```
+php artisan attendance:close-day --catch-up=14 --dry-run
+php artisan attendance:close-day --catch-up=14
+```
+
+Re-running is free — a day already settled has nothing left to change.
+
 ### After pulling a change to the admin UI
 
 `public/build` is gitignored, and Tailwind only emits the utility classes it can
