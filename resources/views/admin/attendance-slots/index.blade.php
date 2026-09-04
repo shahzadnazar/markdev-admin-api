@@ -34,7 +34,7 @@
                     <td class="td">
                         {{-- Every time in the panel reads 12-hour, whatever the column stores. --}}
                         <span class="font-mono text-xs text-on-surface-variant">{{ $slot->rangeLabel() }}</span>
-                        <p class="mt-0.5 text-[11px] text-outline">Every day</p>
+                        <p class="mt-0.5 text-[11px] text-outline">{{ $slot->daysLabel() }}</p>
                     </td>
                     <td class="td">
                         <span class="text-sm text-on-surface">{{ $slot->late_after_minutes }} min</span>

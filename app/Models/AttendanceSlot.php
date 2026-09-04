@@ -26,6 +26,7 @@ class AttendanceSlot extends Model
         'name',
         'start_time',
         'end_time',
+        'days',
         'late_after_minutes',
         'is_active',
         'sort_order',
@@ -34,6 +35,7 @@ class AttendanceSlot extends Model
     protected function casts(): array
     {
         return [
+            'days' => 'array',
             'is_active' => 'boolean',
             'late_after_minutes' => 'integer',
             'sort_order' => 'integer',
@@ -77,6 +79,105 @@ class AttendanceSlot extends Model
     public static function normaliseName(?string $name): string
     {
         return mb_strtolower((string) preg_replace('/\s+/u', '', (string) $name));
+    }
+
+    /* --------------------------------- Days -------------------------------- */
+
+    /**
+     * ISO-8601 weekday numbers, which is what Carbon's dayOfWeekIso returns.
+     *
+     * @var array<int, string>
+     */
+    public const DAYS = [
+        1 => 'Monday',
+        2 => 'Tuesday',
+        3 => 'Wednesday',
+        4 => 'Thursday',
+        5 => 'Friday',
+        6 => 'Saturday',
+        7 => 'Sunday',
+    ];
+
+    /**
+     * The days this slot runs on, cleaned up and in week order.
+     *
+     * A slot with no days stored runs every day: that is how every slot
+     * behaved before the column existed, so a row that somehow missed the
+     * backfill keeps working rather than quietly running on no day at all.
+     *
+     * @return array<int, int>
+     */
+    public function dayNumbers(): array
+    {
+        $days = array_values(array_unique(array_filter(
+            array_map('intval', (array) ($this->days ?? [])),
+            fn (int $day) => isset(self::DAYS[$day]),
+        )));
+
+        sort($days);
+
+        return $days === [] ? array_keys(self::DAYS) : $days;
+    }
+
+    /** Whether the slot applies on a given date. */
+    public function runsOn(Carbon $day): bool
+    {
+        return in_array($day->dayOfWeekIso, $this->dayNumbers(), true);
+    }
+
+    /** The days this slot and another have in common. @return array<int, int> */
+    public function sharedDaysWith(self $other): array
+    {
+        return array_values(array_intersect($this->dayNumbers(), $other->dayNumbers()));
+    }
+
+    /**
+     * e.g. "Every day", "Mon–Fri", "Mon, Wed, Fri".
+     *
+     * Runs of three or more consecutive days read as a range, because that is
+     * how a timetable is written and "Mon, Tue, Wed, Thu, Fri" is not.
+     */
+    public function daysLabel(): string
+    {
+        return static::labelForDays($this->dayNumbers());
+    }
+
+    /** @param  array<int, int>  $days */
+    public static function labelForDays(array $days): string
+    {
+        sort($days);
+
+        if ($days === array_keys(self::DAYS)) {
+            return 'Every day';
+        }
+
+        $parts = [];
+        $run = [];
+
+        foreach ($days as $day) {
+            if ($run !== [] && $day !== end($run) + 1) {
+                $parts[] = static::runLabel($run);
+                $run = [];
+            }
+
+            $run[] = $day;
+        }
+
+        if ($run !== []) {
+            $parts[] = static::runLabel($run);
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /** @param  array<int, int>  $run */
+    protected static function runLabel(array $run): string
+    {
+        $short = fn (int $day) => mb_substr(self::DAYS[$day], 0, 3);
+
+        return count($run) >= 3
+            ? $short($run[0]).'–'.$short(end($run))
+            : implode(', ', array_map($short, $run));
     }
 
     /* ------------------------------ Relations ------------------------------ */
@@ -143,9 +244,16 @@ class AttendanceSlot extends Model
         return $this->startLabel().' – '.$this->endLabel();
     }
 
-    /** e.g. "Morning (9:00 AM – 11:00 AM)" — how a slot reads in a dropdown. */
+    /**
+     * e.g. "Morning (9:00 AM – 11:00 AM · Mon, Wed, Fri)" — how a slot reads
+     * in a dropdown.
+     *
+     * The days belong here: an admin putting a student on a slot is choosing
+     * which days that student is judged on, and a name and an hour alone no
+     * longer say what the slot does.
+     */
     public function label(): string
     {
-        return $this->name.' ('.$this->rangeLabel().')';
+        return $this->name.' ('.$this->rangeLabel().' · '.$this->daysLabel().')';
     }
 }

@@ -21,6 +21,11 @@
             <x-form.input label="Slot name" name="name" :value="$slot?->name" required
                 placeholder="e.g. Morning" hint="Whatever the academy calls this part of the day." />
 
+            <div class="border-t border-surface-ice pt-5">
+                <x-form.days label="Runs on" name="days" :selected="$slot?->dayNumbers()" required
+                    hint="The slot only judges lateness on the days it runs. On any other day its students fall back to the academy day start." />
+            </div>
+
             <div class="grid gap-5 border-t border-surface-ice pt-5 sm:grid-cols-2">
                 <x-form.time-12h label="Starts at" name="start_time" :value="$slot?->start_time" required />
                 <x-form.time-12h label="Ends at" name="end_time" :value="$slot?->end_time" required

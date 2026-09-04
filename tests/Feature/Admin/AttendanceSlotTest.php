@@ -35,6 +35,7 @@ class AttendanceSlotTest extends TestCase
             'name' => $name,
             'start_time' => $start,
             'end_time' => $end,
+            'days' => [1, 2, 3, 4, 5, 6, 7],
             'late_after_minutes' => 15,
             'is_active' => true,
             'sort_order' => 1,
@@ -46,6 +47,7 @@ class AttendanceSlotTest extends TestCase
     {
         return array_merge([
             'name' => 'Afternoon',
+            'days' => [1, 2, 3, 4, 5, 6, 7],
             'start_time_hour' => 9,
             'start_time_minute' => 0,
             'start_time_meridiem' => 'AM',
@@ -111,7 +113,7 @@ class AttendanceSlotTest extends TestCase
         $this->existing('Morning', '08:00:00', '11:00:00');
 
         $this->create(array_merge(['name' => 'Midday'], $this->at('10:00 AM', '1:00 PM')))
-            ->assertSessionHasErrors(['start_time' => 'Overlaps "Morning (8:00 AM – 11:00 AM)". Slots cannot share the same time.']);
+            ->assertSessionHasErrors(['start_time' => 'Overlaps "Morning (8:00 AM – 11:00 AM)" on Every day. Slots cannot share the same time on the same day.']);
 
         $this->assertDatabaseMissing('attendance_slots', ['name' => 'Midday']);
     }
@@ -278,6 +280,78 @@ class AttendanceSlotTest extends TestCase
             ->assertSessionHasErrors('name');
 
         $this->assertSame(1, AttendanceSlot::count());
+    }
+
+    /* --------------------------------- Days --------------------------------- */
+
+    public function test_the_same_hour_on_a_different_day_is_allowed(): void
+    {
+        $this->existing('Monday group', '09:00:00', '11:00:00', ['days' => [1]]);
+
+        $this->create(array_merge(
+            ['name' => 'Tuesday group', 'days' => [2]],
+            $this->at('9:00 AM', '11:00 AM'),
+        ))->assertSessionHasNoErrors();
+
+        $this->assertSame(2, AttendanceSlot::count());
+    }
+
+    public function test_the_same_hour_on_a_shared_day_is_rejected(): void
+    {
+        $this->existing('Mon Wed Fri', '09:00:00', '11:00:00', ['days' => [1, 3, 5]]);
+
+        $this->create(array_merge(
+            ['name' => 'Wed Thu', 'days' => [3, 4]],
+            $this->at('10:00 AM', '12:00 PM'),
+        ))->assertSessionHasErrors([
+            'start_time' => 'Overlaps "Mon Wed Fri (9:00 AM – 11:00 AM)" on Wed. Slots cannot share the same time on the same day.',
+        ]);
+
+        $this->assertSame(1, AttendanceSlot::count());
+    }
+
+    public function test_a_slot_needs_at_least_one_day(): void
+    {
+        $this->create(['days' => []])->assertSessionHasErrors('days');
+
+        $this->assertSame(0, AttendanceSlot::count());
+    }
+
+    public function test_days_are_stored_deduplicated_and_in_week_order(): void
+    {
+        $this->create(array_merge(['name' => 'Odd order', 'days' => [5, 1, 3, 1]], $this->at('9:00 AM', '11:00 AM')))
+            ->assertSessionHasNoErrors();
+
+        $slot = AttendanceSlot::firstWhere('name', 'Odd order');
+
+        $this->assertSame([1, 3, 5], $slot->days);
+        $this->assertSame('Mon, Wed, Fri', $slot->daysLabel());
+    }
+
+    public function test_lateness_falls_back_to_the_academy_start_on_a_day_the_slot_skips(): void
+    {
+        $slot = $this->existing('Weekdays', '09:00:00', '11:00:00', ['days' => [1, 2, 3, 4, 5]]);
+
+        $student = User::factory()->create();
+        $student->assignRole('student');
+        $student->studentProfile()->create([
+            'reg_no' => 'MD-TEST-1',
+            'attendance_slot_id' => $slot->id,
+        ]);
+
+        // Monday 09:30 — half an hour into a slot with a 15 minute grace.
+        $monday = \Illuminate\Support\Carbon::parse('2026-09-07 09:30:00');
+        $this->assertSame(1, $monday->dayOfWeekIso);
+        $this->assertSame('late', \App\Support\AttendanceConfig::statusForArrival($monday, $student->fresh()));
+
+        // Saturday 09:30 — the slot does not run, so the academy-wide day
+        // start applies instead, and that is 09:00 with the same grace.
+        $saturday = \Illuminate\Support\Carbon::parse('2026-09-12 09:30:00');
+        $this->assertSame(6, $saturday->dayOfWeekIso);
+        $this->assertSame(
+            \App\Support\AttendanceConfig::dayStart(),
+            \App\Support\AttendanceConfig::sessionStart($saturday, $student->fresh())->format('H:i'),
+        );
     }
 
     public function test_saving_a_slot_keeps_its_own_name(): void

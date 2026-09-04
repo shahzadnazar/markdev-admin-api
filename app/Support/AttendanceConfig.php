@@ -156,7 +156,7 @@ class AttendanceConfig
      */
     public static function sessionStart(Carbon $day, ?\App\Models\User $student = null): Carbon
     {
-        $slot = static::slotFor($student);
+        $slot = static::slotForDay($day, $student);
 
         if ($slot !== null) {
             return $slot->startsOn($day);
@@ -167,10 +167,32 @@ class AttendanceConfig
         return $day->copy()->setTime($hour, $minute);
     }
 
-    /** Grace minutes that apply to this student — their slot's, or the global one. */
-    public static function graceMinutesFor(?\App\Models\User $student = null): int
+    /**
+     * The student's slot, if it runs on the given day.
+     *
+     * A slot that does not run on a Sunday has nothing to say about a Sunday
+     * arrival, so that day falls back to the academy-wide start rather than
+     * being judged against a session that never happened.
+     */
+    public static function slotForDay(Carbon $day, ?\App\Models\User $student): ?\App\Models\AttendanceSlot
     {
-        return static::slotFor($student)?->late_after_minutes ?? static::lateAfterMinutes();
+        $slot = static::slotFor($student);
+
+        return $slot?->runsOn($day) ? $slot : null;
+    }
+
+    /**
+     * Grace minutes that apply to this student — their slot's, or the global one.
+     *
+     * Pass the day the arrival happened on and a slot that does not run then
+     * is skipped, matching sessionStart(); without one the slot's own grace is
+     * used whatever the day, which is how this read before slots had days.
+     */
+    public static function graceMinutesFor(?\App\Models\User $student = null, ?Carbon $day = null): int
+    {
+        $slot = $day === null ? static::slotFor($student) : static::slotForDay($day, $student);
+
+        return $slot?->late_after_minutes ?? static::lateAfterMinutes();
     }
 
     /**
@@ -180,7 +202,7 @@ class AttendanceConfig
      */
     public static function lateThreshold(Carbon $day, ?\App\Models\User $student = null): Carbon
     {
-        return static::sessionStart($day, $student)->addMinutes(static::graceMinutesFor($student));
+        return static::sessionStart($day, $student)->addMinutes(static::graceMinutesFor($student, $day));
     }
 
     /** present|late for an arrival moment, judged against that student's slot. */

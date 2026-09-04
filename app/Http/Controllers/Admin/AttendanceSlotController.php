@@ -115,6 +115,8 @@ class AttendanceSlotController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
+            'days' => ['required', 'array', 'min:1'],
+            'days.*' => ['integer', Rule::in(array_keys(AttendanceSlot::DAYS))],
             'start_time_hour' => ['required', 'integer', 'min:1', 'max:12'],
             'start_time_minute' => ['required', 'integer', 'min:0', 'max:59'],
             'start_time_meridiem' => ['required', Rule::in(['AM', 'PM'])],
@@ -123,7 +125,10 @@ class AttendanceSlotController extends Controller
             'end_time_meridiem' => ['required', Rule::in(['AM', 'PM'])],
             'late_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'is_active' => ['nullable', 'boolean'],
-        ], [], [
+        ], [
+            'days.required' => 'Pick at least one day this slot runs on.',
+            'days.min' => 'Pick at least one day this slot runs on.',
+        ], [
             'start_time_hour' => 'start time', 'start_time_minute' => 'start time', 'start_time_meridiem' => 'start time',
             'end_time_hour' => 'end time', 'end_time_minute' => 'end time', 'end_time_meridiem' => 'end time',
         ]);
@@ -139,13 +144,17 @@ class AttendanceSlotController extends Controller
             ]);
         }
 
+        $days = array_values(array_unique(array_map('intval', $data['days'])));
+        sort($days);
+
         $this->assertNameIsFree($data['name'], $slot);
-        $this->assertTimesAreFree($start, $end, $slot);
+        $this->assertTimesAreFree($start, $end, $days, $slot);
 
         return [
             'name' => $data['name'],
             'start_time' => $start,
             'end_time' => $end,
+            'days' => $days,
             'late_after_minutes' => (int) $data['late_after_minutes'],
             'is_active' => (bool) ($data['is_active'] ?? false),
             // New slots land at the end of the list; editing keeps its place.
@@ -198,20 +207,24 @@ class AttendanceSlotController extends Controller
      *
      * Each slot carries its own lateness rule, so a student punching in during
      * a shared minute would be judged by two of them with no way to say which
-     * is right.
+     * is right. Two slots sharing an hour on days that never coincide is not
+     * that, and is how a week's timetable is normally built.
+     *
+     * @param  array<int, int>  $days
      */
-    protected function assertTimesAreFree(string $start, string $end, ?AttendanceSlot $slot): void
+    protected function assertTimesAreFree(string $start, string $end, array $days, ?AttendanceSlot $slot): void
     {
         // Saving a slot without moving it always passes, for the same reason
         // the name check lets an unchanged name through: a pair of slots that
         // already overlap must not lock each other out of every other field.
         if ($slot
             && Carbon::parse($slot->start_time)->format('H:i:s') === $start
-            && Carbon::parse($slot->end_time)->format('H:i:s') === $end) {
+            && Carbon::parse($slot->end_time)->format('H:i:s') === $end
+            && $slot->dayNumbers() === $days) {
             return;
         }
 
-        $conflict = AttendanceSlot::query()
+        $candidates = AttendanceSlot::query()
             ->when($slot, fn ($query) => $query->whereKeyNot($slot->getKey()))
             // Strictly < and >, because end_time is the moment a slot closes
             // rather than a minute inside it: 9-11 and 11-1 run back to back,
@@ -224,11 +237,25 @@ class AttendanceSlotController extends Controller
             // slot, so its lateness rule is still deciding their attendance.
             // Soft-deleted ones do not; the global scope drops them.
             ->orderBy('start_time')
-            ->first();
+            ->get();
 
-        if ($conflict) {
+        foreach ($candidates as $candidate) {
+            // Sharing an hour is only a clash if the two ever fall on the same
+            // day. A 9-11 Monday slot and a 9-11 Tuesday slot never both judge
+            // one punch, so the timetable is free to reuse the hour.
+            $shared = array_values(array_intersect($candidate->dayNumbers(), $days));
+
+            if ($shared === []) {
+                continue;
+            }
+
             throw ValidationException::withMessages([
-                'start_time' => "Overlaps \"{$conflict->label()}\". Slots cannot share the same time.",
+                'start_time' => sprintf(
+                    'Overlaps "%s (%s)" on %s. Slots cannot share the same time on the same day.',
+                    $candidate->name,
+                    $candidate->rangeLabel(),
+                    AttendanceSlot::labelForDays($shared),
+                ),
             ]);
         }
     }
