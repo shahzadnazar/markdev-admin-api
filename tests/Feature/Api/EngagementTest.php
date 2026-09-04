@@ -141,13 +141,31 @@ class EngagementTest extends ApiTestCase
             'session_title' => 'Live session — leave day',
         ]);
 
-        $this->getJson('/api/v1/attendance/daily')->assertOk()->assertJsonCount(5, 'data')
+        // A session on a day the register never marked is still a day the
+        // student attended, so it joins the list rather than vanishing.
+        AttendanceRecord::create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'date' => now()->subDays(10)->toDateString(),
+            'status' => 'excused',
+            'session_title' => 'Live session — register never marked',
+        ]);
+
+        $this->getJson('/api/v1/attendance/daily')->assertOk()->assertJsonCount(6, 'data')
             ->assertJsonPath('data.0.session_title', null)
             ->assertJsonPath('data.0.course', null)
             ->assertJsonPath('data.4.status', 'leave')
             ->assertJsonPath('data.4.session_title', 'Live session — leave day')
-            ->assertJsonPath('data.4.course.title', $course->title);
-        $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.4.course.title', $course->title)
+            // "excused" over there is "leave" here: one vocabulary reaches
+            // the portal.
+            ->assertJsonPath('data.5.status', 'leave')
+            ->assertJsonPath('data.5.session_title', 'Live session — register never marked');
+
+        $this->getJson('/api/v1/attendance/summary')->assertOk()
+            ->assertJsonPath('data.total_sessions', 6)
+            ->assertJsonPath('data.leave_count', 2);
+        $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.status', 'leave');
 
         // The upper bound includes its own day, which a plain `<=` against a

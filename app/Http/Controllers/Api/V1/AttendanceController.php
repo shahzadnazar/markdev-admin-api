@@ -41,77 +41,54 @@ class AttendanceController extends ApiController
         return AttendanceRecordResource::collection($records);
     }
 
-    /** The student's own daily-register history (date, status, remarks). */
+    /**
+     * Every day the academy has a record of, newest first.
+     *
+     * A student's attendance lives in two tables that only partly overlap:
+     * `attendance_records` is per class session and carries the session title,
+     * `daily_attendance_records` is the day register and is the only place an
+     * approved leave is written. Listing either one alone drops days the
+     * student can see they attended, so the list is the union of their dates.
+     */
     public function daily(Request $request): JsonResponse
     {
-        $records = $this->dailyQuery($request)
-            ->orderByDesc('date')
-            ->paginate($this->perPage($request))
-            ->withQueryString();
+        $days = $this->mergedDays($request);
 
-        $sessions = $this->sessionsByDate($request, collect($records->items()));
+        $perPage = $this->perPage($request);
+        $page = max(1, (int) $request->query('page', 1));
+        $items = $days->forPage($page, $perPage)->values();
+        $total = $days->count();
 
         return response()->json([
-            'data' => collect($records->items())->map(function ($record) use ($sessions) {
-                $date = $record->date->toDateString();
-                $session = $sessions->get($date);
-
-                return [
-                    'id' => $record->id,
-                    'date' => $date,
-                    'status' => $record->status,
-                    'remarks' => $record->remarks,
-                    'arrived_at' => $record->arrived_at ? substr($record->arrived_at, 0, 5) : null,
-                    'source' => $record->source,
-                    'marked_at' => $record->marked_at?->toIso8601String(),
-                    'corrected' => $record->last_updated_at !== null,
-                    // The class the day belongs to, when there was one. A day
-                    // the register knows about need not have a session -- a
-                    // leave day rarely does.
-                    'session_title' => $session?->session_title,
-                    'course' => $session?->course
-                        ? ['id' => $session->course->id, 'title' => $session->course->title]
-                        : null,
-                ];
-            })->all(),
+            'data' => $items->all(),
             'meta' => [
-                'current_page' => $records->currentPage(),
-                'last_page' => $records->lastPage(),
-                'per_page' => $records->perPage(),
-                'total' => $records->total(),
+                'current_page' => $page,
+                'last_page' => max(1, (int) ceil($total / $perPage)),
+                'per_page' => $perPage,
+                'total' => $total,
                 // The row numbers this page covers, so the pager can say which
-                // slice of the register is on screen.
-                'from' => $records->firstItem(),
-                'to' => $records->lastItem(),
-                // Across the student's whole register, not just this page, and
-                // weighted: present 100, late 70, leave 50, absent 0.
+                // slice is on screen.
+                'from' => $total > 0 ? ($page - 1) * $perPage + 1 : null,
+                'to' => $total > 0 ? ($page - 1) * $perPage + $items->count() : null,
                 'weighted_percent' => \App\Models\DailyAttendance::weightedPercent(
-                    \App\Models\DailyAttendance::where('user_id', $request->user()->id)
-                        ->counted()
-                        ->selectRaw('status, count(*) as total')
-                        ->groupBy('status')
-                        ->pluck('total', 'status')
-                        ->toArray(),
+                    $this->mergedDays($request, false)->countBy('status')->all(),
                 ),
             ],
         ]);
     }
 
     /**
-     * Counts for the cards above the register.
+     * Counts for the cards above the list.
      *
-     * These read the daily register, the same rows the list below them shows.
-     * They used to count AttendanceRecord — per-class attendance — which is a
-     * different table with a different notion of a day: approved leave is
-     * written to the register and never to it, so the Leave card sat at zero
-     * on a page whose every visible day said Leave.
+     * The same union the list shows, so the two never disagree. These used to
+     * count `attendance_records` alone, which an approved leave never touches:
+     * the Leave card sat at zero on a page whose every listed day said Leave.
      */
     public function summary(Request $request): JsonResponse
     {
-        $counts = $this->dailyQuery($request)
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        // Not narrowed by the status filter: cards that only ever counted the
+        // status you filtered to would say nothing.
+        $counts = $this->mergedDays($request, false)->countBy('status');
 
         return response()->json([
             'data' => [
@@ -120,71 +97,95 @@ class AttendanceController extends ApiController
                 'absent_count' => (int) ($counts['absent'] ?? 0),
                 'late_count' => (int) ($counts['late'] ?? 0),
                 'leave_count' => (int) ($counts['leave'] ?? 0),
-                // The register's own weighting — present 100, late 70, leave
-                // 50, absent 0 — rather than a second definition of the rate
-                // that would disagree with the one the list already reports.
-                'attendance_rate' => \App\Models\DailyAttendance::weightedPercent($counts->toArray()) ?? 0,
+                // The register's own weighting -- present 100, late 70, leave
+                // 50, absent 0 -- rather than a second definition of the rate
+                // that would disagree with the one the list reports.
+                'attendance_rate' => \App\Models\DailyAttendance::weightedPercent($counts->all()) ?? 0,
             ],
         ]);
     }
 
     /**
-     * The class session each of these days belongs to, keyed by date.
+     * One row per date, merged from both tables.
      *
-     * One query for the whole page rather than one per row: the register and
-     * the class record are separate tables, and this is the only place they
-     * are shown together.
+     * Bounded by how long a student attends -- a few hundred rows -- so the
+     * union and its paging are done here rather than as a cross-engine UNION
+     * query that would have to reconcile two different column sets.
      *
-     * @param  \Illuminate\Support\Collection<int, \App\Models\DailyAttendance>  $days
-     * @return \Illuminate\Support\Collection<string, AttendanceRecord>
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
      */
-    protected function sessionsByDate(Request $request, \Illuminate\Support\Collection $days): \Illuminate\Support\Collection
+    protected function mergedDays(Request $request, bool $applyStatus = true): \Illuminate\Support\Collection
     {
-        $dates = $days->map(fn ($day) => $day->date->toDateString())->unique()->values();
+        $userId = $request->user()->id;
 
-        if ($dates->isEmpty()) {
-            return collect();
+        // `date` is a date-cast column, so SQLite hands it back as a full
+        // datetime and `date <= '2026-09-04'` would drop that whole day. The
+        // upper bound is half-open for the same reason DailyAttendance::onDate
+        // is, and it keeps the index usable on MySQL either way.
+        $bound = function ($query) use ($request) {
+            if ($from = $request->query('from')) {
+                $query->where('date', '>=', \Illuminate\Support\Carbon::parse($from)->toDateString());
+            }
+
+            if ($to = $request->query('to')) {
+                $query->where('date', '<', \Illuminate\Support\Carbon::parse($to)->addDay()->toDateString());
+            }
+
+            return $query;
+        };
+
+        $rows = [];
+
+        foreach ($bound(AttendanceRecord::where('user_id', $userId)->with('course:id,title'))->orderBy('id')->get() as $session) {
+            $date = \Illuminate\Support\Carbon::parse($session->date)->toDateString();
+
+            // A day with two sessions keeps the first: the column names the
+            // day's class, it is not a session list.
+            $rows[$date] ??= [
+                'id' => $date,
+                'date' => $date,
+                // This table says "excused" where the register says "leave".
+                // One vocabulary reaches the portal.
+                'status' => $session->status === 'excused' ? 'leave' : $session->status,
+                'session_title' => $session->session_title,
+                'course' => $session->course
+                    ? ['id' => $session->course->id, 'title' => $session->course->title]
+                    : null,
+                'arrived_at' => null,
+                'remarks' => $session->notes,
+                'source' => null,
+                'marked_at' => null,
+                'corrected' => false,
+            ];
         }
 
-        return AttendanceRecord::where('user_id', $request->user()->id)
-            ->with('course:id,title')
-            // A range rather than whereIn($dates): `date` is a date-cast
-            // column, so SQLite hands back "2026-08-26 00:00:00" and an
-            // equality against "2026-08-26" matches nothing. The page covers
-            // one contiguous window, so its span is the same set of rows.
-            ->where('date', '>=', $dates->min())
-            ->where('date', '<', \Illuminate\Support\Carbon::parse($dates->max())->addDay()->toDateString())
-            ->orderBy('id')
-            ->get()
-            // A day with more than one session keeps the first; the column
-            // names the day's class, it is not a session list.
-            ->keyBy(fn ($record) => \Illuminate\Support\Carbon::parse($record->date)->toDateString());
-    }
+        foreach ($bound(\App\Models\DailyAttendance::where('user_id', $userId)->counted())->get() as $day) {
+            $date = $day->date->toDateString();
+            $session = $rows[$date] ?? null;
 
-    /**
-     * The student's register, narrowed by the filters above the list.
-     *
-     * `date` is a date-cast column, so on SQLite it comes back as a full
-     * datetime string and `date <= '2026-09-04'` would drop that whole day.
-     * The upper bound is half-open for the same reason DailyAttendance::onDate
-     * is, and it keeps the (user_id, date) index usable on MySQL either way.
-     */
-    protected function dailyQuery(Request $request): \Illuminate\Database\Eloquent\Builder
-    {
-        $query = \App\Models\DailyAttendance::where('user_id', $request->user()->id)->counted();
-
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
+            $rows[$date] = [
+                'id' => $date,
+                'date' => $date,
+                // The register is the academy's own word on the day, so it
+                // wins where both have one; the session only lends its title.
+                'status' => $day->status,
+                'session_title' => $session['session_title'] ?? null,
+                'course' => $session['course'] ?? null,
+                'arrived_at' => $day->arrived_at ? substr($day->arrived_at, 0, 5) : null,
+                'remarks' => $day->remarks,
+                'source' => $day->source,
+                'marked_at' => $day->marked_at?->toIso8601String(),
+                'corrected' => $day->last_updated_at !== null,
+            ];
         }
 
-        if ($from = $request->query('from')) {
-            $query->where('date', '>=', \Illuminate\Support\Carbon::parse($from)->toDateString());
-        }
+        // After the merge, not before: the status a day ends up with can come
+        // from either table.
+        $status = $applyStatus ? $request->query('status') : null;
 
-        if ($to = $request->query('to')) {
-            $query->where('date', '<', \Illuminate\Support\Carbon::parse($to)->addDay()->toDateString());
-        }
-
-        return $query;
+        return collect($rows)
+            ->when($status, fn ($days) => $days->where('status', $status))
+            ->sortByDesc('date')
+            ->values();
     }
 }
