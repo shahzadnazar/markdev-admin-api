@@ -205,6 +205,18 @@ class AttendanceConfig
         return static::sessionStart($day, $student)->addMinutes(static::graceMinutesFor($student, $day));
     }
 
+    /**
+     * Whether the moment for marking someone present on this day has passed.
+     *
+     * The cutoff belongs to the slot, not to the clock: it is the same instant
+     * whichever day you look at it from, so back-filling last Tuesday is
+     * judged against last Tuesday's cutoff rather than today's time of day.
+     */
+    public static function presentCutoffPassed(Carbon $day, ?\App\Models\User $student = null): bool
+    {
+        return now()->greaterThan(static::lateThreshold($day, $student));
+    }
+
     /** present|late for an arrival moment, judged against that student's slot. */
     public static function statusForArrival(Carbon $arrivedAt, ?\App\Models\User $student = null): string
     {

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\DailyAttendance;
+use App\Models\LeaveApplicationDay;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -17,9 +18,16 @@ use Illuminate\Support\Facades\DB;
  * no row at all where one doesn't. Neither is shown or counted. At close, both
  * become an absence, which is what an unexplained missing day means.
  *
- * It only ever fills a blank. A student already marked present, late or on
- * approved leave is left exactly as they are, and an approval that lands after
- * the close still rewrites that day to leave.
+ * It only ever fills a blank, in this order:
+ *
+ *   1. already marked present / late / absent / leave  -> left alone
+ *   2. an approved leave day for this student and date -> `leave`
+ *   3. otherwise                                        -> `absent`
+ *
+ * Step 2 is why approving a leave writes nothing at the time: a future
+ * approval marks nothing until that day actually closes, and a student who
+ * turns up anyway is already present by step 1 before leave is considered.
+ * A declined day has no special handling — it falls through to step 3.
  */
 class CloseAttendanceDay extends Command
 {
@@ -100,51 +108,90 @@ class CloseAttendanceDay extends Command
         // alone. Only the two shapes of "nobody said" are settled.
         $pendingIds = $existing->filter(fn ($status) => $status === DailyAttendance::PENDING)->keys();
         $missingIds = $expected->reject(fn ($id) => $existing->has($id))->values();
-        $count = $pendingIds->count() + $missingIds->count();
+        $unsettled = $pendingIds->merge($missingIds);
+        $count = $unsettled->count();
+
+        // Whose leave was approved for this day. Read here rather than written
+        // at approval time, so the day gets its status once, on the day.
+        $onLeave = $this->approvedLeaveOn($date, $unsettled);
 
         $this->line(sprintf(
-            '%s: %d expected, %d already marked, %d to settle (%d pending, %d with no row)',
+            '%s: %d expected, %d already marked, %d to settle (%d on approved leave, %d absent)',
             $date,
             $expected->count(),
             $existing->count() - $pendingIds->count(),
             $count,
-            $pendingIds->count(),
-            $missingIds->count(),
+            $onLeave->count(),
+            $count - $onLeave->count(),
         ));
 
         if ($dryRun || $count === 0) {
             return $count;
         }
 
-        DB::transaction(function () use ($date, $pendingIds, $missingIds) {
-            if ($pendingIds->isNotEmpty()) {
-                DailyAttendance::onDate($date)
-                    ->whereIn('user_id', $pendingIds)
-                    ->update([
-                        'status' => 'absent',
+        DB::transaction(function () use ($date, $pendingIds, $missingIds, $onLeave) {
+            foreach ([true, false] as $isLeave) {
+                $status = $isLeave ? 'leave' : 'absent';
+                $remarks = $isLeave ? 'Approved leave' : 'Not marked before end of day.';
+
+                $pending = $pendingIds->filter(fn ($id) => $onLeave->contains($id) === $isLeave)->values();
+                $missing = $missingIds->filter(fn ($id) => $onLeave->contains($id) === $isLeave)->values();
+
+                if ($pending->isNotEmpty()) {
+                    DailyAttendance::onDate($date)
+                        ->whereIn('user_id', $pending)
+                        ->update([
+                            'status' => $status,
+                            'source' => 'auto',
+                            'marked_at' => now(),
+                            'remarks' => $remarks,
+                            'updated_at' => now(),
+                        ]);
+                }
+
+                foreach ($missing->chunk(500) as $chunk) {
+                    $rows = $chunk->map(fn ($id) => [
+                        'user_id' => $id,
+                        'date' => $date,
+                        'status' => $status,
                         'source' => 'auto',
+                        'remarks' => $remarks,
                         'marked_at' => now(),
-                        'remarks' => 'Not marked before end of day.',
+                        'created_at' => now(),
                         'updated_at' => now(),
-                    ]);
-            }
+                    ])->all();
 
-            foreach ($missingIds->chunk(500) as $chunk) {
-                $rows = $chunk->map(fn ($id) => [
-                    'user_id' => $id,
-                    'date' => $date,
-                    'status' => 'absent',
-                    'source' => 'auto',
-                    'remarks' => 'Not marked before end of day.',
-                    'marked_at' => now(),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])->all();
-
-                DailyAttendance::insert($rows);
+                    DailyAttendance::insert($rows);
+                }
             }
         });
 
         return $count;
+    }
+
+    /**
+     * The students among these with an approved leave day on this date.
+     *
+     * @param  Collection<int, int>  $userIds
+     * @return Collection<int, int>
+     */
+    protected function approvedLeaveOn(string $date, Collection $userIds): Collection
+    {
+        if ($userIds->isEmpty()) {
+            return collect();
+        }
+
+        return LeaveApplicationDay::query()
+            ->where('status', LeaveApplicationDay::APPROVED)
+            // Half-open, because `date` is a date-cast column: on SQLite it
+            // comes back as a full datetime and an equality would match none.
+            ->where('date', '>=', $date)
+            ->where('date', '<', Carbon::parse($date)->addDay()->toDateString())
+            ->whereHas('leaveApplication', fn ($query) => $query->whereIn('user_id', $userIds))
+            ->with('leaveApplication:id,user_id')
+            ->get()
+            ->pluck('leaveApplication.user_id')
+            ->unique()
+            ->values();
     }
 }

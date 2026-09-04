@@ -15,6 +15,7 @@ class LeaveApplicationController extends ApiController
     public function index(Request $request): AnonymousResourceCollection
     {
         $leaves = LeaveApplication::where('user_id', $request->user()->id)
+            ->with('decisions')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($this->perPage($request))
@@ -51,7 +52,7 @@ class LeaveApplicationController extends ApiController
             'reason' => $data['reason'],
         ]);
 
-        return (new LeaveApplicationResource($leave))
+        return (new LeaveApplicationResource($leave->load('decisions')))
             ->response()
             ->setStatusCode(201);
     }

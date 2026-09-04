@@ -105,6 +105,11 @@
                 'name' => $student->name,
                 'reg' => $student->studentProfile?->reg_no,
                 'avatar' => $student->avatar_url,
+                // Past their slot's late cutoff, this student can only be
+                // marked late. The controller enforces it; this is so the
+                // form says so rather than failing on submit.
+                'cutoff_passed' => (bool) ($cutoffs[$student->id]['passed'] ?? false),
+                'cutoff_at' => $cutoffs[$student->id]['at'] ?? null,
                 ],
 
                 'history' => $studentHistory,
@@ -361,11 +366,16 @@
                             <div class="grid grid-cols-[1fr_8.5rem] gap-3">
                                 <div>
                                     <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="mark-status">Status</label>
-                                    <select name="status" id="mark-status" class="field w-full text-sm" required>
+                                    <select name="status" id="mark-status" class="field w-full text-sm" required
+                                        x-model="markStatus">
                                         @foreach ($statusMeta as $key => $meta)
-                                        <option value="{{ $key }}" @selected($key==='present' )>{{ $meta['label'] }}</option>
+                                        <option value="{{ $key }}"
+                                            @if ($key === 'present') x-bind:disabled="student.cutoff_passed" @endif>{{ $meta['label'] }}</option>
                                         @endforeach
                                     </select>
+                                    <p x-show="student.cutoff_passed" x-cloak class="mt-1.5 text-xs text-error">
+                                        Late cutoff passed (<span x-text="student.cutoff_at"></span>) — present is no longer available.
+                                    </p>
                                 </div>
                                 <div>
                                     <label class="mb-1.5 block text-[13px] font-medium text-on-surface" for="mark-arrived">Arrival <span class="font-normal text-outline">(opt.)</span></label>
@@ -479,11 +489,15 @@
                     recent: [],
                 },
                 pin: '',
+                markStatus: 'present',
                 newStatus: 'present',
                 remarks: '',
                 arrived: '',
                 openMark(payload) {
                     this.student = payload.student;
+                    // Past the cutoff the only honest default is late, and
+                    // present is disabled, so it cannot be left selected.
+                    this.markStatus = payload.student.cutoff_passed ? 'late' : 'present';
                     this.record = {};
                     this.history = payload.history || {
                         present: 0,

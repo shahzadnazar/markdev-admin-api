@@ -34,6 +34,11 @@ class DailyAttendanceTest extends TestCase
         $this->student->assignRole('student');
 
         AttendanceConfig::setEditPin('4321');
+
+        // Present is only markable up to the day start plus its grace, so
+        // these run at a moment when it still is. The cutoff tests below move
+        // the slot rather than the clock.
+        $this->travelTo(today()->setTime(9, 0));
     }
 
     protected function mark(array $overrides = []): \Illuminate\Testing\TestResponse
@@ -356,5 +361,107 @@ class DailyAttendanceTest extends TestCase
             ->assertSee('day-3')
             ->assertDontSee('day-5')
             ->assertDontSee('day-1');
+    }
+
+    /* ------------------------------ Late cutoff ---------------------------- */
+
+    protected function slotStudent(string $start, int $grace): User
+    {
+        $slot = \App\Models\AttendanceSlot::create([
+            'name' => 'Cutoff group '.$start,
+            'start_time' => $start,
+            'end_time' => '23:30:00',
+            'days' => array_keys(\App\Models\AttendanceSlot::DAYS),
+            'late_after_minutes' => $grace,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $student = User::factory()->create();
+        $student->assignRole('student');
+        $student->studentProfile()->create([
+            'reg_no' => 'MD-CUT-'.$student->id,
+            'attendance_slot_id' => $slot->id,
+        ]);
+
+        return $student->fresh();
+    }
+
+    public function test_present_is_allowed_before_the_slot_cutoff(): void
+    {
+        // Starts an hour from now, so the cutoff is still ahead.
+        $student = $this->slotStudent(now()->addHour()->format('H:i:s'), 15);
+
+        $this->actingAs($this->admin)->post('/admin/attendance/daily', [
+            'user_id' => $student->id,
+            'date' => today()->toDateString(),
+            'status' => 'present',
+        ])->assertSessionHas('success');
+
+        $this->assertSame('present', DailyAttendance::onDate(today())->where('user_id', $student->id)->value('status'));
+    }
+
+    public function test_present_is_refused_by_the_controller_after_the_cutoff(): void
+    {
+        // Started two hours ago with a 15 minute grace — long past.
+        $student = $this->slotStudent(now()->subHours(2)->format('H:i:s'), 15);
+
+        $this->actingAs($this->admin)->post('/admin/attendance/daily', [
+            'user_id' => $student->id,
+            'date' => today()->toDateString(),
+            'status' => 'present',
+        ])->assertSessionHas('error');
+
+        $this->assertSame(0, DailyAttendance::where('user_id', $student->id)->count());
+    }
+
+    public function test_late_is_still_allowed_after_the_cutoff(): void
+    {
+        $student = $this->slotStudent(now()->subHours(2)->format('H:i:s'), 15);
+
+        $this->actingAs($this->admin)->post('/admin/attendance/daily', [
+            'user_id' => $student->id,
+            'date' => today()->toDateString(),
+            'status' => 'late',
+        ])->assertSessionHas('success');
+
+        $this->assertSame('late', DailyAttendance::onDate(today())->where('user_id', $student->id)->value('status'));
+    }
+
+    public function test_back_filling_an_earlier_date_is_judged_against_that_day(): void
+    {
+        // The cutoff belongs to the slot, so any past day's cutoff has passed
+        // however early in the day the slot starts.
+        $student = $this->slotStudent(now()->addHours(3)->format('H:i:s'), 15);
+
+        $this->actingAs($this->admin)->post('/admin/attendance/daily', [
+            'user_id' => $student->id,
+            'date' => today()->subDay()->toDateString(),
+            'status' => 'present',
+        ])->assertSessionHas('error');
+
+        $this->assertSame(0, DailyAttendance::where('user_id', $student->id)->count());
+    }
+
+    public function test_bulk_present_skips_students_past_their_cutoff(): void
+    {
+        $intime = $this->slotStudent(now()->addHour()->format('H:i:s'), 15);
+        $late = $this->slotStudent(now()->subHours(2)->format('H:i:s'), 15);
+
+        $this->actingAs($this->admin)->post('/admin/attendance/daily/bulk-present', [
+            'date' => today()->toDateString(),
+        ])->assertSessionHas('success');
+
+        $this->assertSame('present', DailyAttendance::onDate(today())->where('user_id', $intime->id)->value('status'));
+        $this->assertSame(0, DailyAttendance::where('user_id', $late->id)->count());
+    }
+
+    public function test_the_register_says_why_present_is_unavailable(): void
+    {
+        $this->slotStudent(now()->subHours(2)->format('H:i:s'), 15);
+
+        $this->actingAs($this->admin)->get('/admin/attendance/daily')
+            ->assertOk()
+            ->assertSee('Late cutoff passed');
     }
 }

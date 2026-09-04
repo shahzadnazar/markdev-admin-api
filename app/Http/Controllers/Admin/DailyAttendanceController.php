@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -51,7 +52,16 @@ class DailyAttendanceController extends Controller
             ->get()
             ->keyBy('user_id');
 
+        // Per student, because the cutoff comes from their own slot.
+        $cutoffs = $students->mapWithKeys(fn (User $student) => [
+            $student->id => [
+                'passed' => AttendanceConfig::presentCutoffPassed($date, $student),
+                'at' => AttendanceConfig::lateThreshold($date, $student)->format('g:i A'),
+            ],
+        ]);
+
         return view('admin.attendance.daily', [
+    'cutoffs' => $cutoffs,
     'students' => $students,
     'records' => $records,
     'history' => $this->historyFor($studentIds, $date),
@@ -101,6 +111,28 @@ class DailyAttendanceController extends Controller
         ])->setPaper('a4', 'landscape');
 
         return $pdf->stream('daily-attendance-' . $date->toDateString() . '.pdf');
+    }
+
+    /**
+     * Refuse `present` once the student's slot has passed its late cutoff.
+     *
+     * Enforced here and not only in the form: a disabled button is a
+     * courtesy, not a rule, and a hand-made POST has to meet the same one.
+     * The cutoff belongs to the slot rather than to the clock, so back-filling
+     * an earlier date is judged against that date's cutoff — which for any
+     * past day has always passed. The PIN-gated correction is deliberately
+     * exempt: it is the way to fix a mark that was wrong, and it already
+     * demands a reason.
+     */
+    protected function cutoffError(User $student, string $date, string $status): ?string
+    {
+        if ($status !== 'present' || ! AttendanceConfig::presentCutoffPassed(Carbon::parse($date), $student)) {
+            return null;
+        }
+
+        $cutoff = AttendanceConfig::lateThreshold(Carbon::parse($date), $student);
+
+        return "{$student->name} cannot be marked present — the late cutoff ({$cutoff->format('g:i A')}) has passed. Mark them late instead.";
     }
 
     /** Per-student attendance history with range filters. */
@@ -164,6 +196,10 @@ class DailyAttendanceController extends Controller
         $student = User::findOrFail($data['user_id']);
         abort_unless($student->hasRole('student') && $student->is_active, 422, 'Not an active student.');
 
+        if ($error = $this->cutoffError($student, $data['date'], $data['status'])) {
+            return back()->with('error', $error);
+        }
+
         $exists = DailyAttendance::where('user_id', $student->id)
             ->onDate($data['date'])
             ->exists();
@@ -214,7 +250,14 @@ class DailyAttendanceController extends Controller
             ->whereNotIn('id', $marked)
             ->get(['id', 'name']);
 
-        foreach ($remaining as $student) {
+        // Same cutoff as marking one student by hand: a bulk action must not
+        // be the way round a rule the single-student path enforces.
+        $day = Carbon::parse($data['date']);
+        [$markable, $tooLate] = $remaining->partition(
+            fn (User $student) => ! AttendanceConfig::presentCutoffPassed($day, $student),
+        );
+
+        foreach ($markable as $student) {
             DailyAttendance::updateOrCreate(
                 ['user_id' => $student->id, 'date' => $data['date']],
                 [
@@ -229,10 +272,15 @@ class DailyAttendanceController extends Controller
         AuditLogger::log('attendance_marked', 'daily_attendance', null, null, [
             'date' => $data['date'],
             'bulk' => 'remaining_present',
-            'records' => $remaining->count(),
+            'records' => $markable->count(),
+            'skipped_past_cutoff' => $tooLate->count(),
         ]);
 
-        return back()->with('success', "{$remaining->count()} remaining student(s) marked present.");
+        $skipped = $tooLate->isEmpty()
+            ? ''
+            : " {$tooLate->count()} were past their late cutoff and must be marked late individually.";
+
+        return back()->with('success', "{$markable->count()} remaining student(s) marked present.".$skipped);
     }
 
     /** PIN-gated correction — always records who, when and why. */
