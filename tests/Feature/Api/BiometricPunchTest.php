@@ -24,6 +24,16 @@ class BiometricPunchTest extends ApiTestCase
         ], $attributes));
     }
 
+    /** The register is only filled by punches when the academy says so. */
+    protected function useBiometricMode(): void
+    {
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'attendance_mode'],
+            ['value' => 'biometric', 'group' => 'general'],
+        );
+        \App\Models\Setting::forgetCached();
+    }
+
     protected function punch(BiometricDevice $device, array $punches): \Illuminate\Testing\TestResponse
     {
         return $this->withHeader('X-Device-Key', $device->api_key)
@@ -140,6 +150,12 @@ class BiometricPunchTest extends ApiTestCase
 
     public function test_a_punch_also_fills_the_daily_register(): void
     {
+        // Only in biometric mode. Since 5a4bf72 the register has one owner at
+        // a time: in manual mode the instructor fills it and a punch records
+        // the class session only. This test predates that and used to run
+        // against a punch that always filled the register.
+        $this->useBiometricMode();
+
         $device = $this->device();
         $student = $this->student(['biometric_id' => '7007']);
         $this->enroll($student, $device->course);
@@ -157,9 +173,13 @@ class BiometricPunchTest extends ApiTestCase
 
     public function test_daily_register_marks_late_after_academy_grace_with_arrival_time(): void
     {
-        // Academy day: starts 09:00, 15 min grace (settings-driven).
+        // Academy day: starts 09:00, 15 min grace (settings-driven). This
+        // student is on no slot, so the academy-wide day is what judges them —
+        // still true after d74b20a made lateness per-slot for those who have one.
+        $this->useBiometricMode();
         \App\Models\Setting::updateOrCreate(['key' => 'attendance_day_start'], ['value' => '09:00', 'group' => 'general']);
         \App\Models\Setting::updateOrCreate(['key' => 'attendance_late_after_minutes'], ['value' => 15, 'group' => 'general']);
+        \App\Models\Setting::forgetCached();
 
         $device = $this->device();
         $student = $this->student(['biometric_id' => '7008']);
@@ -172,6 +192,9 @@ class BiometricPunchTest extends ApiTestCase
         $record = \App\Models\DailyAttendance::where('user_id', $student->id)->first();
         $this->assertSame('late', $record->status);
         $this->assertSame('09:40', substr($record->arrived_at, 0, 5));
-        $this->assertStringContainsString('min after 09:00', $record->remarks);
+        // 12-hour since 47cdfc2, which made the remark name the resolved start
+        // time rather than the raw 24-hour setting string. Asserted in full
+        // rather than loosened: the minutes and both times still have to be right.
+        $this->assertSame('Arrived 9:40 AM — 40 min after 9:00 AM', $record->remarks);
     }
 }

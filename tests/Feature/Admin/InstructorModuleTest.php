@@ -202,13 +202,20 @@ class InstructorModuleTest extends TestCase
 
     public function test_instructor_announcement_list_is_scoped(): void
     {
-        Announcement::create([
+        $academyWide = Announcement::create([
             'title' => 'Academy wide notice',
             'body' => 'For everyone',
             'author_id' => $this->admin->id,
             'published_at' => now(),
         ]);
-        Announcement::create([
+        $foreign = Announcement::create([
+            'title' => 'Someone elses class notice',
+            'body' => 'For their class',
+            'course_id' => $this->foreignCourse->id,
+            'author_id' => $this->otherInstructor->id,
+            'published_at' => now(),
+        ]);
+        $own = Announcement::create([
             'title' => 'Own class notice',
             'body' => 'For my class',
             'course_id' => $this->ownCourse->id,
@@ -216,10 +223,21 @@ class InstructorModuleTest extends TestCase
             'published_at' => now(),
         ]);
 
-        $this->actingAs($this->instructor)->get('/admin/announcements')
+        $response = $this->actingAs($this->instructor)->get('/admin/announcements')
             ->assertOk()
             ->assertSee('Own class notice')
-            ->assertDontSee('Academy wide notice');
+            // Another instructor's class notice must not reach this page at
+            // all — not the list, not the top bar.
+            ->assertDontSee('Someone elses class notice');
+
+        // The list is rows, and every row carries an edit link. Asserting on
+        // the link rather than the title is what keeps this test about the
+        // list: since 3764cf2 the top bar runs a staff ticker that shows
+        // academy-wide notices to instructors on purpose, so the bare title
+        // now appears in the page chrome whether or not the list is scoped.
+        $response->assertSee(route('admin.announcements.edit', $own), false);
+        $response->assertDontSee(route('admin.announcements.edit', $academyWide), false);
+        $response->assertDontSee(route('admin.announcements.edit', $foreign), false);
     }
 
     /* ------------------------- Attendance scoping ------------------------- */

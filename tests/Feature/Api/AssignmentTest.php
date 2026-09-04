@@ -65,13 +65,18 @@ class AssignmentTest extends ApiTestCase
 
     public function test_submission_with_content_and_late_flag(): void
     {
+        Storage::fake('public');
+
         $user = $this->actingAsStudent();
         [$course, $assignment] = $this->makeAssignment(['due_at' => now()->subHour()]);
         $this->enroll($user, $course);
 
-        $this->postJson("/api/v1/assignments/{$assignment->id}/submissions", [
+        // Since 9bed5dd the work itself is the file and the text is optional
+        // context alongside it, so a submission always carries one.
+        $this->post("/api/v1/assignments/{$assignment->id}/submissions", [
             'content' => 'My essay.',
-        ])->assertCreated()
+            'file' => UploadedFile::fake()->create('essay.pdf', 10, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertCreated()
             ->assertJsonPath('data.is_late', true)
             ->assertJsonPath('data.content', 'My essay.');
 
@@ -104,15 +109,22 @@ class AssignmentTest extends ApiTestCase
         Storage::disk('public')->assertExists($submission->file_path);
     }
 
-    public function test_submission_requires_content_or_file_and_caps_file_size(): void
+    public function test_submission_requires_a_file_and_caps_file_size(): void
     {
         $user = $this->actingAsStudent();
         [$course, $assignment] = $this->makeAssignment();
         $this->enroll($user, $course);
 
+        // 9bed5dd made the file the submission: text on its own no longer
+        // counts as work handed in, so an empty body and a text-only body are
+        // both rejected, and the 10 MB cap still holds.
         $this->postJson("/api/v1/assignments/{$assignment->id}/submissions", [])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['content', 'file']);
+            ->assertJsonValidationErrors('file');
+
+        $this->postJson("/api/v1/assignments/{$assignment->id}/submissions", ['content' => 'Text only.'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('file');
 
         $this->post("/api/v1/assignments/{$assignment->id}/submissions", [
             'file' => UploadedFile::fake()->create('big.zip', 10241),
@@ -136,9 +148,10 @@ class AssignmentTest extends ApiTestCase
             'graded_by' => $grader->id,
         ]);
 
-        $this->postJson("/api/v1/assignments/{$assignment->id}/submissions", [
+        $this->post("/api/v1/assignments/{$assignment->id}/submissions", [
             'content' => 'v2',
-        ])->assertForbidden();
+            'file' => UploadedFile::fake()->create('v2.pdf', 10, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertForbidden();
 
         $this->getJson("/api/v1/assignments/{$assignment->id}")->assertOk()
             ->assertJsonPath('data.status', 'graded')
@@ -147,12 +160,20 @@ class AssignmentTest extends ApiTestCase
 
     public function test_resubmission_before_grading_updates_in_place(): void
     {
+        Storage::fake('public');
+
         $user = $this->actingAsStudent();
         [$course, $assignment] = $this->makeAssignment();
         $this->enroll($user, $course);
 
-        $this->postJson("/api/v1/assignments/{$assignment->id}/submissions", ['content' => 'v1'])->assertCreated();
-        $this->postJson("/api/v1/assignments/{$assignment->id}/submissions", ['content' => 'v2'])->assertCreated();
+        $submit = fn (string $body) => $this->post(
+            "/api/v1/assignments/{$assignment->id}/submissions",
+            ['content' => $body, 'file' => UploadedFile::fake()->create($body.'.pdf', 10, 'application/pdf')],
+            ['Accept' => 'application/json'],
+        );
+
+        $submit('v1')->assertCreated();
+        $submit('v2')->assertCreated();
 
         $this->assertSame(1, AssignmentSubmission::count());
         $this->assertSame('v2', AssignmentSubmission::first()->content);

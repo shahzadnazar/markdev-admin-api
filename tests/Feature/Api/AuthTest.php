@@ -69,7 +69,11 @@ class AuthTest extends ApiTestCase
             ->assertOk()
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.roles.0', 'student')
-            ->assertJsonStructure(['data' => ['permissions', 'avatar_url', 'phone', 'bio', 'headline', 'created_at']]);
+            ->assertJsonStructure(['data' => ['permissions', 'avatar_url', 'phone', 'headline', 'created_at']])
+            // f62d8cf dropped bio from UserResource and the portal's profile
+            // form went with it. Asserted as absent rather than dropped from
+            // the list, so the day it comes back this test says so.
+            ->assertJsonMissingPath('data.bio');
     }
 
     public function test_me_requires_authentication(): void

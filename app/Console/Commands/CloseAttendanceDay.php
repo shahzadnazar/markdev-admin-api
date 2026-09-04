@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\BiometricPunch;
 use App\Models\DailyAttendance;
 use App\Models\LeaveApplicationDay;
 use App\Models\User;
@@ -22,12 +23,22 @@ use Illuminate\Support\Facades\DB;
  *
  *   1. already marked present / late / absent / leave  -> left alone
  *   2. an approved leave day for this student and date -> `leave`
- *   3. otherwise                                        -> `absent`
+ *   3. a biometric punch on that date                  -> present or late
+ *   4. otherwise                                        -> `absent`
  *
  * Step 2 is why approving a leave writes nothing at the time: a future
  * approval marks nothing until that day actually closes, and a student who
  * turns up anyway is already present by step 1 before leave is considered.
- * A declined day has no special handling — it falls through to step 3.
+ * A declined day has no special handling — it falls through to the end.
+ *
+ * Step 3 exists because an absence is billable. In manual mode a punch does
+ * not fill the register — the instructor owns it — but the punch is still
+ * proof the student was on the premises. Without this, an instructor who
+ * forgets to mark the register turns a student who scanned in into a
+ * chargeable absence, and the system bills them against its own evidence.
+ * It settles the day from the punch rather than deciding anything an
+ * instructor still could: they can correct it, and an absence they meant to
+ * record is one they can still record before the day closes.
  */
 class CloseAttendanceDay extends Command
 {
@@ -115,58 +126,115 @@ class CloseAttendanceDay extends Command
         // at approval time, so the day gets its status once, on the day.
         $onLeave = $this->approvedLeaveOn($date, $unsettled);
 
+        // Who scanned in but has no register row — the ones an absence would
+        // wrong. Leave wins over a punch: an approved leave day is settled
+        // even if they came in anyway, and the instructor can correct that.
+        $punched = $this->punchesOn($day, $unsettled->reject(fn ($id) => $onLeave->contains($id))->values());
+
         $this->line(sprintf(
-            '%s: %d expected, %d already marked, %d to settle (%d on approved leave, %d absent)',
+            '%s: %d expected, %d already marked, %d to settle (%d on approved leave, %d from a punch, %d absent)',
             $date,
             $expected->count(),
             $existing->count() - $pendingIds->count(),
             $count,
             $onLeave->count(),
-            $count - $onLeave->count(),
+            $punched->count(),
+            $count - $onLeave->count() - $punched->count(),
         ));
 
         if ($dryRun || $count === 0) {
             return $count;
         }
 
-        DB::transaction(function () use ($date, $pendingIds, $missingIds, $onLeave) {
-            foreach ([true, false] as $isLeave) {
-                $status = $isLeave ? 'leave' : 'absent';
-                $remarks = $isLeave ? 'Approved leave' : 'Not marked before end of day.';
-
-                $pending = $pendingIds->filter(fn ($id) => $onLeave->contains($id) === $isLeave)->values();
-                $missing = $missingIds->filter(fn ($id) => $onLeave->contains($id) === $isLeave)->values();
-
-                if ($pending->isNotEmpty()) {
-                    DailyAttendance::onDate($date)
-                        ->whereIn('user_id', $pending)
-                        ->update([
-                            'status' => $status,
-                            'source' => 'auto',
-                            'marked_at' => now(),
-                            'remarks' => $remarks,
-                            'updated_at' => now(),
-                        ]);
+        DB::transaction(function () use ($date, $students, $pendingIds, $missingIds, $onLeave, $punched) {
+            // What each unsettled student's day becomes, decided once here so
+            // the writes below are a plain grouping.
+            $outcome = function (int $id) use ($students, $onLeave, $punched): array {
+                if ($onLeave->contains($id)) {
+                    return ['leave', 'Approved leave', null];
                 }
 
-                foreach ($missing->chunk(500) as $chunk) {
-                    $rows = $chunk->map(fn ($id) => [
+                if ($punch = $punched->get($id)) {
+                    $student = $students->firstWhere('id', $id);
+                    $status = \App\Support\AttendanceConfig::statusForArrival($punch, $student);
+
+                    return [
+                        $status,
+                        'Settled from the biometric punch at '.$punch->format('g:i A').'.',
+                        $punch->format('H:i:s'),
+                    ];
+                }
+
+                return ['absent', 'Not marked before end of day.', null];
+            };
+
+            // Keyed by the encoded outcome, not the outcome itself: a callback
+            // that returns an array tells groupBy to file the item under every
+            // element of it, which would mix two students' arrival times.
+            $grouped = $pendingIds->groupBy(fn (int $id) => json_encode($outcome($id)));
+
+            $grouped->each(function ($ids) use ($date, $outcome) {
+                [$status, $remarks, $arrived] = $outcome($ids->first());
+
+                DailyAttendance::onDate($date)
+                    ->whereIn('user_id', $ids)
+                    ->update(array_filter([
+                        'status' => $status,
+                        'source' => 'auto',
+                        'marked_at' => now(),
+                        'remarks' => $remarks,
+                        'arrived_at' => $arrived,
+                        'updated_at' => now(),
+                    ], fn ($value) => $value !== null));
+            });
+
+            foreach ($missingIds->chunk(500) as $chunk) {
+                $rows = $chunk->map(function (int $id) use ($date, $outcome) {
+                    [$status, $remarks, $arrived] = $outcome($id);
+
+                    return [
                         'user_id' => $id,
                         'date' => $date,
                         'status' => $status,
                         'source' => 'auto',
                         'remarks' => $remarks,
+                        'arrived_at' => $arrived,
                         'marked_at' => now(),
                         'created_at' => now(),
                         'updated_at' => now(),
-                    ])->all();
+                    ];
+                })->all();
 
-                    DailyAttendance::insert($rows);
-                }
+                DailyAttendance::insert($rows);
             }
         });
 
         return $count;
+    }
+
+    /**
+     * The earliest punch each of these students made on this day.
+     *
+     * Matched on a half-open range, not an equality: `punched_at` is a
+     * datetime, and comparing it to a date would match only midnight.
+     *
+     * @param  Collection<int, int>  $userIds
+     * @return Collection<int, Carbon>  user id => punch time
+     */
+    protected function punchesOn(Carbon $day, Collection $userIds): Collection
+    {
+        if ($userIds->isEmpty()) {
+            return collect();
+        }
+
+        return BiometricPunch::query()
+            ->whereIn('user_id', $userIds)
+            ->where('punched_at', '>=', $day->copy()->startOfDay())
+            ->where('punched_at', '<', $day->copy()->addDay()->startOfDay())
+            ->orderBy('punched_at')
+            ->get(['user_id', 'punched_at'])
+            ->groupBy('user_id')
+            ->map(fn ($punches) => $punches->first()->punched_at);
     }
 
     /**
