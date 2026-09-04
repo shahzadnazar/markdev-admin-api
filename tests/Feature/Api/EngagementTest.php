@@ -129,7 +129,24 @@ class EngagementTest extends ApiTestCase
             ],
         ]);
 
-        $this->getJson('/api/v1/attendance/daily')->assertOk()->assertJsonCount(5, 'data');
+        // The register and the class record are separate tables; the day
+        // carries whichever session it fell on, and nothing when it fell on
+        // none. Matching on a date-cast column is why this is a range query.
+        [$course] = $this->makeCourse(1);
+        AttendanceRecord::create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'date' => now()->subDays(4)->toDateString(),
+            'status' => 'absent',
+            'session_title' => 'Live session — leave day',
+        ]);
+
+        $this->getJson('/api/v1/attendance/daily')->assertOk()->assertJsonCount(5, 'data')
+            ->assertJsonPath('data.0.session_title', null)
+            ->assertJsonPath('data.0.course', null)
+            ->assertJsonPath('data.4.status', 'leave')
+            ->assertJsonPath('data.4.session_title', 'Live session — leave day')
+            ->assertJsonPath('data.4.course.title', $course->title);
         $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.status', 'leave');
 

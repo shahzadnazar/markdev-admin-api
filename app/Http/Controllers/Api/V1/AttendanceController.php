@@ -49,17 +49,31 @@ class AttendanceController extends ApiController
             ->paginate($this->perPage($request))
             ->withQueryString();
 
+        $sessions = $this->sessionsByDate($request, collect($records->items()));
+
         return response()->json([
-            'data' => collect($records->items())->map(fn ($record) => [
-                'id' => $record->id,
-                'date' => $record->date->toDateString(),
-                'status' => $record->status,
-                'remarks' => $record->remarks,
-                'arrived_at' => $record->arrived_at ? substr($record->arrived_at, 0, 5) : null,
-                'source' => $record->source,
-                'marked_at' => $record->marked_at?->toIso8601String(),
-                'corrected' => $record->last_updated_at !== null,
-            ])->all(),
+            'data' => collect($records->items())->map(function ($record) use ($sessions) {
+                $date = $record->date->toDateString();
+                $session = $sessions->get($date);
+
+                return [
+                    'id' => $record->id,
+                    'date' => $date,
+                    'status' => $record->status,
+                    'remarks' => $record->remarks,
+                    'arrived_at' => $record->arrived_at ? substr($record->arrived_at, 0, 5) : null,
+                    'source' => $record->source,
+                    'marked_at' => $record->marked_at?->toIso8601String(),
+                    'corrected' => $record->last_updated_at !== null,
+                    // The class the day belongs to, when there was one. A day
+                    // the register knows about need not have a session -- a
+                    // leave day rarely does.
+                    'session_title' => $session?->session_title,
+                    'course' => $session?->course
+                        ? ['id' => $session->course->id, 'title' => $session->course->title]
+                        : null,
+                ];
+            })->all(),
             'meta' => [
                 'current_page' => $records->currentPage(),
                 'last_page' => $records->lastPage(),
@@ -112,6 +126,39 @@ class AttendanceController extends ApiController
                 'attendance_rate' => \App\Models\DailyAttendance::weightedPercent($counts->toArray()) ?? 0,
             ],
         ]);
+    }
+
+    /**
+     * The class session each of these days belongs to, keyed by date.
+     *
+     * One query for the whole page rather than one per row: the register and
+     * the class record are separate tables, and this is the only place they
+     * are shown together.
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\DailyAttendance>  $days
+     * @return \Illuminate\Support\Collection<string, AttendanceRecord>
+     */
+    protected function sessionsByDate(Request $request, \Illuminate\Support\Collection $days): \Illuminate\Support\Collection
+    {
+        $dates = $days->map(fn ($day) => $day->date->toDateString())->unique()->values();
+
+        if ($dates->isEmpty()) {
+            return collect();
+        }
+
+        return AttendanceRecord::where('user_id', $request->user()->id)
+            ->with('course:id,title')
+            // A range rather than whereIn($dates): `date` is a date-cast
+            // column, so SQLite hands back "2026-08-26 00:00:00" and an
+            // equality against "2026-08-26" matches nothing. The page covers
+            // one contiguous window, so its span is the same set of rows.
+            ->where('date', '>=', $dates->min())
+            ->where('date', '<', \Illuminate\Support\Carbon::parse($dates->max())->addDay()->toDateString())
+            ->orderBy('id')
+            ->get()
+            // A day with more than one session keeps the first; the column
+            // names the day's class, it is not a session list.
+            ->keyBy(fn ($record) => \Illuminate\Support\Carbon::parse($record->date)->toDateString());
     }
 
     /**
