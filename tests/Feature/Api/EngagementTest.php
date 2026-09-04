@@ -80,16 +80,69 @@ class EngagementTest extends ApiTestCase
         $this->getJson('/api/v1/attendance?from='.now()->subDay()->toDateString())
             ->assertOk()->assertJsonCount(2, 'data');
 
+    }
+
+    public function test_daily_register_summary_counts_leave_and_filters(): void
+    {
+        $user = $this->actingAsStudent();
+
+        foreach ([['present', 0], ['present', 1], ['late', 2], ['absent', 3], ['leave', 4]] as [$status, $daysAgo]) {
+            \App\Models\DailyAttendance::create([
+                'user_id' => $user->id,
+                'date' => now()->subDays($daysAgo)->toDateString(),
+                'status' => $status,
+                'source' => 'manual',
+                'marked_at' => now(),
+            ]);
+        }
+
+        // A day nobody has marked yet is not a status and never reaches a count.
+        \App\Models\DailyAttendance::create([
+            'user_id' => $user->id,
+            'date' => now()->subDays(5)->toDateString(),
+            'status' => \App\Models\DailyAttendance::PENDING,
+            'source' => 'manual',
+            'marked_at' => now(),
+        ]);
+
+        // Another student's register never leaks.
+        \App\Models\DailyAttendance::create([
+            'user_id' => $this->student()->id,
+            'date' => now()->toDateString(),
+            'status' => 'absent',
+            'source' => 'manual',
+            'marked_at' => now(),
+        ]);
+
+        // Approved leave is a day like any other here — the card used to read
+        // zero because this counted per-class records, which leave never
+        // touches.
         $this->getJson('/api/v1/attendance/summary')->assertOk()->assertJson([
             'data' => [
-                'total_sessions' => 4,
+                'total_sessions' => 5,
                 'present_count' => 2,
                 'absent_count' => 1,
                 'late_count' => 1,
-                'excused_count' => 0,
-                'attendance_rate' => 50.0,
+                'leave_count' => 1,
+                // (100 + 100 + 70 + 0 + 50) / 5
+                'attendance_rate' => 64.0,
             ],
         ]);
+
+        $this->getJson('/api/v1/attendance/daily')->assertOk()->assertJsonCount(5, 'data');
+        $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.status', 'leave');
+
+        // The upper bound includes its own day, which a plain `<=` against a
+        // date-cast column does not on every engine.
+        $today = now()->toDateString();
+        $this->getJson("/api/v1/attendance/daily?from={$today}&to={$today}")
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.date', $today);
+
+        $this->getJson('/api/v1/attendance/summary?from='.now()->subDays(2)->toDateString())
+            ->assertOk()->assertJsonPath('data.total_sessions', 3)
+            ->assertJsonPath('data.leave_count', 0);
     }
 
     public function test_certificates_list_and_signed_download(): void
