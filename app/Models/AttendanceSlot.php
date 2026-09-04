@@ -40,6 +40,42 @@ class AttendanceSlot extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // `name_key` is the normalised name the unique index sits on. It is
+        // derived, never posted, so it is kept out of $fillable and written
+        // here instead.
+        static::saving(function (self $slot): void {
+            $slot->name_key = static::normaliseName($slot->name);
+        });
+
+        // A soft delete updates the row through the query builder rather than
+        // save(), so the hook above never sees it. Clearing the key releases
+        // the name: deleting "Morning" has to leave "Morning" creatable again.
+        static::deleted(function (self $slot): void {
+            if (! $slot->trashed()) {
+                return;
+            }
+
+            $slot->newQueryWithoutScopes()->whereKey($slot->getKey())->toBase()
+                ->update(['name_key' => null]);
+
+            $slot->name_key = null;
+            $slot->syncOriginalAttribute('name_key');
+        });
+    }
+
+    /**
+     * The form of a name that decides whether two slots share one.
+     *
+     * "Morning", "morning" and "  Morning  " are the same slot to an admin
+     * reading the list, so they are the same name here.
+     */
+    public static function normaliseName(?string $name): string
+    {
+        return mb_strtolower(trim((string) $name));
+    }
+
     /* ------------------------------ Relations ------------------------------ */
 
     public function studentProfiles(): HasMany

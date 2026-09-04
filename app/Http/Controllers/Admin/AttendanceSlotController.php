@@ -108,6 +108,11 @@ class AttendanceSlotController extends Controller
     /** @return array<string, mixed> */
     protected function validated(Request $request, ?AttendanceSlot $slot = null): array
     {
+        // Trimmed before validating, not after: otherwise "Morning" and
+        // "Morning " are two different names to the uniqueness check and only
+        // become the same once they are already both in the table.
+        $request->merge(['name' => trim((string) $request->input('name'))]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
             'start_time_hour' => ['required', 'integer', 'min:1', 'max:12'],
@@ -134,6 +139,9 @@ class AttendanceSlotController extends Controller
             ]);
         }
 
+        $this->assertNameIsFree($data['name'], $slot);
+        $this->assertTimesAreFree($start, $end, $slot);
+
         return [
             'name' => $data['name'],
             'start_time' => $start,
@@ -143,6 +151,76 @@ class AttendanceSlotController extends Controller
             // New slots land at the end of the list; editing keeps its place.
             'sort_order' => $slot?->sort_order ?? ((int) AttendanceSlot::max('sort_order') + 1),
         ];
+    }
+
+    /**
+     * One slot, one name.
+     *
+     * A second "Morning" tells an admin nothing about which one a student is
+     * on, and the registration dropdown shows both identically.
+     */
+    protected function assertNameIsFree(string $name, ?AttendanceSlot $slot): void
+    {
+        // Editing a slot without touching its name always passes. Slots
+        // created before this rule existed may already share one, and being
+        // unable to fix such a slot's times because of its name helps nobody.
+        if ($slot && AttendanceSlot::normaliseName($slot->name) === AttendanceSlot::normaliseName($name)) {
+            return;
+        }
+
+        $taken = AttendanceSlot::query()
+            ->when($slot, fn ($query) => $query->whereKeyNot($slot->getKey()))
+            // lower() on both sides rather than Rule::unique, whose comparison
+            // follows the column collation: case-insensitive on MariaDB but
+            // case-sensitive on SQLite, so "morning" would slip past there.
+            ->whereRaw('lower(name) = ?', [AttendanceSlot::normaliseName($name)])
+            ->exists();
+
+        if ($taken) {
+            throw ValidationException::withMessages([
+                'name' => "A slot named \"{$name}\" already exists.",
+            ]);
+        }
+    }
+
+    /**
+     * No two slots may cover the same minute.
+     *
+     * Each slot carries its own lateness rule, so a student punching in during
+     * a shared minute would be judged by two of them with no way to say which
+     * is right.
+     */
+    protected function assertTimesAreFree(string $start, string $end, ?AttendanceSlot $slot): void
+    {
+        // Saving a slot without moving it always passes, for the same reason
+        // the name check lets an unchanged name through: a pair of slots that
+        // already overlap must not lock each other out of every other field.
+        if ($slot
+            && Carbon::parse($slot->start_time)->format('H:i:s') === $start
+            && Carbon::parse($slot->end_time)->format('H:i:s') === $end) {
+            return;
+        }
+
+        $conflict = AttendanceSlot::query()
+            ->when($slot, fn ($query) => $query->whereKeyNot($slot->getKey()))
+            // Strictly < and >, because end_time is the moment a slot closes
+            // rather than a minute inside it: 9-11 and 11-1 run back to back,
+            // which is the ordinary academy timetable, not an overlap. This
+            // one condition covers every shape -- starting inside, ending
+            // inside, contained, containing and identical.
+            ->where('start_time', '<', $end)
+            ->where('end_time', '>', $start)
+            // Inactive slots count. Students stay assigned to a deactivated
+            // slot, so its lateness rule is still deciding their attendance.
+            // Soft-deleted ones do not; the global scope drops them.
+            ->orderBy('start_time')
+            ->first();
+
+        if ($conflict) {
+            throw ValidationException::withMessages([
+                'start_time' => "Overlaps \"{$conflict->label()}\". Slots cannot share the same time.",
+            ]);
+        }
     }
 
     /**
