@@ -157,7 +157,8 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
                                 </div>
                                 <div class="max-h-80 overflow-y-auto">
                                     @forelse ($unreadNotifications as $notification)
-                                        <a href="{{ str_starts_with($notification->data['action_url'] ?? '', '/admin') ? ($notification->data['action_url'] ?? '#') : '#' }}"
+                                        {{-- Prefer a link meant for this panel; a portal path would 404 here. --}}
+                                        <a href="{{ $notification->data['admin_action_url'] ?? (str_starts_with($notification->data['action_url'] ?? '', '/admin') ? $notification->data['action_url'] : '#') }}"
                                             class="block border-b border-surface-ice/70 px-4 py-3 transition hover:bg-surface-ice">
                                             <p class="text-[13px] font-semibold text-on-surface">{{ $notification->data['title'] ?? 'Notification' }}</p>
                                             <p class="mt-0.5 line-clamp-2 text-xs leading-5 text-on-surface-variant">{{ $notification->data['message'] ?? '' }}</p>

@@ -591,6 +591,9 @@ class LeaveApplicationTest extends TestCase
             // Required since holidays landed: an academy that never
             // opens marks nobody, so the form insists on a week.
             'academy_working_days' => [1, 2, 3, 4, 5],
+            // Required since the holiday announcer landed: how far ahead a
+            // closure is announced, minimum 1.
+            'holiday_announce_days_before' => 1,
             'monthly_leave_allowance' => 0,
             'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
         ])->assertSessionHasErrors(['monthly_leave_allowance' => 'Monthly leave allowance must be at least 1.']);

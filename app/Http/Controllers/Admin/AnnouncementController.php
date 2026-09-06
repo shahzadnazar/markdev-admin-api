@@ -50,7 +50,7 @@ class AnnouncementController extends Controller
         $data = $this->validated($request);
 
         $announcement = Announcement::create([...$data, 'author_id' => $request->user()->id]);
-        $this->notifyStudents($announcement);
+        $this->notifyAudience($announcement);
 
         return redirect()->route('admin.announcements.index')->with('success', 'Announcement published.');
     }
@@ -70,7 +70,7 @@ class AnnouncementController extends Controller
     {
         $this->authorizeCourseAccess($request, $announcement->course_id);
         $announcement->update($this->validated($request));
-        $this->notifyStudents($announcement->refresh());
+        $this->notifyAudience($announcement->refresh());
 
         return redirect()->route('admin.announcements.index')->with('success', 'Announcement updated.');
     }
@@ -85,11 +85,19 @@ class AnnouncementController extends Controller
 
     /** @return array<string, mixed> */
     /**
-     * Rings the portal bell for every targeted student, exactly once per
-     * announcement, and only after it's actually live. A future-dated
+     * Rings the bell for everyone an announcement is addressed to, exactly once
+     * per announcement, and only after it's actually live. A future-dated
      * announcement is picked up here when it's next edited after going live.
+     *
+     * A course announcement reaches that course's enrolled students, as it
+     * always has. An academy-wide one now reaches instructors as well: they
+     * already see these in the staff ticker (3764cf2), the admin panel has the
+     * same bell the portal does, and a closure or a fee deadline is not news
+     * only students need. An instructor's own course announcements are still
+     * students-only — they do not need a bell for a notice about their own
+     * class — and nobody is ever notified of their own post.
      */
-    protected function notifyStudents(Announcement $announcement): void
+    protected function notifyAudience(Announcement $announcement): void
     {
         if ($announcement->notified_at !== null
             || $announcement->published_at === null
@@ -99,15 +107,18 @@ class AnnouncementController extends Controller
 
         $announcement->loadMissing('course');
 
-        User::role('student')
+        $roles = $announcement->course_id === null ? ['student', 'instructor'] : ['student'];
+
+        User::role($roles)
             ->where('is_active', true)
+            ->where('id', '!=', $announcement->author_id)
             ->when($announcement->course_id, fn ($query) => $query->whereHas(
                 'enrollments',
                 fn ($enrollment) => $enrollment->where('course_id', $announcement->course_id),
             ))
-            ->chunkById(500, function ($students) use ($announcement) {
-                foreach ($students as $student) {
-                    $student->notify(new AnnouncementPublished($announcement));
+            ->chunkById(500, function ($recipients) use ($announcement) {
+                foreach ($recipients as $recipient) {
+                    $recipient->notify(new AnnouncementPublished($announcement));
                 }
             });
 

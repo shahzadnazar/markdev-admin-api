@@ -97,6 +97,12 @@
                             hint="Days the academy opens. Students on a slot follow that slot's own days instead. Nobody is marked absent — or fined — on a day the academy is closed." />
                     </div>
 
+                    <div class="mt-4 max-w-sm">
+                        <x-form.input type="number" label="Holiday notice (days before)" name="holiday_announce_days_before"
+                            :value="$settings['holiday_announce_days_before']" required min="1" max="30" class="no-spinner"
+                            hint="How far ahead students and instructors are told about a closure. 1 means the morning before it starts. Nothing is sent when a holiday is added — only when its notice is due." />
+                    </div>
+
                     <div class="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-surface-ice/50 p-3">
                         <div class="min-w-0">
                             <p class="text-sm font-medium text-on-surface">Holidays</p>

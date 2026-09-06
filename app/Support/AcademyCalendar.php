@@ -72,6 +72,19 @@ class AcademyCalendar
         return AttendanceSlot::labelForDays(static::workingDays());
     }
 
+    /**
+     * How many days before a holiday starts its notice goes out.
+     *
+     * 1 means the morning before. Never zero: a notice that lands on the day
+     * itself is not notice, and the announcer treats a holiday added too late
+     * for its lead time as a special case rather than making this the way to
+     * express it.
+     */
+    public static function announceDaysBefore(): int
+    {
+        return max(1, min(30, (int) (Setting::cached('holiday_announce_days_before') ?? 1)));
+    }
+
     /* ------------------------------- Holidays ------------------------------ */
 
     /**

@@ -33,6 +33,7 @@ class SettingController extends Controller
                 'attendance_mode' => \App\Support\AttendanceConfig::mode(),
                 'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
                 'academy_working_days' => \App\Support\AcademyCalendar::workingDays(),
+                'holiday_announce_days_before' => \App\Support\AcademyCalendar::announceDaysBefore(),
                 'monthly_leave_allowance' => \App\Support\LeaveAllowance::perMonth(),
                 'monthly_absent_allowance' => \App\Support\AbsenceFine::allowance(),
                 'absent_fine_amount' => \App\Support\AbsenceFine::perAbsence(),
@@ -73,6 +74,10 @@ class SettingController extends Controller
             // is a mistake to show rather than a state to store.
             'academy_working_days' => ['required', 'array', 'min:1'],
             'academy_working_days.*' => ['integer', Rule::in(array_keys(\App\Models\AttendanceSlot::DAYS))],
+            // At least one day, because a notice that arrives on the morning of
+            // the holiday is not notice. Capped so a typo cannot push every
+            // notice a year out.
+            'holiday_announce_days_before' => ['required', 'integer', 'min:1', 'max:30'],
             // At least one: zero would not be an allowance, it would be a ban,
             // and there is a toggle-shaped way to say that if it is ever wanted.
             'monthly_leave_allowance' => ['required', 'integer', 'min:1', 'max:31'],
@@ -88,6 +93,8 @@ class SettingController extends Controller
             'monthly_absent_allowance.required' => 'Monthly absent allowance must be at least 1.',
             'academy_working_days.required' => 'Pick at least one working day — the academy has to open sometime.',
             'academy_working_days.min' => 'Pick at least one working day — the academy has to open sometime.',
+            'holiday_announce_days_before.min' => 'Holiday notice must go out at least 1 day before.',
+            'holiday_announce_days_before.required' => 'Holiday notice must go out at least 1 day before.',
         ]);
 
         // Stored as sorted ISO-8601 numbers, the same shape as a slot's days,

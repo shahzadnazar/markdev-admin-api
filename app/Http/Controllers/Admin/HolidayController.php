@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Holiday;
 use App\Support\AcademyCalendar;
+use App\Support\HolidayAnnouncer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -28,6 +29,10 @@ class HolidayController extends Controller
 {
     /** How far a single range may stretch, so a typo cannot fill the table. */
     protected const MAX_RANGE_DAYS = 31;
+
+    public function __construct(protected HolidayAnnouncer $announcer)
+    {
+    }
 
     public function index(Request $request): View
     {
@@ -132,7 +137,13 @@ class HolidayController extends Controller
             ]);
         }
 
+        $wasOn = $holiday->date->copy();
         $holiday->update(['name' => trim($data['name']), 'date' => $date->toDateString()]);
+
+        // A notice already sent for this closure now names the wrong dates, or
+        // describes a closure the edit has broken in two. Both ends of the
+        // move are reconciled, since either could carry the notice.
+        $this->announcer->reconcileAround(min($wasOn, $date), max($wasOn, $date));
 
         return redirect()->route('admin.holidays.index', ['year' => $date->year])
             ->with('success', "Holiday \"{$holiday->name}\" updated.");
@@ -149,10 +160,19 @@ class HolidayController extends Controller
     public function destroy(Holiday $holiday): RedirectResponse
     {
         $name = $holiday->name;
-        $year = $holiday->date->year;
+        $date = $holiday->date->copy();
         $holiday->delete();
 
-        return redirect()->route('admin.holidays.index', ['year' => $year])
-            ->with('success', "Holiday \"{$name}\" removed. Days already settled keep the status they were given.");
+        // The register keeps what it settled, but a notice saying the academy
+        // will be closed is a claim about a day that is now an ordinary
+        // working one, so it comes down. Withdrawn rather than erased: the
+        // announcement is soft-deleted like the holiday itself.
+        $withdrawn = $this->announcer->reconcileAround($date, $date)
+            ->where('action', 'withdrew')
+            ->isNotEmpty();
+
+        return redirect()->route('admin.holidays.index', ['year' => $date->year])
+            ->with('success', "Holiday \"{$name}\" removed. Days already settled keep the status they were given."
+                .($withdrawn ? ' The announcement for it has been withdrawn.' : ''));
     }
 }

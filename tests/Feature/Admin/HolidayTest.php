@@ -185,6 +185,9 @@ class HolidayTest extends TestCase
             'attendance_day_start_meridiem' => 'AM',
             'attendance_late_after_minutes' => 15,
             'academy_working_days' => [1, 2, 3, 4, 5],
+            // Required since the holiday announcer landed: how far ahead a
+            // closure is announced, minimum 1.
+            'holiday_announce_days_before' => 1,
             'monthly_leave_allowance' => 2,
             'monthly_absent_allowance' => 2,
             'absent_fine_amount' => 500,

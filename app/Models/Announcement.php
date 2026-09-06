@@ -16,10 +16,12 @@ class Announcement extends Model
     protected $fillable = [
         'author_id',
         'course_id',
+        'holiday_id',
         'title',
         'body',
         'is_pinned',
         'published_at',
+        'live_until',
         'notified_at',
     ];
 
@@ -28,6 +30,7 @@ class Announcement extends Model
         return [
             'is_pinned' => 'boolean',
             'published_at' => 'datetime',
+            'live_until' => 'datetime',
             'notified_at' => 'datetime',
         ];
     }
@@ -44,6 +47,20 @@ class Announcement extends Model
         return $this->belongsTo(Course::class);
     }
 
+    /**
+     * The holiday this notice is about, when it is one.
+     *
+     * Set to the first day of the range, which is what the announcer matches
+     * on to avoid sending a second notice for a holiday it already covered.
+     * Holidays are soft-deleted, so removing one does not null this column —
+     * the link survives on purpose, so the announcer can find the notice it
+     * now has to take down.
+     */
+    public function holiday(): BelongsTo
+    {
+        return $this->belongsTo(Holiday::class);
+    }
+
     public function reads(): HasMany
     {
         return $this->hasMany(AnnouncementRead::class);
@@ -56,10 +73,21 @@ class Announcement extends Model
         return $query->whereNotNull('published_at')->where('published_at', '<=', now());
     }
 
-    /** Published within the announcement's live window. */
+    /**
+     * Published within the announcement's live window.
+     *
+     * Most announcements run for a fixed 24 hours from publication. One that
+     * carries its own `live_until` runs to that instead: a notice about a
+     * three-day holiday has to still be up on the second day and gone once the
+     * academy reopens, which no fixed window from the publish time expresses.
+     */
     public function scopeLive(Builder $query): Builder
     {
-        return $query->published()->where('published_at', '>=', now()->subHours(self::LIVE_HOURS));
+        return $query->published()->where(fn (Builder $inner) => $inner
+            ->where(fn (Builder $fixed) => $fixed
+                ->whereNull('live_until')
+                ->where('published_at', '>=', now()->subHours(self::LIVE_HOURS)))
+            ->orWhere('live_until', '>', now()));
     }
 
     /* ------------------------------- Display ------------------------------- */
@@ -88,14 +116,20 @@ class Announcement extends Model
 
     public function isLive(): bool
     {
-        return $this->published_at !== null
-            && $this->published_at->lte(now())
-            && $this->published_at->gte(now()->subHours(self::LIVE_HOURS));
+        if ($this->published_at === null || $this->published_at->isFuture()) {
+            return false;
+        }
+
+        return $this->liveUntil()?->isFuture() ?? false;
     }
 
     /** When the ticker or popup stops showing. */
     public function liveUntil(): ?\Illuminate\Support\Carbon
     {
-        return $this->published_at?->copy()->addHours(self::LIVE_HOURS);
+        if ($this->published_at === null) {
+            return null;
+        }
+
+        return $this->live_until?->copy() ?? $this->published_at->copy()->addHours(self::LIVE_HOURS);
     }
 }

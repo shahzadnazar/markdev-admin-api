@@ -28,6 +28,10 @@ class AnnouncementPublished extends Notification
             'title' => "New announcement — {$scope}",
             'message' => $this->announcement->title,
             'action_url' => '/announcements',
+            // The same notification now reaches instructors, whose bell is in
+            // the admin panel and whose link has to go there instead. Sent as
+            // a separate key so the portal keeps reading the one it always has.
+            'admin_action_url' => '/admin/announcements',
         ];
     }
 }
