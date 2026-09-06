@@ -286,6 +286,34 @@ class AcademyCalendarTest extends ApiTestCase
             ->assertJsonPath('data.holidays.0.name', 'Eid ul-Fitr');
     }
 
+    public function test_a_holiday_an_admin_adds_reaches_the_portal_without_a_redeploy(): void
+    {
+        $this->workingDays([1, 2, 3, 4, 5]);
+        $student = $this->studentOn(null);
+
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        // Nothing on the calendar yet.
+        $this->actingAsStudent($student);
+        $this->getJson('/api/v1/attendance/calendar')->assertOk()->assertJsonCount(0, 'data.holidays');
+
+        // The admin adds one through the panel, as an admin actually would.
+        $this->actingAs($admin)
+            ->post(route('admin.holidays.store'), ['name' => 'Eid ul-Fitr', 'date' => '2026-09-25'])
+            ->assertRedirect();
+
+        $this->actingAsStudent($student);
+        $this->getJson('/api/v1/attendance/calendar')->assertOk()
+            ->assertJsonCount(1, 'data.holidays')
+            ->assertJsonPath('data.holidays.0.name', 'Eid ul-Fitr');
+
+        // And it is a real day off, not just a label: the close records it
+        // rather than an absence.
+        $this->close('2026-09-25');
+        $this->assertSame(DailyAttendance::HOLIDAY, $this->rowFor($student, '2026-09-25')->status);
+    }
+
     public function test_the_calendar_endpoint_reports_a_students_own_slot_days(): void
     {
         $this->workingDays([1, 2, 3, 4, 5]);
