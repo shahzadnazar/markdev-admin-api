@@ -24,6 +24,7 @@ class LeaveApplicationTest extends TestCase
         parent::setUp();
 
         $this->seed(RolePermissionSeeder::class);
+        $this->academyOpensEveryDay();
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');
@@ -587,6 +588,9 @@ class LeaveApplicationTest extends TestCase
             'attendance_day_start_minute' => 0,
             'attendance_day_start_meridiem' => 'AM',
             'attendance_late_after_minutes' => 15,
+            // Required since holidays landed: an academy that never
+            // opens marks nobody, so the form insists on a week.
+            'academy_working_days' => [1, 2, 3, 4, 5],
             'monthly_leave_allowance' => 0,
             'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
         ])->assertSessionHasErrors(['monthly_leave_allowance' => 'Monthly leave allowance must be at least 1.']);

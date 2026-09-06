@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AcademyCalendar;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,9 @@ class LeaveApplication extends Model
     protected $attributes = [
         'status' => 'pending',
     ];
+
+    /** @var array<int, Carbon>|null memo for days(), per instance */
+    protected ?array $expectedDays = null;
 
     protected $fillable = [
         'user_id',
@@ -101,6 +105,10 @@ class LeaveApplication extends Model
         }
 
         return match (true) {
+            // Every day of the range fell on a weekend or a holiday, so there
+            // was nothing to refuse. Calling that a rejection would tell the
+            // student they were turned down for days off.
+            $this->days() === [] => 'approved',
             $approved->isEmpty() => 'rejected',
             $approved->count() === count($this->days()) => 'approved',
             default => 'partially_approved',
@@ -158,10 +166,49 @@ class LeaveApplication extends Model
     }
 
     /** @return array<int, Carbon> every date in [from_date, to_date] inclusive */
+    /**
+     * The days of this range the student is actually expected on.
+     *
+     * A weekend or a holiday inside a Friday-to-Monday request is not leave
+     * from anything — the academy is shut and the student would not have been
+     * marked either way — so those days never become rows, never spend the
+     * monthly allowance, and are never put to a reviewer. Every caller here
+     * wants that same set: what is reserved, what is decided, and what "all of
+     * it was approved" means.
+     *
+     * Memoised for the life of the instance, not statically: recordDecisions
+     * asks three times and each call would otherwise re-read the holidays.
+     *
+     * @return array<int, Carbon>
+     */
     public function days(): array
     {
+        if ($this->expectedDays !== null) {
+            return $this->expectedDays;
+        }
+
+        $slot = $this->user?->studentProfile?->attendanceSlot;
+        $holidays = AcademyCalendar::holidayMap($this->from_date, $this->to_date);
+
+        return $this->expectedDays = collect(CarbonPeriod::create($this->from_date, $this->to_date))
+            ->map(fn ($day) => Carbon::instance($day)->startOfDay())
+            ->filter(fn (Carbon $day) => AcademyCalendar::expects($slot, $day, $holidays))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Every date in the range, working day or not.
+     *
+     * Only for showing the student what they asked for; nothing counts from
+     * here.
+     *
+     * @return array<int, Carbon>
+     */
+    public function allDates(): array
+    {
         return collect(CarbonPeriod::create($this->from_date, $this->to_date))
-            ->map(fn ($day) => Carbon::instance($day))
+            ->map(fn ($day) => Carbon::instance($day)->startOfDay())
             ->all();
     }
 }

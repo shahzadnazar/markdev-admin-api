@@ -70,6 +70,8 @@ class AttendanceController extends ApiController
                 // slice is on screen.
                 'from' => $total > 0 ? ($page - 1) * $perPage + 1 : null,
                 'to' => $total > 0 ? ($page - 1) * $perPage + $items->count() : null,
+                // weightedPercent only knows the four real statuses, so the
+                // holiday rows in this list contribute nothing to it.
                 'weighted_percent' => \App\Models\DailyAttendance::weightedPercent(
                     $this->mergedDays($request, false)->countBy('status')->all(),
                 ),
@@ -90,9 +92,14 @@ class AttendanceController extends ApiController
         // status you filtered to would say nothing.
         $counts = $this->mergedDays($request, false)->countBy('status');
 
+        // Holidays are listed but never counted. Summing every key would put
+        // days the academy was shut into the denominator of the rate, which
+        // would quietly lower it for every student in a month with an Eid.
+        $counted = $counts->only(\App\Models\DailyAttendance::STATUSES);
+
         return response()->json([
             'data' => [
-                'total_sessions' => (int) $counts->sum(),
+                'total_sessions' => (int) $counted->sum(),
                 'present_count' => (int) ($counts['present'] ?? 0),
                 'absent_count' => (int) ($counts['absent'] ?? 0),
                 'late_count' => (int) ($counts['late'] ?? 0),
@@ -100,13 +107,68 @@ class AttendanceController extends ApiController
                 // The register's own weighting -- present 100, late 70, leave
                 // 50, absent 0 -- rather than a second definition of the rate
                 // that would disagree with the one the list reports.
-                'attendance_rate' => \App\Models\DailyAttendance::weightedPercent($counts->all()) ?? 0,
+                'attendance_rate' => \App\Models\DailyAttendance::weightedPercent($counted->all()) ?? 0,
+                // Days off in this window, so the portal can label them
+                // without a calendar of its own.
+                'holiday_count' => (int) ($counts[\App\Models\DailyAttendance::HOLIDAY] ?? 0),
                 // What this month's absences are costing. Every number comes
                 // from the admin settings; the portal computes none of it.
                 'absence_balance' => \App\Support\AbsenceFine::balance(
                     $request->user()->id,
                     \Illuminate\Support\Carbon::now(),
                 ),
+            ],
+        ]);
+    }
+
+    /**
+     * The academy's working week and its holidays, for a date window.
+     *
+     * The leave picker greys out days that cost nothing and the attendance
+     * list labels the holidays, so both need the same two facts. Serving them
+     * rather than letting the portal assume Mon–Fri is the point: the working
+     * week is an admin setting and holidays are rows, and either can change
+     * between one page load and the next.
+     *
+     * `working_days` is this student's own week — their slot's days if they
+     * are on one, the academy's otherwise — because that is what decides
+     * whether a day of theirs is chargeable.
+     */
+    public function calendar(Request $request): JsonResponse
+    {
+        $student = $request->user()->loadMissing('studentProfile.attendanceSlot');
+        $slot = $student->studentProfile?->attendanceSlot;
+
+        // Defaults cover the window the leave form can reach: 60 days ahead,
+        // and back to the start of last month so the attendance list is
+        // covered by the same call.
+        $from = \Illuminate\Support\Carbon::parse($request->query('from') ?: now()->subMonth()->startOfMonth())->startOfDay();
+        $to = \Illuminate\Support\Carbon::parse($request->query('to') ?: now()->addDays(60))->startOfDay();
+
+        // A window a client can ask for, not one it can weaponise.
+        if ($to->lessThan($from)) {
+            $to = $from->copy();
+        }
+        if ($from->diffInDays($to) > 400) {
+            $to = $from->copy()->addDays(400);
+        }
+
+        $days = $slot?->dayNumbers() ?? \App\Support\AcademyCalendar::workingDays();
+
+        return response()->json([
+            'data' => [
+                'working_days' => $days,
+                'working_days_label' => \App\Models\AttendanceSlot::labelForDays($days),
+                // Named so the portal can say why a day is greyed out: their
+                // slot's timetable is not the same fact as the academy's week.
+                'source' => $slot !== null ? 'slot' : 'academy',
+                'slot_name' => $slot?->name,
+                'holidays' => \App\Support\AcademyCalendar::holidayMap($from, $to)
+                    ->map(fn (string $name, string $date) => ['date' => $date, 'name' => $name])
+                    ->values()
+                    ->all(),
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
             ],
         ]);
     }
@@ -165,7 +227,10 @@ class AttendanceController extends ApiController
             ];
         }
 
-        foreach ($bound(\App\Models\DailyAttendance::where('user_id', $userId)->counted())->get() as $day) {
+        // `decided`, not `counted`: a holiday belongs on the list — a gap
+        // where Eid was reads as missing data — but never in a count. The
+        // callers above are what keep those two apart.
+        foreach ($bound(\App\Models\DailyAttendance::where('user_id', $userId)->decided())->get() as $day) {
             $date = $day->date->toDateString();
             $session = $rows[$date] ?? null;
 

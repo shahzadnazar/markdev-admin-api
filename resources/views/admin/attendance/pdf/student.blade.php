@@ -19,7 +19,7 @@
         td { padding: 5.5px 6px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
         .muted { color: #6b7280; }
         .status { font-weight: 700; text-transform: uppercase; font-size: 8.5px; }
-        .present { color: #157f3c; } .late { color: #b45309; } .absent { color: #b91c1c; } .leave { color: #6B53C4; }
+        .present { color: #157f3c; } .late { color: #b45309; } .absent { color: #b91c1c; } .leave { color: #6B53C4; } .holiday { color: #1d4ed8; }
         .foot { margin-top: 12px; color: #9ca3af; font-size: 8px; border-top: 1px solid #e5e7eb; padding-top: 6px; }
     </style>
 </head>
@@ -39,6 +39,9 @@
         <span class="chip">Late <b class="late">{{ $summary['late'] }}</b></span>
         <span class="chip">Absent <b class="absent">{{ $summary['absent'] }}</b></span>
         <span class="chip">Leave <b class="leave">{{ $summary['leave'] }}</b></span>
+        @if (! empty($summary['holiday']))
+            <span class="chip">Holiday <b class="holiday">{{ $summary['holiday'] }}</b></span>
+        @endif
         <span class="chip">Days tracked <b>{{ $summary['total'] }}</b></span>
         @if ($summary['rate'] !== null)
             <span class="chip">Attendance rate <b>{{ $summary['rate'] }}%</b></span>

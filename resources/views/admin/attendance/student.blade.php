@@ -6,6 +6,11 @@
             'absent' => ['label' => 'Absent', 'badge' => 'danger'],
             'leave' => ['label' => 'Leave', 'badge' => 'secondary'],
         ];
+        // Filterable statuses above; a holiday is written by the day close and
+        // nobody marks or filters by one, so it only needs to read properly.
+        $displayMeta = $statusMeta + [
+            \App\Models\DailyAttendance::HOLIDAY => ['label' => 'Holiday', 'badge' => 'primary'],
+        ];
         $rangeMeta = [
             'today' => 'Today',
             'yesterday' => 'Yesterday',
@@ -128,7 +133,7 @@
                         <p class="font-mono text-[11px] text-outline">{{ $record->date->isToday() ? 'today' : $record->date->diffForHumans() }}</p>
                     </td>
                     <td class="td">
-                        <x-badge :variant="$statusMeta[$record->status]['badge'] ?? 'neutral'">{{ $statusMeta[$record->status]['label'] ?? $record->status }}</x-badge>
+                        <x-badge :variant="$displayMeta[$record->status]['badge'] ?? 'neutral'">{{ $displayMeta[$record->status]['label'] ?? $record->status }}</x-badge>
 
                     </td>
                     <td class="td max-w-[16rem]">

@@ -19,7 +19,7 @@
         td { padding: 5px 6px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
         .muted { color: #6b7280; }
         .status { font-weight: 700; text-transform: uppercase; font-size: 8px; }
-        .present { color: #157f3c; } .late { color: #b45309; } .absent { color: #b91c1c; } .leave { color: #6B53C4; } .unmarked { color: #9ca3af; }
+        .present { color: #157f3c; } .late { color: #b45309; } .absent { color: #b91c1c; } .leave { color: #6B53C4; } .holiday { color: #1d4ed8; } .unmarked { color: #9ca3af; }
         .foot { margin-top: 12px; color: #9ca3af; font-size: 7.5px; border-top: 1px solid #e5e7eb; padding-top: 6px; }
     </style>
 </head>
@@ -40,6 +40,11 @@
         <span class="chip">Late <b class="late">{{ $counts['late'] }}</b></span>
         <span class="chip">Absent <b class="absent">{{ $counts['absent'] }}</b></span>
         <span class="chip">Leave <b class="leave">{{ $counts['leave'] }}</b></span>
+        @if (! empty($counts['holiday']))
+            {{-- Listed so the chips add up to the roll, never added into a
+                 total: a day the academy was shut is not attendance. --}}
+            <span class="chip">Holiday <b class="holiday">{{ $counts['holiday'] }}</b></span>
+        @endif
         <span class="chip">Not marked <b class="unmarked">{{ $counts['unmarked'] }}</b></span>
         <span class="chip">Active students <b>{{ $counts['total'] }}</b></span>
     </div>

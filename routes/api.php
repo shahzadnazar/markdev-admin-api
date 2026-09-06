@@ -96,6 +96,11 @@ Route::prefix('v1')->group(function () {
         Route::get('attendance', [AttendanceController::class, 'index']);
         Route::get('attendance/summary', [AttendanceController::class, 'summary']);
         Route::get('attendance/daily', [AttendanceController::class, 'daily']);
+        // The academy's own calendar: which weekdays it opens for this
+        // student, and the dated holidays in a window. The portal renders
+        // both and hardcodes neither — an admin adding Eid must reach it
+        // without a redeploy.
+        Route::get('attendance/calendar', [AttendanceController::class, 'calendar']);
         Route::get('leaves', [LeaveApplicationController::class, 'index']);
         Route::post('leaves', [LeaveApplicationController::class, 'store']);
         Route::get('certificates', [CertificateController::class, 'index']);

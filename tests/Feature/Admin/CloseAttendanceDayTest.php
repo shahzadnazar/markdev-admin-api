@@ -19,6 +19,7 @@ class CloseAttendanceDayTest extends TestCase
         parent::setUp();
 
         $this->seed(RolePermissionSeeder::class);
+        $this->academyOpensEveryDay();
     }
 
     protected function student(array $attributes = []): User

@@ -16,6 +16,16 @@
         </span>
     @endforeach
 
+    @if (! empty($counts['holiday']))
+        {{-- Shown beside the four statuses but never one of them: it is not in
+             $byStatus, so no total, rate or fine can see it. --}}
+        <span class="inline-flex items-center gap-1.5">
+            <span class="size-2 shrink-0 rounded-full bg-primary"></span>
+            <span class="font-display text-sm font-bold leading-none text-on-surface">{{ number_format($counts['holiday']) }}</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-on-surface-variant">Holiday</span>
+        </span>
+    @endif
+
     @isset($counts['unmarked'])
         <span class="inline-flex items-center gap-1.5 {{ ($counts['unmarked'] ?? 0) > 0 ? 'rounded-full bg-warning/10 px-2.5 py-1' : '' }}">
             <span class="size-2 shrink-0 rounded-full bg-outline/50"></span>

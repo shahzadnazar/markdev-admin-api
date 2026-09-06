@@ -77,10 +77,12 @@ class DashboardController extends Controller
             [
                 'label' => "Students unmarked in today's register",
                 // Plain date comparison, so the (date, status) index applies;
-                // `counted` keeps pending days on the unmarked side, which is
-                // how the register itself counts them.
+                // `decided` keeps pending days on the unmarked side, which is
+                // how the register itself counts them, while a holiday counts
+                // as settled — nobody should be chased to mark a day the
+                // academy was shut.
                 'count' => max(0, $activeStudents
-                    - \App\Models\DailyAttendance::onDate(today())->counted()->count()),
+                    - \App\Models\DailyAttendance::onDate(today())->decided()->count()),
                 'url' => route('admin.attendance.daily'),
             ],
         ])->filter(fn ($item) => $item['count'] > 0)->values();

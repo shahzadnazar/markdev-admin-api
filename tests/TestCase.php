@@ -22,4 +22,27 @@ abstract class TestCase extends BaseTestCase
 
         Setting::forgetCached();
     }
+
+    /**
+     * Open the academy seven days a week for this test.
+     *
+     * The real default is Mon–Fri, which is what stops a student on no slot
+     * collecting an absence every Saturday. Tests written before that existed
+     * measure something else — leave mechanics, fines, the close — with
+     * relative dates like `today()` and `today()->addDays(3)`, and a weekend
+     * landing inside one of those ranges would change what they measure rather
+     * than test the week. They say so here instead of drifting.
+     *
+     * Anything actually about which days count sets its own week; see
+     * AcademyCalendarTest and LeaveWorkingDaysTest.
+     */
+    protected function academyOpensEveryDay(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'academy_working_days'],
+            ['value' => array_keys(\App\Models\AttendanceSlot::DAYS), 'group' => 'general'],
+        );
+
+        Setting::forgetCached();
+    }
 }

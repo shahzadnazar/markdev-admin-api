@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\DailyAttendance;
 use App\Models\User;
 use App\Support\AbsenceFine;
+use App\Support\AcademyCalendar;
 use App\Support\AttendanceConfig;
 use App\Support\AuditLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -285,8 +286,10 @@ class DailyAttendanceController extends Controller
         // Only genuinely decided days count as marked. A pending row is a day
         // nobody has ruled on yet, so it should be filled, not skipped. An
         // absence is decided, so this skips it like any other mark — a bulk
-        // action is not a way round the rule that an absence is final.
-        $marked = DailyAttendance::onDate($data['date'])->counted()->pluck('user_id');
+        // action is not a way round the rule that an absence is final. A
+        // holiday is decided too: marking a shut day present in bulk would put
+        // attendance in the register for a day nobody was expected.
+        $marked = DailyAttendance::onDate($data['date'])->decided()->pluck('user_id');
 
         $remaining = User::role('student')
             ->where('is_active', true)
@@ -493,13 +496,16 @@ class DailyAttendanceController extends Controller
         $cohort = $this->cohort($request, $courseId);
         $cohortTotal = (clone $cohort)->count();
 
-        // `counted` drops rows still pending: a day nobody has decided yet is
+        // `decided` drops rows still pending: a day nobody has decided yet is
         // unmarked, not a status, and must not reach a count or a percentage.
+        // Holidays come back too, but only to be taken off the unmarked tally
+        // below — they are never added to $byStatus, so no count, rate or fine
+        // can see them.
         // The cohort goes in as a subquery: pulling every id out first meant
         // shipping thousands of them back as an IN list on every page load.
         $counts = DailyAttendance::onDate($date)
             ->whereIn('user_id', (clone $cohort)->select('users.id'))
-            ->counted()
+            ->decided()
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
@@ -511,8 +517,13 @@ class DailyAttendanceController extends Controller
             'leave' => (int) ($counts['leave'] ?? 0),
         ];
 
+        $holidayRows = (int) ($counts[DailyAttendance::HOLIDAY] ?? 0);
+
         return $byStatus + [
-            'unmarked' => max(0, $cohortTotal - array_sum($byStatus)),
+            // A day the academy was shut is settled, not waiting on anyone.
+            'unmarked' => max(0, $cohortTotal - array_sum($byStatus) - $holidayRows),
+            'holiday' => $holidayRows,
+            'holiday_name' => AcademyCalendar::holidayName($date),
             'total' => $cohortTotal,
             // Weighted, not a headcount: a late arrival still attended and
             // approved leave is not a mark against the student.
@@ -553,15 +564,20 @@ class DailyAttendanceController extends Controller
         [,, $query] = $this->studentQuery($request->duplicate(array_merge($request->query(), ['status' => null])), $student);
 
         $counts = (clone $query)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-        $total = (int) $counts->sum();
-        // Approved leave counts as attended — only genuine absences hurt the rate.
-        $attended = (int) ($counts['present'] ?? 0) + (int) ($counts['late'] ?? 0) + (int) ($counts['leave'] ?? 0);
 
-        return [
-            'present' => (int) ($counts['present'] ?? 0),
-            'late' => (int) ($counts['late'] ?? 0),
-            'absent' => (int) ($counts['absent'] ?? 0),
-            'leave' => (int) ($counts['leave'] ?? 0),
+        $byStatus = collect(DailyAttendance::STATUSES)
+            ->mapWithKeys(fn (string $status) => [$status => (int) ($counts[$status] ?? 0)])
+            ->all();
+
+        // Summed from the four real statuses rather than from every row the
+        // range holds: a pending day is nobody's verdict yet and a holiday is
+        // not attendance, so neither belongs in a total or a rate.
+        $total = array_sum($byStatus);
+        // Approved leave counts as attended — only genuine absences hurt the rate.
+        $attended = $byStatus['present'] + $byStatus['late'] + $byStatus['leave'];
+
+        return $byStatus + [
+            'holiday' => (int) ($counts[DailyAttendance::HOLIDAY] ?? 0),
             'total' => $total,
             'rate' => $total > 0 ? round($attended / $total * 100, 1) : null,
         ];

@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\AttendanceSlotController;
+use App\Http\Controllers\Admin\HolidayController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\PaymentMethodController;
@@ -331,6 +332,19 @@ Route::prefix('admin')
                 Route::post('settings/attendance-slots/{attendanceSlot}/toggle', [AttendanceSlotController::class, 'toggle'])->name('attendance-slots.toggle');
                 Route::post('settings/attendance-slots/{attendanceSlot}/move', [AttendanceSlotController::class, 'move'])->name('attendance-slots.move');
                 Route::delete('settings/attendance-slots/{attendanceSlot}', [AttendanceSlotController::class, 'destroy'])->name('attendance-slots.destroy');
+            });
+
+            // Dates the academy is closed. Weekly closures are the
+            // `academy_working_days` setting above; these are the ones that
+            // move — Eid, 14 August — and they close the academy for every
+            // slot, so they live beside the slots and ride the same gate.
+            Route::get('settings/holidays', [HolidayController::class, 'index'])->name('holidays.index');
+            Route::middleware('can:settings.update')->group(function () {
+                Route::get('settings/holidays/create', [HolidayController::class, 'create'])->name('holidays.create');
+                Route::post('settings/holidays', [HolidayController::class, 'store'])->name('holidays.store');
+                Route::get('settings/holidays/{holiday}/edit', [HolidayController::class, 'edit'])->name('holidays.edit');
+                Route::put('settings/holidays/{holiday}', [HolidayController::class, 'update'])->name('holidays.update');
+                Route::delete('settings/holidays/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
             });
         });
     });

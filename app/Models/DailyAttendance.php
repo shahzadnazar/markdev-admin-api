@@ -27,6 +27,21 @@ class DailyAttendance extends Model
     public const PENDING = 'pending';
 
     /**
+     * A day the academy was shut — a dated holiday, not a weekend.
+     *
+     * Weekends produce no row at all: everyone knows the office is closed on a
+     * Sunday and a label would only clutter the register. A public holiday is
+     * not an obvious date, so it gets a row that says which one it was, and
+     * the gap does not read as missing data.
+     *
+     * Like `pending` it is kept out of STATUSES and out of WEIGHTS, which is
+     * what excludes it from every count and percentage in the system. That
+     * matters more than presentation: an absence is billable since 459f3cc, so
+     * a holiday that leaked into a count would become a charge.
+     */
+    public const HOLIDAY = 'holiday';
+
+    /**
      * What one day is worth, out of 100.
      *
      * A late arrival still attended, so it earns most of the day; approved
@@ -60,10 +75,29 @@ class DailyAttendance extends Model
             ->where('date', '<', $day->copy()->addDay()->toDateString());
     }
 
-    /** Days that count toward a percentage — everything except pending. */
+    /** Days that count toward a percentage — not pending, not a holiday. */
     public function scopeCounted(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereIn('status', self::STATUSES);
+    }
+
+    /**
+     * Days that have an answer — the counted ones plus holidays.
+     *
+     * The difference from `counted` is the whole point of the holiday status:
+     * a holiday is settled, so nobody should be chasing it as unmarked and no
+     * bulk action should overwrite it, but it is not attendance and must never
+     * reach a total or a rate. Anything that lists days uses this; anything
+     * that counts them uses `counted`.
+     */
+    public function scopeDecided(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereIn('status', [...self::STATUSES, self::HOLIDAY]);
+    }
+
+    public function isHoliday(): bool
+    {
+        return $this->status === self::HOLIDAY;
     }
 
     /**

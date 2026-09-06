@@ -6,6 +6,12 @@
     'absent' => ['label' => 'Absent', 'badge' => 'danger'],
     'leave' => ['label' => 'Leave', 'badge' => 'secondary'],
     ];
+    // Separate from $statusMeta on purpose: $statusMeta is what somebody can
+    // mark and filter by, and a holiday is neither — the day close writes it
+    // and nobody sets it by hand. It only needs to read properly.
+    $displayMeta = $statusMeta + [
+    \App\Models\DailyAttendance::HOLIDAY => ['label' => 'Holiday', 'badge' => 'primary'],
+    ];
     $roleLabel = fn ($user) => $user?->roles?->first()
     ? \Illuminate\Support\Str::headline($user->roles->first()->name)
     : null;
@@ -46,6 +52,20 @@
         <p><span class="font-semibold">No attendance security PIN is set</span> — corrections stay locked until a Super Admin sets one in System → Settings.</p>
     </div>
     @endunless
+
+    @if (! empty($counts['holiday_name']))
+    {{-- The register would otherwise look like a day everyone skipped. --}}
+    <div class="mb-4 flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/[0.06] px-3.5 py-2 text-[13px] text-on-surface">
+        <x-icon name="calendar" class="size-4 shrink-0 text-primary" />
+        <p>
+            <span class="font-semibold">{{ $counts['holiday_name'] }}</span> — the academy is closed on {{ $date->format('D, M j') }}.
+            Nobody is expected, so nobody is marked absent or fined.
+            @if (($counts['present'] ?? 0) + ($counts['late'] ?? 0) > 0)
+                {{ ($counts['present'] ?? 0) + ($counts['late'] ?? 0) }} student(s) came in anyway and were recorded from their punch.
+            @endif
+        </p>
+    </div>
+    @endif
 
     {{-- Toolbar: filters + day summary in one card --}}
     <x-card :padding="false" class="mb-4">
@@ -178,7 +198,7 @@
                     </td>
                     <td class="td">
                         @if ($record)
-                        <x-badge :variant="$statusMeta[$record->status]['badge'] ?? 'neutral'">{{ $statusMeta[$record->status]['label'] ?? $record->status }}</x-badge>
+                        <x-badge :variant="$displayMeta[$record->status]['badge'] ?? 'neutral'">{{ $displayMeta[$record->status]['label'] ?? $record->status }}</x-badge>
                         @if ($record->last_updated_at)
                         <p class="mt-1 font-mono text-[10px] uppercase tracking-wide text-outline">corrected</p>
                         @endif

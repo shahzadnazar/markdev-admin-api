@@ -82,23 +82,20 @@ class LeaveAllowance
     }
 
     /**
-     * How many days of a range fall in each calendar month it touches.
+     * How many days of a range this student actually spends, per month.
+     *
+     * Only the days the academy expects them on: a Friday-to-Monday request
+     * over a closed weekend costs two days, not four, and a range sitting
+     * entirely on a holiday costs nothing. This has to agree with
+     * LeaveApplication::days(), which is what gets written — both ask
+     * AcademyCalendar, so they cannot drift apart.
      *
      * @return Collection<string, int> "Y-m" => number of days
      */
-    public static function daysPerMonth(Carbon $from, Carbon $to): Collection
+    public static function daysPerMonth(User $student, Carbon $from, Carbon $to): Collection
     {
-        $day = $from->copy()->startOfDay();
-        $last = $to->copy()->startOfDay();
-        $counts = [];
-
-        while ($day->lessThanOrEqualTo($last)) {
-            $key = $day->format('Y-m');
-            $counts[$key] = ($counts[$key] ?? 0) + 1;
-            $day->addDay();
-        }
-
-        return collect($counts);
+        return AcademyCalendar::expectedDatesFor($student, $from, $to)
+            ->countBy(fn (Carbon $day) => $day->format('Y-m'));
     }
 
     /**
@@ -112,7 +109,13 @@ class LeaveAllowance
      */
     public static function shortfall(int $userId, Carbon $from, Carbon $to): ?array
     {
-        foreach (static::daysPerMonth($from, $to) as $month => $needed) {
+        $student = User::with('studentProfile.attendanceSlot')->find($userId);
+
+        if ($student === null) {
+            return null;
+        }
+
+        foreach (static::daysPerMonth($student, $from, $to) as $month => $needed) {
             $balance = static::balance($userId, Carbon::createFromFormat('Y-m-d', $month.'-01')->startOfMonth());
 
             if ($needed > $balance['remaining']) {

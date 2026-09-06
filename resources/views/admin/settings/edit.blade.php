@@ -86,6 +86,37 @@
                     @endif
                 </div>
 
+                {{-- The academy's own week, for students on no slot. A slot
+                     answers for its own students; this is the fallback, and it
+                     is what stops someone with no slot collecting an absence
+                     every Saturday. --}}
+                <div class="border-t border-surface-ice pt-5">
+                    <div class="max-w-sm">
+                        <x-form.days label="Academy working days" name="academy_working_days"
+                            :selected="$settings['academy_working_days']" required
+                            hint="Days the academy opens. Students on a slot follow that slot's own days instead. Nobody is marked absent — or fined — on a day the academy is closed." />
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-surface-ice/50 p-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-on-surface">Holidays</p>
+                            <p class="mt-1 text-xs text-outline">
+                                @if ($holidayCount === 0)
+                                    None yet. Eid and 14 August move every year, so they are dates rather than a weekly pattern — a holiday closes the academy for every slot.
+                                @else
+                                    {{ $holidayCount }} date(s) recorded.
+                                    @if ($nextHoliday)
+                                        Next: <span class="font-medium text-on-surface">{{ $nextHoliday->name }}</span> on {{ $nextHoliday->date->format('j M Y') }}.
+                                    @endif
+                                @endif
+                            </p>
+                        </div>
+                        <x-btn variant="secondary" size="sm" :href="route('admin.holidays.index')">
+                            <x-icon name="calendar" class="size-4" /> Manage holidays
+                        </x-btn>
+                    </div>
+                </div>
+
                 <div class="grid gap-5 border-t border-surface-ice pt-5 sm:grid-cols-2">
                     <x-form.time-12h label="Fallback day starts at" name="attendance_day_start"
                         :value="$settings['attendance_day_start']" required
