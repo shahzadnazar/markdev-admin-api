@@ -42,11 +42,18 @@ class DailyAttendance extends Model
     public const HOLIDAY = 'holiday';
 
     /**
-     * What one day is worth, out of 100.
+     * What one day is worth, out of 100 — the defaults.
      *
      * A late arrival still attended, so it earns most of the day; approved
      * leave is neither attendance nor a mark against the student, so it sits
      * halfway; an absence earns nothing.
+     *
+     * An academy can change any of these in Settings. This array is what each
+     * one falls back to, so a database with nothing saved — or one that cannot
+     * be reached — still produces the percentages this system has always
+     * produced. Read the live values through AttendanceWeights, never from
+     * here: the keys are also what defines the four weighted statuses, which is
+     * why the loops below still walk this array.
      */
     public const WEIGHTS = [
         'present' => 100,
@@ -110,7 +117,7 @@ class DailyAttendance extends Model
         $days = 0;
         $earned = 0;
 
-        foreach (self::WEIGHTS as $status => $weight) {
+        foreach (\App\Support\AttendanceWeights::all() as $status => $weight) {
             $n = (int) ($counts[$status] ?? 0);
             $days += $n;
             $earned += $n * $weight;
@@ -123,8 +130,10 @@ class DailyAttendance extends Model
     public static function weightedSumSql(string $column = 'status'): string
     {
         $cases = [];
-        foreach (self::WEIGHTS as $status => $weight) {
-            $cases[] = "when {$column} = '{$status}' then {$weight}";
+        foreach (\App\Support\AttendanceWeights::all() as $status => $weight) {
+            // Interpolated as an int, and the statuses are this class's own
+            // constants — nothing here comes from a request.
+            $cases[] = "when {$column} = '{$status}' then ".(int) $weight;
         }
 
         return 'sum(case '.implode(' ', $cases).' else 0 end)';

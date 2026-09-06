@@ -268,6 +268,11 @@ class AdmissionBillingTest extends TestCase
             // Required since the holiday announcer landed: how far ahead a
             // closure is announced, minimum 1.
             'holiday_announce_days_before' => 1,
+            // Required since the weights moved out of the constant.
+            'attendance_weight_present' => 100,
+            'attendance_weight_late' => 70,
+            'attendance_weight_leave' => 50,
+            'attendance_weight_absent' => 0,
             'monthly_leave_allowance' => 2,
             'monthly_absent_allowance' => 2,
             'absent_fine_amount' => 150,

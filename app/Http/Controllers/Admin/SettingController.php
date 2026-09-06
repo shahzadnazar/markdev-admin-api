@@ -34,6 +34,7 @@ class SettingController extends Controller
                 'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
                 'academy_working_days' => \App\Support\AcademyCalendar::workingDays(),
                 'holiday_announce_days_before' => \App\Support\AcademyCalendar::announceDaysBefore(),
+                'attendance_weights' => \App\Support\AttendanceWeights::all(),
                 'monthly_leave_allowance' => \App\Support\LeaveAllowance::perMonth(),
                 'monthly_absent_allowance' => \App\Support\AbsenceFine::allowance(),
                 'absent_fine_amount' => \App\Support\AbsenceFine::perAbsence(),
@@ -78,6 +79,14 @@ class SettingController extends Controller
             // the holiday is not notice. Capped so a typo cannot push every
             // notice a year out.
             'holiday_announce_days_before' => ['required', 'integer', 'min:1', 'max:30'],
+            // What one marked day is worth, out of 100. Each is a share of a
+            // percentage, so anything outside 0–100 is not a weight; the
+            // defaults in DailyAttendance::WEIGHTS are what an unsaved or
+            // unreachable setting falls back to.
+            'attendance_weight_present' => ['required', 'integer', 'min:0', 'max:100'],
+            'attendance_weight_late' => ['required', 'integer', 'min:0', 'max:100'],
+            'attendance_weight_leave' => ['required', 'integer', 'min:0', 'max:100'],
+            'attendance_weight_absent' => ['required', 'integer', 'min:0', 'max:100'],
             // At least one: zero would not be an allowance, it would be a ban,
             // and there is a toggle-shaped way to say that if it is ever wanted.
             'monthly_leave_allowance' => ['required', 'integer', 'min:1', 'max:31'],

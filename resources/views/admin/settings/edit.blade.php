@@ -141,6 +141,39 @@
                         hint="Charged once for each absence beyond the allowance, totalled at month end onto the next invoice. Zero means absences are tracked but never charged. This is not the late-payment fine above." />
                 </div>
 
+                {{-- What one marked day is worth, out of 100. The register
+                     averages these across the days a student was marked; days
+                     the academy was closed are not in the average at all. --}}
+                <div class="border-t border-surface-ice pt-5">
+                    <p class="text-sm font-medium text-on-surface">Attendance percentage weights</p>
+                    <p class="mt-1 text-xs text-outline">
+                        What one marked day is worth, out of 100. A student's percentage is the average across the days they were marked —
+                        holidays and non-working days are not counted either way. Changing these changes every percentage the system shows,
+                        including the worked example on the student Rules page.
+                    </p>
+                    <div class="mt-3 grid gap-5 sm:grid-cols-4">
+                        <x-form.input type="number" label="Present" name="attendance_weight_present"
+                            :value="$settings['attendance_weights']['present']" required min="0" max="100" class="no-spinner" />
+                        <x-form.input type="number" label="Late" name="attendance_weight_late"
+                            :value="$settings['attendance_weights']['late']" required min="0" max="100" class="no-spinner" />
+                        <x-form.input type="number" label="Approved leave" name="attendance_weight_leave"
+                            :value="$settings['attendance_weights']['leave']" required min="0" max="100" class="no-spinner" />
+                        <x-form.input type="number" label="Absent" name="attendance_weight_absent"
+                            :value="$settings['attendance_weights']['absent']" required min="0" max="100" class="no-spinner" />
+                    </div>
+                    <div class="mt-3 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-surface-ice/50 p-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-on-surface">Rules &amp; Regulations</p>
+                            <p class="mt-1 text-xs text-outline">
+                                The page students read. Every number on it comes from these settings — reword a rule without touching the figures.
+                            </p>
+                        </div>
+                        <x-btn variant="secondary" size="sm" :href="route('admin.rules.index')">
+                            <x-icon name="document" class="size-4" /> Edit rule text
+                        </x-btn>
+                    </div>
+                </div>
+
                 <div class="border-t border-surface-ice pt-5">
                     <x-form.input type="password" label="Attendance correction PIN" name="attendance_edit_pin"
                         autocomplete="new-password" inputmode="numeric"

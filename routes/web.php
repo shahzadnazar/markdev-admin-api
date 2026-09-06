@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\AttendanceSlotController;
 use App\Http\Controllers\Admin\HolidayController;
+use App\Http\Controllers\Admin\RuleTemplateController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\PaymentMethodController;
@@ -345,6 +346,14 @@ Route::prefix('admin')
                 Route::get('settings/holidays/{holiday}/edit', [HolidayController::class, 'edit'])->name('holidays.edit');
                 Route::put('settings/holidays/{holiday}', [HolidayController::class, 'update'])->name('holidays.update');
                 Route::delete('settings/holidays/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
+            });
+
+            // The wording of the student Rules page. The numbers on it come
+            // from the settings above; only the sentences are edited here.
+            Route::get('settings/rules', [RuleTemplateController::class, 'index'])->name('rules.index');
+            Route::middleware('can:settings.update')->group(function () {
+                Route::put('settings/rules/{rule}', [RuleTemplateController::class, 'update'])->name('rules.update');
+                Route::post('settings/rules/{rule}/reset', [RuleTemplateController::class, 'reset'])->name('rules.reset');
             });
         });
     });

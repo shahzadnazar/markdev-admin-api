@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\RuleController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\AssignmentController;
 use App\Http\Controllers\Api\V1\AttendanceController;
@@ -101,6 +102,9 @@ Route::prefix('v1')->group(function () {
         // both and hardcodes neither — an admin adding Eid must reach it
         // without a redeploy.
         Route::get('attendance/calendar', [AttendanceController::class, 'calendar']);
+        // The Rules & Regulations page, assembled server-side: the portal is
+        // handed finished sentences and holds no number of its own.
+        Route::get('rules', [RuleController::class, 'index']);
         Route::get('leaves', [LeaveApplicationController::class, 'index']);
         Route::post('leaves', [LeaveApplicationController::class, 'store']);
         Route::get('certificates', [CertificateController::class, 'index']);
