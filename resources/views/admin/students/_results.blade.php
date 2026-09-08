@@ -52,7 +52,7 @@
                         @endif
                     </td>
                     <td class="td font-mono text-xs text-on-surface-variant" style="white-space: nowrap;">
-                        {{ ($student->studentProfile?->date_of_joining ?? $student->created_at)?->format('M j, Y') }}
+                        {{ ($student->studentProfile?->date_of_joining ?? $student->created_at)?->format('j M Y') }}
                     </td>
                     <td class="td">
                         @if ($student->trashed())

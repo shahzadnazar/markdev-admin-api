@@ -22,7 +22,7 @@
             :tone="$fees['outstanding'] > 0 ? 'warning' : 'success'" />
         <x-stat-widget label="Status" :value="$student->is_active ? 'Active' : 'Inactive'" icon="check"
             :tone="$student->is_active ? 'success' : 'danger'"
-            :sub="'joined '.($profile?->date_of_joining ?? $student->created_at)->format('M j, Y')" />
+            :sub="'joined '.($profile?->date_of_joining ?? $student->created_at)->format('j M Y')" />
     </div>
 
     <div class="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
@@ -57,7 +57,7 @@
                             </div>
                             <div class="flex justify-between gap-4 border-b border-surface-ice pb-2">
                                 <dt class="text-on-surface-variant">Date of birth</dt>
-                                <dd class="text-right font-medium text-on-surface">{{ $profile->date_of_birth?->format('M j, Y') ?? '—' }}</dd>
+                                <dd class="text-right font-medium text-on-surface">{{ $profile->date_of_birth?->format('j M Y') ?? '—' }}</dd>
                             </div>
                             <div class="flex justify-between gap-4 border-b border-surface-ice pb-2">
                                 <dt class="text-on-surface-variant">Gender</dt>
@@ -110,7 +110,7 @@
                                 <p class="truncate font-medium text-on-surface">{{ $enrollment->course?->title ?? '—' }}</p>
                             </td>
                             <td class="td"><x-badge variant="neutral">{{ $enrollment->course?->level ?? '—' }}</x-badge></td>
-                            <td class="td font-mono text-xs text-on-surface-variant">{{ $enrollment->enrolled_at?->format('M j, Y') }}</td>
+                            <td class="td font-mono text-xs text-on-surface-variant">{{ $enrollment->enrolled_at?->format('j M Y') }}</td>
                             <td class="td">
                                 <div class="flex items-center gap-2.5">
                                     <div class="h-1.5 w-24 overflow-hidden rounded-full bg-surface-ice">
@@ -163,7 +163,7 @@
                         'Registration #' => $profile->reg_no,
                         'Batch no' => $profile->batch_no,
                         'Attendance slot' => $profile->attendanceSlot?->label(),
-                        'Date of joining' => $profile->date_of_joining?->format('M j, Y'),
+                        'Date of joining' => $profile->date_of_joining?->format('j M Y'),
                         'Total fee' => $profile->total_fee !== null ? 'Rs '.number_format((float) $profile->total_fee) : null,
                         'Submitted fee' => $profile->submitted_fee !== null ? 'Rs '.number_format((float) $profile->submitted_fee) : null,
                         'Registration fee' => $profile->registration_fee !== null ? 'Rs '.number_format((float) $profile->registration_fee) : null,
@@ -286,8 +286,8 @@
 
             @if ($profile)
             <div class="mt-5 border-t border-surface-ice pt-4 text-xs text-outline">
-                <p>Terms accepted {{ $profile->terms_accepted_at?->format('M j, Y · g:i A') ?? '—' }}</p>
-                <p class="mt-1">Registered by {{ $profile->registrar?->name ?? 'system' }} on {{ $profile->created_at->format('M j, Y') }}</p>
+                <p>Terms accepted {{ $profile->terms_accepted_at?->format('j M Y · g:i A') ?? '—' }}</p>
+                <p class="mt-1">Registered by {{ $profile->registrar?->name ?? 'system' }} on {{ $profile->created_at->format('j M Y') }}</p>
             </div>
             @endif
         </x-card>

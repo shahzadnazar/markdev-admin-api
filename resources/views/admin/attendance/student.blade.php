@@ -129,7 +129,7 @@
             @forelse ($records as $record)
                 <tr class="row">
                     <td class="td">
-                        <p class="font-medium text-on-surface">{{ $record->date->format('D, M j, Y') }}</p>
+                        <p class="font-medium text-on-surface">{{ $record->date->format('D, j M Y') }}</p>
                         <p class="font-mono text-[11px] text-outline">{{ $record->date->isToday() ? 'today' : $record->date->diffForHumans() }}</p>
                     </td>
                     <td class="td">
@@ -156,7 +156,7 @@
                         @if ($record->last_updated_at)
                             <p class="whitespace-pre-line break-words text-xs text-on-surface">{{ $record->last_update_reason }}</p>
                             <p class="mt-0.5 font-mono text-[11px] text-outline">
-                                {{ $record->last_updated_at->format('M j · g:i A') }} · {{ $record->updater?->name ?? '—' }}
+                                {{ $record->last_updated_at->format('j M · g:i A') }} · {{ $record->updater?->name ?? '—' }}
                             </p>
                         @else
                             <span class="font-mono text-xs text-outline">—</span>

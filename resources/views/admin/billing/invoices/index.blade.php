@@ -62,8 +62,8 @@
                             <span class="block text-[11px] text-error">+{{ number_format((float) $invoice->fine_amount, 0) }} fine ({{ $invoice->fine_days }}d)</span>
                         @endif
                     </td>
-                    <td class="td font-mono text-xs text-outline">{{ $invoice->issued_at?->format('M j, Y') }}</td>
-                    <td class="td font-mono text-xs {{ $invoice->status === 'past_due' ? 'text-error' : 'text-outline' }}">{{ $invoice->due_at?->format('M j, Y') ?? '—' }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $invoice->issued_at?->format('j M Y') }}</td>
+                    <td class="td font-mono text-xs {{ $invoice->status === 'past_due' ? 'text-error' : 'text-outline' }}">{{ $invoice->due_at?->format('j M Y') ?? '—' }}</td>
                     <td class="td">
                         <x-badge :variant="['upcoming' => 'neutral', 'open' => 'primary', 'pending' => 'warning', 'paid' => 'success', 'past_due' => 'danger', 'void' => 'neutral'][$invoice->status] ?? 'neutral'">
                             {{ str_replace('_', ' ', $invoice->status) }}

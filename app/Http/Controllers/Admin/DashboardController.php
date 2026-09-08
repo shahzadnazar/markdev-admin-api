@@ -153,7 +153,7 @@ class DashboardController extends Controller
 
         return $days->map(fn ($day) => [
             'date' => $day->toDateString(),
-            'label' => $day->format('M j'),
+            'label' => $day->format('j M'),
             'count' => (int) ($counts[$day->toDateString()] ?? 0),
         ]);
     }

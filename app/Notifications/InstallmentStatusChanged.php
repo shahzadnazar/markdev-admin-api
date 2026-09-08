@@ -26,8 +26,8 @@ class InstallmentStatusChanged extends Notification
     public function toDatabase(object $notifiable): array
     {
         $amount = $this->invoice->currency.' '.number_format((float) $this->invoice->amount, 0);
-        $due = $this->invoice->due_at?->format('M j');
-        $graceEnd = $this->invoice->due_at?->copy()->addDays(BillingConfig::graceDays())->format('M j');
+        $due = $this->invoice->due_at?->format('j M');
+        $graceEnd = $this->invoice->due_at?->copy()->addDays(BillingConfig::graceDays())->format('j M');
 
         [$title, $message] = match ($this->stage) {
             'due_soon' => [

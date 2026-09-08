@@ -21,7 +21,7 @@
         description="One record per active student per day — corrections need the security PIN and a reason."
         :crumbs="['Dashboard' => route('admin.dashboard'), 'Attendance' => null, 'Daily register' => null]">
         <x-slot:meta>
-            <span class="font-mono text-xs text-on-surface-variant">{{ $date->format('D, M j, Y') }}{{ $date->isToday() ? ' · today' : '' }}</span>
+            <span class="font-mono text-xs text-on-surface-variant">{{ $date->format('D, j M Y') }}{{ $date->isToday() ? ' · today' : '' }}</span>
             @if ($counts['weighted_percent'] !== null)
                 {{-- Weighted, not a headcount: present 100, late 70, leave 50, absent 0. --}}
                 <span class="ml-3 inline-flex items-center gap-1.5 rounded-full bg-primary/[0.06] px-2.5 py-1 font-mono text-xs text-primary ring-1 ring-inset ring-primary/10"
@@ -37,7 +37,7 @@
             @if ($counts['unmarked'] > 0)
             <x-confirm-form :action="route('admin.attendance.daily.bulk', ['date' => $date->toDateString()])" method="POST" variant="primary"
                 title="Mark remaining present?"
-                :message="$counts['unmarked'].' student(s) are still unmarked for '.$date->format('M j').'. Mark them all present now? Individual corrections stay possible via Update.'"
+                :message="$counts['unmarked'].' student(s) are still unmarked for '.$date->format('j M').'. Mark them all present now? Individual corrections stay possible via Update.'"
                 confirm-label="Mark all present"
                 class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white shadow-card transition hover:bg-primary-deep">
                 <x-icon name="check" class="size-3.5" /> Mark all present ({{ $counts['unmarked'] }})
@@ -58,7 +58,7 @@
     <div class="mb-4 flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/[0.06] px-3.5 py-2 text-[13px] text-on-surface">
         <x-icon name="calendar" class="size-4 shrink-0 text-primary" />
         <p>
-            <span class="font-semibold">{{ $counts['holiday_name'] }}</span> — the academy is closed on {{ $date->format('D, M j') }}.
+            <span class="font-semibold">{{ $counts['holiday_name'] }}</span> — the academy is closed on {{ $date->format('D, j M') }}.
             Nobody is expected, so nobody is marked absent or fined.
             @if (($counts['present'] ?? 0) + ($counts['late'] ?? 0) > 0)
                 {{ ($counts['present'] ?? 0) + ($counts['late'] ?? 0) }} student(s) came in anyway and were recorded from their punch.
@@ -148,11 +148,11 @@
                 'arrived_label' => $record->arrived_at
                 ? \Illuminate\Support\Carbon::parse($record->arrived_at)->format('g:i A')
                 : '',
-                'marked_at' => $record->marked_at?->format('M j, Y g:i A'),
+                'marked_at' => $record->marked_at?->format('j M Y, g:i A'),
                 'marked_by' => $record->source === 'biometric'
                 ? 'Biometric'
                 : ($record->marker?->name ?? '—'),
-                'updated_at' => $record->last_updated_at?->format('M j, Y g:i A'),
+                'updated_at' => $record->last_updated_at?->format('j M Y, g:i A'),
                 'updated_by' => $record->updater?->name ?? '—',
                 'update_reason' => $record->last_update_reason,
                 ] : null,
@@ -296,7 +296,7 @@
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-display text-[15px] font-semibold text-on-surface" x-text="student.name"></p>
                             <p class="font-mono text-[11px] text-outline">
-                                <span x-text="student.reg || ''"></span> · {{ $date->format('D, M j, Y') }}
+                                <span x-text="student.reg || ''"></span> · {{ $date->format('D, j M Y') }}
                             </p>
                         </div>
                         <button type="button" x-on:click="close()" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-surface-ice">
@@ -414,7 +414,7 @@
                             </div>
 
                             <p class="rounded-lg bg-surface-ice/70 px-3 py-2 font-mono text-[11px] text-on-surface-variant">
-                                {{ now()->format('D, M j · g:i A') }} · by {{ auth()->user()->name }} ({{ \Illuminate\Support\Str::headline(auth()->user()->roles->first()?->name ?? 'Staff') }})
+                                {{ now()->format('D, j M · g:i A') }} · by {{ auth()->user()->name }} ({{ \Illuminate\Support\Str::headline(auth()->user()->roles->first()?->name ?? 'Staff') }})
                             </p>
 
                             <div class="flex justify-end gap-2.5 pb-1">

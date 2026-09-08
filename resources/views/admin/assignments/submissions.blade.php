@@ -2,7 +2,7 @@
     <x-page-header
         eyebrow="Grading"
         :title="$assignment->title"
-        :description="($assignment->course?->title ?? '').' · max score '.$assignment->max_score.($assignment->due_at ? ' · due '.$assignment->due_at->format('M j, Y H:i') : '')"
+        :description="($assignment->course?->title ?? '').' · max score '.$assignment->max_score.($assignment->due_at ? ' · due '.$assignment->due_at->format('j M Y H:i') : '')"
     >
         <x-slot:actions>
             @can('assignments.update')
@@ -26,7 +26,7 @@
                     <div class="min-w-0 flex-1">
                         <p class="font-medium text-on-surface">{{ $submission->user?->name ?? 'Deleted user' }}</p>
                         <p class="flex flex-wrap items-center gap-x-2 text-xs text-outline">
-                            <span class="font-mono">{{ $submission->submitted_at?->format('M j, Y H:i') ?? 'not submitted' }}</span>
+                            <span class="font-mono">{{ $submission->submitted_at?->format('j M Y H:i') ?? 'not submitted' }}</span>
                             @if ($submission->is_late)
                                 <x-badge variant="danger">late</x-badge>
                             @endif

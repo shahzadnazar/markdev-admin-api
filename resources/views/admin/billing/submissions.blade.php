@@ -86,7 +86,7 @@
                             </div>
                             <div>
                                 <dt class="font-mono text-[10px] uppercase tracking-[0.1em] text-outline">Paid on</dt>
-                                <dd class="mt-0.5 text-on-surface-variant">{{ $submission->payment_date?->format('M j, Y') ?? '—' }}</dd>
+                                <dd class="mt-0.5 text-on-surface-variant">{{ $submission->payment_date?->format('j M Y') ?? '—' }}</dd>
                             </div>
                             <div>
                                 <dt class="font-mono text-[10px] uppercase tracking-[0.1em] text-outline">Submitted</dt>
@@ -95,7 +95,7 @@
                             @if ($submission->reviewed_at)
                                 <div>
                                     <dt class="font-mono text-[10px] uppercase tracking-[0.1em] text-outline">Reviewed</dt>
-                                    <dd class="mt-0.5 text-on-surface-variant">{{ $submission->reviewer?->name }} · {{ $submission->reviewed_at->format('M j · H:i') }}</dd>
+                                    <dd class="mt-0.5 text-on-surface-variant">{{ $submission->reviewer?->name }} · {{ $submission->reviewed_at->format('j M · H:i') }}</dd>
                                 </div>
                             @endif
                         </dl>

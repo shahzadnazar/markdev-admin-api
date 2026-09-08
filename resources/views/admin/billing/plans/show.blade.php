@@ -76,7 +76,7 @@
             @if ($summary['next_due'])
                 <span class="inline-flex items-center gap-1.5">
                     <span class="size-2 shrink-0 rounded-full bg-primary"></span>
-                    <span class="font-display text-sm font-bold leading-none text-primary">{{ $summary['next_due']->format('M j, Y') }}</span>
+                    <span class="font-display text-sm font-bold leading-none text-primary">{{ $summary['next_due']->format('j M Y') }}</span>
                     <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-on-surface-variant">Next due</span>
                 </span>
             @endif
@@ -120,12 +120,12 @@
                         <p class="font-mono text-[11px] text-outline">{{ $invoice->number }}</p>
                     </td>
                     <td class="td font-mono text-xs text-on-surface" style="white-space: nowrap;">
-                        {{ $invoice->due_at?->format('M j, Y') }}
+                        {{ $invoice->due_at?->format('j M Y') }}
                         @if (in_array($invoice->status, ['open', 'past_due'], true) && $invoice->due_at?->isToday())
                             <p class="text-[11px] font-semibold text-warning">due today</p>
                         @endif
                         @if ($invoice->status === 'upcoming' && $invoice->activates_at)
-                            <p class="text-[11px] text-outline">opens {{ $invoice->activates_at->format('M j') }}</p>
+                            <p class="text-[11px] text-outline">opens {{ $invoice->activates_at->format('j M') }}</p>
                         @elseif ($invoice->status === 'open' && $invoice->due_at?->isPast() && ! $invoice->due_at->isToday())
                             <p class="text-[11px] text-warning">in grace</p>
                         @elseif ($invoice->status === 'past_due')
@@ -144,7 +144,7 @@
                     </td>
                     <td class="td td-num font-mono text-xs font-semibold text-on-surface" style="white-space: nowrap;">Rs {{ number_format($invoice->payable_total) }}</td>
                     <td class="td font-mono text-xs text-on-surface-variant" style="white-space: nowrap;">
-                        {{ $invoice->paid_at?->format('M j, Y') ?? '—' }}
+                        {{ $invoice->paid_at?->format('j M Y') ?? '—' }}
                     </td>
                     <td class="td text-right">
                         <div class="inline-flex items-center gap-1">

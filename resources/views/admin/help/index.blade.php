@@ -57,7 +57,7 @@
                         <td class="td">
                             <x-badge :variant="$article->is_published ? 'success' : 'neutral'">{{ $article->is_published ? 'published' : 'draft' }}</x-badge>
                         </td>
-                        <td class="td font-mono text-xs text-outline">{{ $article->updated_at?->format('M j, Y') }}</td>
+                        <td class="td font-mono text-xs text-outline">{{ $article->updated_at?->format('j M Y') }}</td>
                         <td class="td text-right">
                             <div class="inline-flex items-center gap-1">
                                 @can('help.manage')

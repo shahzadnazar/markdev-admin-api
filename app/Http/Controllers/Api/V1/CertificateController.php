@@ -40,7 +40,7 @@ class CertificateController extends ApiController
         $student = e($certificate->user?->name ?? 'Student');
         $course = e($certificate->course?->title ?? 'Course');
         $number = e($certificate->certificate_number);
-        $date = e($certificate->issued_at?->format('F j, Y') ?? '');
+        $date = e($certificate->issued_at?->format('j F Y') ?? '');
 
         return <<<HTML
         <!DOCTYPE html>

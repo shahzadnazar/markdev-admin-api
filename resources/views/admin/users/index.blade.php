@@ -81,7 +81,7 @@
                             <x-badge variant="warning">Inactive</x-badge>
                         @endif
                     </td>
-                    <td class="td font-mono text-xs text-outline">{{ $user->created_at?->format('M j, Y') }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $user->created_at?->format('j M Y') }}</td>
                     <td class="td">
                         <div class="flex items-center justify-end gap-1">
                             @if ($user->trashed())

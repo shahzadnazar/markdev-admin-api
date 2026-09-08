@@ -55,7 +55,7 @@
                             {{ $transaction->status }}
                         </x-badge>
                     </td>
-                    <td class="td font-mono text-xs text-outline">{{ $transaction->created_at?->format('M j, Y · H:i') }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $transaction->created_at?->format('j M Y · H:i') }}</td>
                 </tr>
             @empty
                 <tr><td colspan="7"><x-empty-state icon="banknotes" title="No transactions" description="Payments recorded manually or made by students will appear here." /></td></tr>

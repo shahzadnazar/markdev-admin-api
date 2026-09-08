@@ -480,7 +480,7 @@ class DailyAttendanceController extends Controller
             $history[$id]['recent'] = $recent->get($id, collect())
                 ->sortBy('rn')
                 ->map(fn ($row) => [
-                    'date' => \Illuminate\Support\Carbon::parse($row->date)->format('M j, Y'),
+                    'date' => \Illuminate\Support\Carbon::parse($row->date)->format('j M Y'),
                     'status' => $row->status,
                 ])
                 ->values()

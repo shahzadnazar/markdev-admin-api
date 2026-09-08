@@ -48,7 +48,7 @@
                     <td class="td max-w-[16rem]"><p class="truncate text-on-surface-variant">{{ $assignment->course?->title }}</p></td>
                     <td class="td">
                         @if ($assignment->due_at)
-                            <span class="font-mono text-xs {{ $assignment->due_at->isPast() ? 'text-error' : 'text-on-surface-variant' }}">{{ $assignment->due_at->format('M j, Y H:i') }}</span>
+                            <span class="font-mono text-xs {{ $assignment->due_at->isPast() ? 'text-error' : 'text-on-surface-variant' }}">{{ $assignment->due_at->format('j M Y H:i') }}</span>
                         @else
                             <span class="text-xs text-outline">No deadline</span>
                         @endif

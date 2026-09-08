@@ -51,7 +51,7 @@
                 <tbody>
                     @forelse ($punches as $punch)
                         <tr class="row">
-                            <td class="td whitespace-nowrap font-mono text-xs text-outline">{{ $punch->punched_at->format('M j · H:i:s') }}</td>
+                            <td class="td whitespace-nowrap font-mono text-xs text-outline">{{ $punch->punched_at->format('j M · H:i:s') }}</td>
                             <td class="td text-sm text-on-surface-variant">{{ $punch->device?->name ?? '—' }}</td>
                             <td class="td font-mono text-xs text-on-surface">{{ $punch->biometric_id }}</td>
                             <td class="td">

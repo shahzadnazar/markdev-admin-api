@@ -23,8 +23,8 @@ class LeaveApplicationReviewed extends Notification
     public function toDatabase(object $notifiable): array
     {
         $range = $this->leave->from_date->isSameDay($this->leave->to_date)
-            ? $this->leave->from_date->format('M j, Y')
-            : $this->leave->from_date->format('M j').' – '.$this->leave->to_date->format('M j, Y');
+            ? $this->leave->from_date->format('j M Y')
+            : $this->leave->from_date->format('j M').' – '.$this->leave->to_date->format('j M Y');
 
         // A part-approved range is neither of the other two: saying "approved"
         // would hide the days that were not, and "rejected" the days that were.
@@ -42,7 +42,7 @@ class LeaveApplicationReviewed extends Notification
                     'Of your leave for %s, %d day(s) were approved (%s) and %d declined.',
                     $range,
                     $approvedDays->count(),
-                    $approvedDays->sortBy('date')->map(fn ($day) => $day->date->format('M j'))->implode(', '),
+                    $approvedDays->sortBy('date')->map(fn ($day) => $day->date->format('j M'))->implode(', '),
                     $declinedDays->count(),
                 ),
             ],

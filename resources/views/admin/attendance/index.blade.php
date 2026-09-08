@@ -39,7 +39,7 @@
 
             <x-card class="mb-4 max-w-xl">
                 <x-form.input label="Session title (optional)" name="session_title"
-                    :value="$existing->first()?->session_title ?? 'Live session — '.$date->format('M j')"
+                    :value="$existing->first()?->session_title ?? 'Live session — '.$date->format('j M')"
                     hint="Shown on the student's attendance record." />
             </x-card>
 
@@ -99,7 +99,7 @@
                 </tbody>
                 <x-slot:footer>
                     <div class="flex items-center justify-between gap-4">
-                        <p class="text-xs text-outline">{{ $students->count() }} student(s) · {{ $date->format('l, M j, Y') }}</p>
+                        <p class="text-xs text-outline">{{ $students->count() }} student(s) · {{ $date->format('l, j M Y') }}</p>
                         <x-btn>
                             <x-icon name="check" class="size-4" /> Save register
                         </x-btn>

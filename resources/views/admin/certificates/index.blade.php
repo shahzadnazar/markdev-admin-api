@@ -35,7 +35,7 @@
                         <p class="text-xs text-outline">{{ $certificate->user?->email }}</p>
                     </td>
                     <td class="td max-w-[18rem]"><p class="truncate text-on-surface-variant">{{ $certificate->course?->title ?? '—' }}</p></td>
-                    <td class="td font-mono text-xs text-outline">{{ $certificate->issued_at?->format('M j, Y') }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $certificate->issued_at?->format('j M Y') }}</td>
                     <td class="td text-right">
                         @can('certificates.delete')
                             <x-confirm-form

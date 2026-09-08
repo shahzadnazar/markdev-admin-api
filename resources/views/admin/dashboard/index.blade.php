@@ -181,7 +181,7 @@
             </div>
             @forelse ($latestLogs as $log)
                 <div class="flex items-center gap-3 border-t border-surface-ice px-6 py-3">
-                    <span class="w-24 shrink-0 font-mono text-[11px] text-outline">{{ $log->created_at?->format('M j H:i') }}</span>
+                    <span class="w-24 shrink-0 font-mono text-[11px] text-outline">{{ $log->created_at?->format('j M H:i') }}</span>
                     <span class="min-w-0 flex-1 truncate text-sm text-on-surface">
                         <span class="font-medium">{{ $log->user_name }}</span>
                         <span class="text-on-surface-variant">· {{ str_replace('_', ' ', $log->module) }}</span>

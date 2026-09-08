@@ -62,9 +62,9 @@
                     </td>
                     <td class="td">
                         <p class="font-medium text-on-surface">
-                            {{ $leave->from_date->format('M j, Y') }}
+                            {{ $leave->from_date->format('j M Y') }}
                             @unless ($leave->from_date->isSameDay($leave->to_date))
-                                <span class="text-outline">→</span> {{ $leave->to_date->format('M j, Y') }}
+                                <span class="text-outline">→</span> {{ $leave->to_date->format('j M Y') }}
                             @endunless
                         </p>
                         <p class="font-mono text-[11px] text-outline">{{ $daysCount }} {{ \Illuminate\Support\Str::plural('day', $daysCount) }} · applied {{ $leave->created_at->diffForHumans() }}</p>
@@ -85,7 +85,7 @@
                     <td class="td max-w-[14rem]">
                         @if ($leave->reviewed_at)
                             <p class="text-sm text-on-surface">{{ $leave->reviewer?->name ?? '—' }}</p>
-                            <p class="font-mono text-[11px] text-outline">{{ $leave->reviewed_at->format('M j · g:i A') }}</p>
+                            <p class="font-mono text-[11px] text-outline">{{ $leave->reviewed_at->format('j M · g:i A') }}</p>
                             @if ($leave->decisions->isNotEmpty())
                                 @php
                                     $approvedDays = $leave->decisions->where('status', 'approved');
@@ -95,8 +95,8 @@
                                     {{ $approvedDays->count() }} approved · {{ $declinedDays->count() }} declined
                                 </p>
                                 @if ($approvedDays->isNotEmpty() && $declinedDays->isNotEmpty())
-                                    <p class="font-mono text-[11px] text-outline" title="Approved: {{ $approvedDays->map(fn ($d) => $d->date->format('M j'))->implode(', ') }}">
-                                        {{ \Illuminate\Support\Str::limit($approvedDays->map(fn ($d) => $d->date->format('M j'))->implode(', '), 40) }}
+                                    <p class="font-mono text-[11px] text-outline" title="Approved: {{ $approvedDays->map(fn ($d) => $d->date->format('j M'))->implode(', ') }}">
+                                        {{ \Illuminate\Support\Str::limit($approvedDays->map(fn ($d) => $d->date->format('j M'))->implode(', '), 40) }}
                                     </p>
                                 @endif
                             @endif
@@ -170,7 +170,7 @@
                     @if ($isSingleDay)
                         <input type="hidden" name="days[]" value="{{ $leaveDays[0]->toDateString() }}">
                         <p class="rounded-xl bg-surface-ice/60 px-4 py-3 text-sm text-on-surface">
-                            {{ $leaveDays[0]->format('l, M j, Y') }} — one day.
+                            {{ $leaveDays[0]->format('l, j M Y') }} — one day.
                         </p>
                     @else
                         <div>
@@ -181,7 +181,7 @@
                                     <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-on-surface hover:bg-surface-ice">
                                         <input type="checkbox" name="days[]" value="{{ $day->toDateString() }}"
                                             class="size-4 cursor-pointer rounded" x-model="days">
-                                        <span>{{ $day->format('l, M j, Y') }}</span>
+                                        <span>{{ $day->format('l, j M Y') }}</span>
                                     </label>
                                 @endforeach
                             </div>

@@ -97,7 +97,7 @@
     </table>
 
     <div class="foot">
-        Generated {{ now()->format('D, M j, Y · g:i A') }} by {{ $generatedBy }} · MarkDev LMS · {{ $students->count() }} student(s) listed
+        Generated {{ now()->format('D, j M Y · g:i A') }} by {{ $generatedBy }} · MarkDev LMS · {{ $students->count() }} student(s) listed
     </div>
 </body>
 </html>

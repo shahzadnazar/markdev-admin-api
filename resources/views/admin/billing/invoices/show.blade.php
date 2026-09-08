@@ -83,15 +83,15 @@
                     </div>
                     <div>
                         <dt class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant">Issued</dt>
-                        <dd class="mt-1 text-sm text-on-surface">{{ $invoice->issued_at?->format('M j, Y') }}</dd>
+                        <dd class="mt-1 text-sm text-on-surface">{{ $invoice->issued_at?->format('j M Y') }}</dd>
                     </div>
                     <div>
                         <dt class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant">Due</dt>
-                        <dd class="mt-1 text-sm {{ $invoice->status === 'past_due' ? 'font-medium text-error' : 'text-on-surface' }}">{{ $invoice->due_at?->format('M j, Y') ?? '—' }}</dd>
+                        <dd class="mt-1 text-sm {{ $invoice->status === 'past_due' ? 'font-medium text-error' : 'text-on-surface' }}">{{ $invoice->due_at?->format('j M Y') ?? '—' }}</dd>
                     </div>
                     <div>
                         <dt class="font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant">Paid</dt>
-                        <dd class="mt-1 text-sm text-on-surface">{{ $invoice->paid_at?->format('M j, Y') ?? '—' }}</dd>
+                        <dd class="mt-1 text-sm text-on-surface">{{ $invoice->paid_at?->format('j M Y') ?? '—' }}</dd>
                     </div>
                 </dl>
             </x-card>
@@ -128,7 +128,7 @@
                                                 {{ $transaction->status }}
                                             </x-badge>
                                         </td>
-                                        <td class="td font-mono text-xs text-outline">{{ $transaction->created_at?->format('M j, Y · H:i') }}</td>
+                                        <td class="td font-mono text-xs text-outline">{{ $transaction->created_at?->format('j M Y · H:i') }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

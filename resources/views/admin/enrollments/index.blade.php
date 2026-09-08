@@ -47,7 +47,7 @@
                     <td class="td max-w-[18rem]">
                         <p class="truncate text-on-surface-variant">{{ $enrollment->course?->title ?? '—' }}</p>
                     </td>
-                    <td class="td font-mono text-xs text-outline">{{ $enrollment->enrolled_at?->format('M j, Y') }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $enrollment->enrolled_at?->format('j M Y') }}</td>
                     <td class="td">
                         <div class="flex items-center gap-2.5">
                             <div class="h-1.5 w-24 overflow-hidden rounded-full bg-surface-ice">

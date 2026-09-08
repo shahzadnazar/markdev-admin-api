@@ -42,7 +42,7 @@
         <tbody>
             @forelse ($records as $record)
                 <tr class="row">
-                    <td class="td font-mono text-xs text-outline">{{ $record->date?->format('M j, Y') }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $record->date?->format('j M Y') }}</td>
                     <td class="td">
                         <p class="font-medium text-on-surface">{{ $record->user?->name ?? 'Deleted user' }}</p>
                     </td>

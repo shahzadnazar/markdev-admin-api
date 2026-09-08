@@ -61,7 +61,7 @@
         <tbody>
             @forelse ($records as $record)
                 <tr>
-                    <td><strong>{{ $record->date->format('D, M j, Y') }}</strong></td>
+                    <td><strong>{{ $record->date->format('D, j M Y') }}</strong></td>
                     <td><span class="status {{ $record->status }}">{{ $record->status }}</span></td>
                     <td class="muted">{{ $record->remarks ?? '' }}</td>
                     <td class="muted">
@@ -74,7 +74,7 @@
                     </td>
                     <td class="muted">
                         @if ($record->last_updated_at)
-                            {{ $record->last_update_reason }} ({{ $record->last_updated_at->format('M j, g:i A') }})
+                            {{ $record->last_update_reason }} ({{ $record->last_updated_at->format('j M, g:i A') }})
                         @endif
                     </td>
                 </tr>
@@ -85,7 +85,7 @@
     </table>
 
     <div class="foot">
-        Generated {{ now()->format('D, M j, Y · g:i A') }} by {{ $generatedBy }} · MarkDev LMS
+        Generated {{ now()->format('D, j M Y · g:i A') }} by {{ $generatedBy }} · MarkDev LMS
     </div>
 </body>
 </html>

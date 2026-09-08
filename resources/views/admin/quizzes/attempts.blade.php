@@ -28,8 +28,8 @@
                         <p class="font-medium text-on-surface">{{ $attempt->user?->name ?? 'Deleted user' }}</p>
                         <p class="text-xs text-outline">{{ $attempt->user?->email }}</p>
                     </td>
-                    <td class="td font-mono text-xs text-outline">{{ $attempt->started_at?->format('M j, Y · H:i') }}</td>
-                    <td class="td font-mono text-xs text-outline">{{ $attempt->submitted_at?->format('M j, Y · H:i') ?? '—' }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $attempt->started_at?->format('j M Y · H:i') }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $attempt->submitted_at?->format('j M Y · H:i') ?? '—' }}</td>
                     <td class="td">
                         @if ($attempt->submitted_at)
                             <span class="font-mono text-sm text-on-surface">{{ $attempt->score }} / {{ $attempt->max_score }}</span>

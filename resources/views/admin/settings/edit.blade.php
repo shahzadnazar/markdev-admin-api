@@ -221,7 +221,7 @@
                         <div class="flex items-center justify-between gap-3 py-2">
                             <div class="min-w-0">
                                 <p class="truncate font-mono text-xs text-on-surface">{{ $backup['name'] }}</p>
-                                <p class="font-mono text-[10px] text-outline">{{ $backup['date']->format('M j, Y · H:i') }}</p>
+                                <p class="font-mono text-[10px] text-outline">{{ $backup['date']->format('j M Y · H:i') }}</p>
                             </div>
                             <span class="shrink-0 font-mono text-[11px] text-on-surface-variant">{{ number_format($backup['size'] / 1024, 0) }} KB</span>
                         </div>

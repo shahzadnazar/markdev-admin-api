@@ -56,7 +56,7 @@
                     </td>
                     <td class="td text-sm text-on-surface-variant">{{ $announcement->author?->name ?? '—' }}</td>
                     <td class="td font-mono text-xs text-outline">
-                        {{ $announcement->published_at?->format('M j, Y · H:i') ?? 'Draft' }}
+                        {{ $announcement->published_at?->format('j M Y · H:i') ?? 'Draft' }}
                     </td>
                     <td class="td font-mono text-xs text-on-surface-variant">{{ $announcement->reads_count ?? 0 }}</td>
                     <td class="td text-right">
