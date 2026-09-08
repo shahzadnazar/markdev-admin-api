@@ -188,17 +188,26 @@ class DailyAttendanceTest extends TestCase
         $this->assertSame('present', DailyAttendance::where('user_id', $second->id)->first()->status);
     }
 
-    public function test_instructor_cannot_open_the_daily_register(): void
+    public function test_an_instructor_with_no_category_sees_nobody_on_the_register(): void
     {
+        // Instructors reach this screen now, scoped to the categories they
+        // teach in. This one teaches nothing, so the scope is empty — and an
+        // empty scope must mean nobody, never everybody.
         $instructor = User::factory()->create();
         $instructor->assignRole('instructor');
 
-        $this->actingAs($instructor)->get('/admin/attendance/daily')->assertForbidden();
+        $this->actingAs($instructor)->get('/admin/attendance/daily')
+            ->assertOk()
+            ->assertDontSee($this->student->name);
+
+        // Enforced on the write too, not just the list.
         $this->actingAs($instructor)->post('/admin/attendance/daily', [
             'user_id' => $this->student->id,
             'date' => today()->toDateString(),
             'status' => 'present',
         ])->assertForbidden();
+
+        $this->assertDatabaseCount('daily_attendance_records', 0);
     }
 
     public function test_manager_can_mark(): void

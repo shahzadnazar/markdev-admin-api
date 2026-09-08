@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ScopesToCategory;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\DailyAttendance;
@@ -26,13 +27,15 @@ use Illuminate\View\View;
  */
 class DailyAttendanceController extends Controller
 {
+    use ScopesToCategory;
+
     public const RANGES = ['today', 'yesterday', 'week', 'month', 'all', 'custom'];
 
     public function index(Request $request): View
     {
         $date = $this->date($request);
         $statusFilter = $this->statusFilter($request);
-        $courseId = $request->filled('course') ? $request->integer('course') : null;
+        $courseId = $this->courseFilter($request);
 
         $day = $date->toDateString();
 
@@ -70,8 +73,10 @@ class DailyAttendanceController extends Controller
     'date' => $date,
     'statusFilter' => $statusFilter,
     'courseId' => $courseId,
-    'courses' => Course::orderBy('title')->get(['id', 'title']),
+    'courses' => $this->selectableCourses($request),
     'counts' => $this->dayCounts($request, $date, $courseId),
+    'ownCategories' => $this->managedCategories($request),
+    'categoryLabels' => $this->categoryLabelsFor($request, $studentIds),
     'pinConfigured' => AttendanceConfig::hasEditPin(),
 ]);
     }
@@ -81,7 +86,7 @@ class DailyAttendanceController extends Controller
     {
         $date = $this->date($request);
         $statusFilter = $this->statusFilter($request);
-        $courseId = $request->filled('course') ? $request->integer('course') : null;
+        $courseId = $this->courseFilter($request);
 
         $day = $date->toDateString();
 
@@ -106,6 +111,9 @@ class DailyAttendanceController extends Controller
             'records' => $records,
             'date' => $date,
             'counts' => $this->dayCounts($request, $date, $courseId),
+            // The PDF says whose register it is, so a printed copy carries the
+            // same scope the screen did.
+            'ownCategories' => $this->managedCategories($request),
             'course' => $courseId ? Course::find($courseId) : null,
             'statusFilter' => $statusFilter,
             'search' => trim((string) $request->query('search')),
@@ -177,6 +185,7 @@ class DailyAttendanceController extends Controller
     public function show(Request $request, User $student): View
     {
         abort_unless($student->hasRole('student'), 404);
+        $this->authorizeStudentCategory($request, $student);
 
         [$range, $statusFilter, $query] = $this->studentQuery($request, $student);
 
@@ -199,6 +208,7 @@ class DailyAttendanceController extends Controller
     public function printStudent(Request $request, User $student): Response
     {
         abort_unless($student->hasRole('student'), 404);
+        $this->authorizeStudentCategory($request, $student);
 
         [$range, $statusFilter, $query] = $this->studentQuery($request, $student);
 
@@ -233,6 +243,9 @@ class DailyAttendanceController extends Controller
 
         $student = User::findOrFail($data['user_id']);
         abort_unless($student->hasRole('student') && $student->is_active, 422, 'Not an active student.');
+        // The user_id came from the form, so a crafted POST is exactly what
+        // this stops — before the cutoff check, before anything is written.
+        $this->authorizeStudentCategory($request, $student);
 
         if ($error = $this->cutoffError($student, $data['date'], $data['status'])) {
             return back()->with('error', $error);
@@ -291,7 +304,13 @@ class DailyAttendanceController extends Controller
         // attendance in the register for a day nobody was expected.
         $marked = DailyAttendance::onDate($data['date'])->decided()->pluck('user_id');
 
-        $remaining = User::role('student')
+        // Built here rather than through cohort(), so it carries the same
+        // category scope explicitly: a bulk action that reached outside the
+        // instructor's field would mark a whole other category present.
+        $remaining = $this->scopeUsersToCategories(
+            User::role('student'),
+            $this->managedCategoryIds($request),
+        )
             ->where('is_active', true)
             ->whereNotIn('id', $marked)
             ->get(['id', 'name']);
@@ -341,6 +360,11 @@ class DailyAttendanceController extends Controller
         ], [
             'reason.required' => 'A reason is required for every attendance correction.',
         ]);
+
+        // The record id is in the URL, so the category check comes before the
+        // absent lock and before the PIN: a foreign record is refused outright
+        // rather than being told which of the two gates it failed.
+        $this->authorizeRecordCategory($request, $record);
 
         $this->assertMayUndoAbsence($request, $record, $data['status']);
 
@@ -394,10 +418,20 @@ class DailyAttendanceController extends Controller
 
     /* ------------------------------- Helpers ------------------------------- */
 
-    /** Active students matching the shared search + course filters. */
+    /**
+     * Active students matching the shared search + course filters.
+     *
+     * Every list, count, print and bulk action on this screen is built from
+     * here, which is why the category scope goes on at this level: one place
+     * to be right, rather than one per caller and a hole in whichever was
+     * forgotten.
+     */
     protected function cohort(Request $request, ?int $courseId)
     {
-        return User::role('student')
+        return $this->scopeUsersToCategories(
+            User::role('student'),
+            $this->managedCategoryIds($request),
+        )
             ->where('is_active', true)
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%' . trim($request->string('search')) . '%';
@@ -410,6 +444,55 @@ class DailyAttendanceController extends Controller
             })
             ->when($courseId, fn($query) => $query
                 ->whereHas('enrollments', fn($inner) => $inner->where('course_id', $courseId)));
+    }
+
+    /**
+     * The course filter, refused when it names a course outside the caller's
+     * categories.
+     *
+     * Scoping the students alone would have made a foreign course id produce
+     * an empty register, which reads as "nobody attends this course" rather
+     * than "not yours". A 403 says which it is.
+     */
+    protected function courseFilter(Request $request): ?int
+    {
+        if (! $request->filled('course')) {
+            return null;
+        }
+
+        $courseId = $request->integer('course');
+        $categoryIds = $this->managedCategoryIds($request);
+
+        if ($categoryIds !== null) {
+            abort_unless(
+                Course::whereKey($courseId)->whereIn('category_id', $categoryIds)->exists(),
+                403,
+                'That course is in another category.',
+            );
+        }
+
+        return $courseId;
+    }
+
+    /** Courses this user may filter the register by. */
+    protected function selectableCourses(Request $request)
+    {
+        $categoryIds = $this->managedCategoryIds($request);
+
+        return Course::query()
+            ->when($categoryIds !== null, fn ($query) => $query->whereIn('category_id', $categoryIds))
+            ->orderBy('title')
+            ->get(['id', 'title']);
+    }
+
+    /** 403 unless this record's student is in the caller's categories. */
+    protected function authorizeRecordCategory(Request $request, DailyAttendance $record): void
+    {
+        $student = $record->user;
+
+        abort_if($student === null, 404);
+
+        $this->authorizeStudentCategory($request, $student);
     }
 
     /**

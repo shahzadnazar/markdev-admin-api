@@ -189,12 +189,17 @@ class LeaveApplicationTest extends TestCase
             ->assertSee('Family wedding out of town');
     }
 
-    public function test_instructor_cannot_open_the_leave_screen(): void
+    public function test_an_instructor_with_no_category_sees_no_leave_requests(): void
     {
+        // Instructors reach this screen now, scoped to the categories they
+        // teach in. This one teaches nothing, so the list is empty rather than
+        // showing the academy's requests.
         $instructor = User::factory()->create();
         $instructor->assignRole('instructor');
 
-        $this->actingAs($instructor)->get('/admin/leaves')->assertForbidden();
+        $this->actingAs($instructor)->get('/admin/leaves')
+            ->assertOk()
+            ->assertViewHas('pendingCount', 0);
     }
 
     protected function review(LeaveApplication $leave, array $payload = []): \Illuminate\Testing\TestResponse

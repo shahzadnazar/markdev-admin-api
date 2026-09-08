@@ -26,7 +26,13 @@ class RolePermissionSeeder extends Seeder
         'enrollments' => ['view', 'create', 'update', 'delete'],
         'assignments' => ['view', 'create', 'update', 'delete', 'grade'],
         'quizzes' => ['view', 'create', 'update', 'delete'],
-        'attendance' => ['view', 'manage', 'daily', 'correct-absent'],
+        // `daily` is the unscoped register and leave list; `daily.own-category`
+        // is the same screens limited to the categories an instructor teaches
+        // in. Two permissions rather than one, because a single name that
+        // means "everything" for a manager and "my field" for an instructor
+        // would make every future can('attendance.daily') check silently wrong
+        // for one of them.
+        'attendance' => ['view', 'manage', 'daily', 'daily.own-category', 'correct-absent'],
         'devices' => ['view', 'manage'],
         'certificates' => ['view', 'issue', 'delete'],
         'announcements' => ['view', 'create', 'update', 'delete'],
@@ -121,6 +127,10 @@ class RolePermissionSeeder extends Seeder
             'quizzes.delete',
             'attendance.view',
             'attendance.manage',
+            // The leave list and the daily register, limited to their own
+            // categories. The controllers enforce that on the query; this
+            // only decides who reaches the screens at all.
+            'attendance.daily.own-category',
             'announcements.view',
             'announcements.create',
             'announcements.update',

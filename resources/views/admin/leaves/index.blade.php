@@ -18,6 +18,18 @@
         </x-slot:actions>
     </x-page-header>
 
+    {{-- Says whose requests these are, rather than leaving an instructor to
+         wonder whether the list is short because it is filtered or because
+         nobody has applied. --}}
+    @if ($ownCategories->isNotEmpty())
+        <x-card class="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <x-icon name="clipboard" class="size-4 shrink-0 text-primary" />
+            <span class="text-on-surface-variant">Showing students in</span>
+            <span class="font-medium text-on-surface">{{ $ownCategories->pluck('name')->join(', ', ' and ') }}</span>
+            <span class="text-on-surface-variant">— the {{ $ownCategories->count() === 1 ? 'category' : 'categories' }} you teach in.</span>
+        </x-card>
+    @endif
+
     {{-- Status tabs --}}
     <div class="mb-6 inline-flex rounded-lg bg-white p-1 shadow-card">
         @foreach (['pending' => 'Pending', 'approved' => 'Approved', 'partially_approved' => 'Part approved', 'rejected' => 'Declined', 'all' => 'All'] as $key => $label)
@@ -56,6 +68,12 @@
                                 <p class="font-medium text-on-surface">{{ $leave->user->name }}</p>
                             @endcan
                             <p class="font-mono text-[11px] text-outline">{{ $leave->user->studentProfile?->reg_no ?? $leave->user->email }}</p>
+                            {{-- Only when the reviewer teaches in more than one
+                                 category: with a single one every row would
+                                 carry the same label and say nothing. --}}
+                            @if (! empty($categoryLabels[$leave->user_id]))
+                                <p class="mt-0.5"><x-badge variant="neutral">{{ $categoryLabels[$leave->user_id] }}</x-badge></p>
+                            @endif
                         @else
                             <span class="text-sm text-outline">Deleted user</span>
                         @endif

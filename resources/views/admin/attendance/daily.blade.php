@@ -53,6 +53,17 @@
     </div>
     @endunless
 
+    @if ($ownCategories->isNotEmpty())
+        {{-- Says whose register this is: a short list is short because it is
+             scoped, not because students are missing. --}}
+        <div class="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-primary/[0.06] px-3.5 py-2 text-[13px] text-on-surface">
+            <x-icon name="users" class="size-4 shrink-0 text-primary" />
+            <span class="text-on-surface-variant">Showing students in</span>
+            <span class="font-medium">{{ $ownCategories->pluck('name')->join(', ', ' and ') }}</span>
+            <span class="text-on-surface-variant">— the {{ $ownCategories->count() === 1 ? 'category' : 'categories' }} you teach in.</span>
+        </div>
+    @endif
+
     @if (! empty($counts['holiday_name']))
     {{-- The register would otherwise look like a day everyone skipped. --}}
     <div class="mb-4 flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/[0.06] px-3.5 py-2 text-[13px] text-on-surface">
@@ -174,6 +185,11 @@
                                 <a href="{{ route('admin.attendance.daily.show', $student) }}"
                                     class="block truncate font-medium text-on-surface hover:text-primary">{{ $student->name }}</a>
                                 <p class="truncate font-mono text-[11px] text-outline">{{ $student->studentProfile?->reg_no ?? $student->email }}</p>
+                                @if (! empty($categoryLabels[$student->id]))
+                                    {{-- Only when the viewer teaches in more
+                                         than one category. --}}
+                                    <p class="mt-0.5 truncate font-mono text-[10px] text-primary">{{ $categoryLabels[$student->id] }}</p>
+                                @endif
                                 {{-- Lateness is judged against this slot, so the register says which one. --}}
                                 @if ($student->studentProfile?->attendanceSlot)
                                     <p class="truncate font-mono text-[11px] text-primary" title="Lateness is judged against this slot">

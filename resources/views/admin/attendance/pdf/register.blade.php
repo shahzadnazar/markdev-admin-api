@@ -40,6 +40,9 @@
         <span class="chip">Late <b class="late">{{ $counts['late'] }}</b></span>
         <span class="chip">Absent <b class="absent">{{ $counts['absent'] }}</b></span>
         <span class="chip">Leave <b class="leave">{{ $counts['leave'] }}</b></span>
+        @if (! empty($ownCategories) && $ownCategories->isNotEmpty())
+            <span class="chip">{{ $ownCategories->pluck('name')->join(', ', ' and ') }}</span>
+        @endif
         @if (! empty($counts['holiday']))
             {{-- Listed so the chips add up to the roll, never added into a
                  total: a day the academy was shut is not attendance. --}}

@@ -199,7 +199,10 @@ Route::prefix('admin')
             Route::delete('questions/{question}', [QuestionController::class, 'destroy'])->middleware('can:quizzes.update')->name('questions.destroy');
         });
 
-        Route::middleware('can:attendance.daily')->group(function () {
+        // Either permission opens these screens; which of the two the user
+        // holds is what the controllers read to decide how much they see.
+        // Spatie's `permission` middleware treats the pipe as OR.
+        Route::middleware('permission:attendance.daily|attendance.daily.own-category')->group(function () {
             Route::get('attendance/daily', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'index'])->name('attendance.daily');
             Route::get('attendance/daily/print', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'print'])->name('attendance.daily.print');
             Route::post('attendance/daily', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'mark'])->name('attendance.daily.mark');

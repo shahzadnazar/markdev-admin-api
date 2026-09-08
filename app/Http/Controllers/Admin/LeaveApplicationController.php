@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ScopesToCategory;
 use App\Http\Controllers\Controller;
 use App\Models\LeaveApplication;
 use App\Notifications\LeaveApplicationReviewed;
@@ -28,6 +29,8 @@ use Illuminate\View\View;
  */
 class LeaveApplicationController extends Controller
 {
+    use ScopesToCategory;
+
     public const FILTERS = ['pending', 'approved', 'partially_approved', 'rejected', 'all'];
 
     public function index(Request $request): View
@@ -36,7 +39,21 @@ class LeaveApplicationController extends Controller
             ? $request->query('status')
             : 'pending';
 
+        // An instructor sees their own categories only. Applied to the query,
+        // not to the view: an empty list would still leak through the count
+        // below and through any id an instructor typed into the review form.
+        $categoryIds = $this->managedCategoryIds($request);
+
+        $scoped = fn ($query) => $query->when(
+            $categoryIds !== null,
+            fn ($inner) => $inner->whereHas(
+                'user',
+                fn ($user) => $this->scopeUsersToCategories($user, $categoryIds),
+            ),
+        );
+
         $leaves = LeaveApplication::with(['user:id,name,email', 'user.studentProfile:id,user_id,reg_no', 'reviewer:id,name', 'decisions'])
+            ->tap($scoped)
             ->when($status !== 'all', fn ($query) => $query->where('status', $status))
             ->orderByRaw("case when status = 'pending' then 0 else 1 end")
             ->orderByDesc('created_at')
@@ -57,7 +74,13 @@ class LeaveApplicationController extends Controller
             'leaves' => $leaves,
             'balances' => $balances,
             'status' => $status,
-            'pendingCount' => LeaveApplication::pending()->count(),
+            // Scoped too, or an instructor's tab would count other fields'
+            // requests and send them looking for rows they cannot see.
+            'pendingCount' => LeaveApplication::pending()->tap($scoped)->count(),
+            // Which category each row is in, when the instructor teaches in
+            // more than one and the list would otherwise be ambiguous.
+            'categoryLabels' => $this->categoryLabelsFor($request, $leaves->getCollection()->pluck('user_id')),
+            'ownCategories' => $this->managedCategories($request),
         ]);
     }
 
@@ -70,6 +93,11 @@ class LeaveApplicationController extends Controller
      */
     public function review(Request $request, LeaveApplication $leave): RedirectResponse
     {
+        // Before anything else: the id in the URL is the caller's to choose,
+        // so this is the check that stops a crafted POST reviewing another
+        // field's student. Not a filtered list — a 403.
+        $this->authorizeLeaveCategory($request, $leave);
+
         if ($leave->status !== 'pending') {
             return back()->with('error', "This application was already {$leave->status} — it cannot be reviewed again.");
         }
@@ -147,6 +175,16 @@ class LeaveApplicationController extends Controller
             'rejected' => "Leave declined for {$leave->user?->name}.",
             default => "Leave partly approved for {$leave->user?->name} — {$approved} day(s) approved, {$declined} declined.",
         });
+    }
+
+    /** 403 unless this application's student is in the caller's categories. */
+    protected function authorizeLeaveCategory(Request $request, LeaveApplication $leave): void
+    {
+        $student = $leave->user;
+
+        abort_if($student === null, 404);
+
+        $this->authorizeStudentCategory($request, $student);
     }
 
     /**
