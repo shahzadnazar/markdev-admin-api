@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\AttendanceRecord;
+use App\Models\DailyAttendance;
 use App\Models\BiometricDevice;
 use App\Models\BiometricPunch;
 use App\Services\BiometricAttendanceService;
@@ -56,8 +56,18 @@ class BiometricPunchTest extends ApiTestCase
             ->assertStatus(403);
     }
 
+    /**
+     * A punch writes the register and nothing else.
+     *
+     * These asserted a per-class row until that table was retired. The mode
+     * matters now where it did not before: the class sheet was filled in
+     * either mode, the register only in biometric mode, because in manual mode
+     * the instructor owns it (5a4bf72) and the close settles the day from the
+     * punch itself at end of day.
+     */
     public function test_on_time_punch_marks_present(): void
     {
+        $this->useBiometricMode();
         $device = $this->device();
         $student = $this->student(['biometric_id' => '1001']);
 
@@ -66,16 +76,21 @@ class BiometricPunchTest extends ApiTestCase
             'punched_at' => now()->setTime(9, 5)->toDateTimeString(),
         ]])->assertStatus(201)->assertJsonPath('data.processed', 1);
 
-        $record = AttendanceRecord::where('user_id', $student->id)->first();
+        $record = DailyAttendance::where('user_id', $student->id)->first();
         $this->assertNotNull($record);
         $this->assertSame('present', $record->status);
         $this->assertSame('biometric', $record->source);
-        $this->assertSame($device->id, $record->biometric_device_id);
+        // The two facts the class sheet used to hold, carried by the device.
+        $this->assertSame($device->course_id, $record->course_id);
+        $this->assertSame('Lab Terminal', $record->session_title);
         $this->assertNotNull($device->fresh()->last_seen_at);
+        // And the punch still points at the row it produced.
+        $this->assertSame($record->id, BiometricPunch::first()->daily_attendance_record_id);
     }
 
     public function test_punch_after_grace_window_marks_late(): void
     {
+        $this->useBiometricMode();
         $device = $this->device();
         $student = $this->student(['biometric_id' => '1001']);
 
@@ -84,7 +99,10 @@ class BiometricPunchTest extends ApiTestCase
             'punched_at' => now()->setTime(9, 30)->toDateTimeString(),
         ]])->assertStatus(201);
 
-        $this->assertSame('late', AttendanceRecord::where('user_id', $student->id)->value('status'));
+        // The academy day starts 09:00 with 15 minutes' grace, which is what
+        // judges this now — the device's own session_start was a second late
+        // rule on the same question and went with the second table.
+        $this->assertSame('late', DailyAttendance::where('user_id', $student->id)->value('status'));
     }
 
     public function test_unknown_biometric_id_is_kept_unmatched(): void
@@ -97,11 +115,12 @@ class BiometricPunchTest extends ApiTestCase
         ]])->assertStatus(201)->assertJsonPath('data.unmatched', 1);
 
         $this->assertSame(BiometricPunch::STATUS_UNMATCHED, BiometricPunch::first()->status);
-        $this->assertSame(0, AttendanceRecord::count());
+        $this->assertSame(0, DailyAttendance::count());
     }
 
     public function test_duplicate_and_same_day_punches_create_one_record(): void
     {
+        $this->useBiometricMode();
         $device = $this->device();
         $this->student(['biometric_id' => '1001']);
 
@@ -114,8 +133,9 @@ class BiometricPunchTest extends ApiTestCase
             ['biometric_id' => '1001', 'punched_at' => now()->setTime(13, 0)->toDateTimeString()],
         ])->assertStatus(201)->assertJsonPath('data.duplicate', 1);
 
-        $this->assertSame(1, AttendanceRecord::count());
-        $this->assertSame('present', AttendanceRecord::first()->status);
+        // Never downgraded by the later punch — the day already had an answer.
+        $this->assertSame(1, DailyAttendance::count());
+        $this->assertSame('present', DailyAttendance::first()->status);
     }
 
     public function test_device_without_course_skips_punches(): void
@@ -128,11 +148,12 @@ class BiometricPunchTest extends ApiTestCase
             'punched_at' => now()->toDateTimeString(),
         ]])->assertStatus(201)->assertJsonPath('data.skipped', 1);
 
-        $this->assertSame(0, AttendanceRecord::count());
+        $this->assertSame(0, DailyAttendance::count());
     }
 
     public function test_unmatched_punches_can_be_reprocessed_after_enrollment(): void
     {
+        $this->useBiometricMode();
         $device = $this->device();
 
         $this->punch($device, [[
@@ -145,7 +166,7 @@ class BiometricPunchTest extends ApiTestCase
         $count = app(BiometricAttendanceService::class)->reprocessUnmatched($device);
 
         $this->assertSame(1, $count);
-        $this->assertSame('present', AttendanceRecord::where('user_id', $student->id)->value('status'));
+        $this->assertSame('present', DailyAttendance::where('user_id', $student->id)->value('status'));
     }
 
     public function test_a_punch_also_fills_the_daily_register(): void

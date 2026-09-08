@@ -544,7 +544,11 @@ class DailyAttendanceController extends Controller
      */
     protected function historyFor($studentIds, \Illuminate\Support\Carbon $date): array
     {
-        $blank = ['present' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0, 'total' => 0, 'rate' => null, 'recent' => []];
+        // Same reason as dayCounts: listing the statuses again is how one
+        // gets forgotten. A status missing from $blank would be dropped by the
+        // isset() below and silently left out of the student's total.
+        $blank = array_fill_keys(DailyAttendance::STATUSES, 0)
+            + ['total' => 0, 'rate' => null, 'recent' => []];
 
         if ($studentIds->isEmpty()) {
             return [];
@@ -588,11 +592,15 @@ class DailyAttendanceController extends Controller
             ->groupBy('user_id');
 
         foreach ($history as $id => $entry) {
-            $total = $entry['present'] + $entry['late'] + $entry['absent'] + $entry['leave'];
+            $total = 0;
+            foreach (DailyAttendance::STATUSES as $status) {
+                $total += $entry[$status];
+            }
             $history[$id]['total'] = $total;
-            // Approved leave counts as attended — only genuine absences hurt.
+            // Only genuine absences hurt: approved leave counts as attended,
+            // and so does a day the academy excused.
             $history[$id]['rate'] = $total > 0
-                ? round(($entry['present'] + $entry['late'] + $entry['leave']) / $total * 100, 1)
+                ? round(($total - $entry['absent']) / $total * 100, 1)
                 : null;
             $history[$id]['recent'] = $recent->get($id, collect())
                 ->sortBy('rn')
@@ -627,12 +635,15 @@ class DailyAttendanceController extends Controller
             ->groupBy('status')
             ->pluck('total', 'status');
 
-        $byStatus = [
-            'present' => (int) ($counts['present'] ?? 0),
-            'late' => (int) ($counts['late'] ?? 0),
-            'absent' => (int) ($counts['absent'] ?? 0),
-            'leave' => (int) ($counts['leave'] ?? 0),
-        ];
+        // Built from STATUSES rather than listed again here. A status this
+        // missed would be subtracted from nothing and land in `unmarked`,
+        // telling the front desk to chase a student who is already marked —
+        // which is exactly what happened when `excused` arrived with the
+        // retirement of the class-attendance sheet.
+        $byStatus = [];
+        foreach (DailyAttendance::STATUSES as $status) {
+            $byStatus[$status] = (int) ($counts[$status] ?? 0);
+        }
 
         $holidayRows = (int) ($counts[DailyAttendance::HOLIDAY] ?? 0);
 

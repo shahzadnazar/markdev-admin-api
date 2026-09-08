@@ -41,13 +41,29 @@ class AbsenceFine
         return max(0, (float) (Setting::cached('absent_fine_amount') ?? 0));
     }
 
-    /** Absences the register holds for this student in this month. */
+    /**
+     * Absences the register holds for this student in this month.
+     *
+     * Excluding the ones that arrived from the retired class-attendance sheet.
+     * That table never fed a charge — fines have always read the register —
+     * so folding it in would have quietly made a student's past absences
+     * billable for months that are already closed and, where a charge was
+     * already raised, billed twice for the same month. An absence the academy
+     * did not charge for at the time is not a debt discovered by moving a
+     * table.
+     *
+     * The exclusion is finite and closes itself: `source` is only ever
+     * `class` on rows the one-time backfill wrote, and nothing writes it
+     * again. Absences recorded on the register from here on are billable
+     * exactly as they always were.
+     */
     public static function absencesIn(int $userId, Carbon $month): int
     {
         $start = $month->copy()->startOfMonth();
 
         return DailyAttendance::where('user_id', $userId)
             ->where('status', 'absent')
+            ->where('source', '!=', \App\Support\ClassAttendanceBackfill::SOURCE)
             // Half-open: `date` is a date-cast column, so on SQLite it comes
             // back as a full datetime and a <= against the last of the month
             // would drop that day.

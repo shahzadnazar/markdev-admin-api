@@ -242,20 +242,21 @@ class InstructorModuleTest extends TestCase
 
     /* ------------------------- Attendance scoping ------------------------- */
 
-    public function test_instructor_cannot_mark_attendance_for_foreign_course(): void
+    /**
+     * The class-attendance sheet this used to post to is retired — the academy
+     * keeps one register now. An instructor's scoping on the surviving screen
+     * is InstructorCategoryScopeTest's subject; what belongs here is that the
+     * old door is actually gone rather than merely unlinked from the sidebar.
+     */
+    public function test_the_retired_class_attendance_screen_is_gone(): void
     {
-        $student = User::factory()->create();
-        $student->assignRole('student');
-
-        $this->actingAs($this->instructor)
-            ->post('/admin/attendance', [
-                'course_id' => $this->foreignCourse->id,
-                'date' => today()->toDateString(),
-                'rows' => [
-                    ['user_id' => $student->id, 'status' => 'present'],
-                ],
-            ])
-            ->assertForbidden();
+        $this->actingAs($this->instructor)->get('/admin/attendance')->assertNotFound();
+        $this->actingAs($this->instructor)->post('/admin/attendance', [
+            'course_id' => $this->foreignCourse->id,
+            'date' => today()->toDateString(),
+            'rows' => [['user_id' => $this->instructor->id, 'status' => 'present']],
+        ])->assertNotFound();
+        $this->actingAs($this->instructor)->get('/admin/attendance/log')->assertNotFound();
     }
 
     /* ----------------------------- Dashboard ----------------------------- */

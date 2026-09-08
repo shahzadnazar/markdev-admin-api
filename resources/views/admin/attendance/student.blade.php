@@ -5,6 +5,7 @@
             'late' => ['label' => 'Late', 'badge' => 'warning'],
             'absent' => ['label' => 'Absent', 'badge' => 'danger'],
             'leave' => ['label' => 'Leave', 'badge' => 'secondary'],
+            'excused' => ['label' => 'Excused', 'badge' => 'neutral'],
         ];
         // Filterable statuses above; a holiday is written by the day close and
         // nobody marks or filters by one, so it only needs to read properly.

@@ -241,8 +241,9 @@ class LearningStatsService
      * ATTENDANCE
      * -------------------------------------------------------------
      */
-        $attendanceRecords = \App\Models\AttendanceRecord::where('user_id', $user->id)
-            ->whereDate('date', '>=', $start->toDateString())
+        $attendanceRecords = \App\Models\DailyAttendance::where('user_id', $user->id)
+            ->counted()
+            ->where('date', '>=', $start->toDateString())
             ->get()
             ->groupBy(
                 fn($record) =>

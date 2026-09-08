@@ -80,11 +80,6 @@ class User extends Authenticatable
         return $this->hasMany(QuizAttempt::class);
     }
 
-    public function attendanceRecords(): HasMany
-    {
-        return $this->hasMany(AttendanceRecord::class);
-    }
-
     public function certificates(): HasMany
     {
         return $this->hasMany(Certificate::class);

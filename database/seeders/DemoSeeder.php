@@ -6,7 +6,6 @@ use App\Models\Announcement;
 use App\Models\AnnouncementRead;
 use App\Models\Assignment;
 use App\Models\AssignmentSubmission;
-use App\Models\AttendanceRecord;
 use App\Models\Bookmark;
 use App\Models\CalendarEvent;
 use App\Models\Category;
@@ -330,13 +329,25 @@ class DemoSeeder extends Seeder
             if ($date->isWeekend()) {
                 continue;
             }
-            AttendanceRecord::create([
+
+            // The register is the only attendance table now, so the demo
+            // writes the lecture's course and title straight onto the day.
+            // Checked through onDate() rather than firstOrCreate(['date' =>
+            // ...]): a date-cast column never matches a bare date string on
+            // every store, and the last three days are already seeded above.
+            if (\App\Models\DailyAttendance::where('user_id', $student->id)->onDate($date)->exists()) {
+                continue;
+            }
+
+            \App\Models\DailyAttendance::create([
                 'user_id' => $student->id,
+                'date' => $date->toDateString(),
                 'course_id' => $laravel->id,
                 'session_title' => 'Live session — '.$date->format('M j'),
-                'date' => $date->toDateString(),
                 'status' => fake()->randomElement(['present', 'present', 'present', 'present', 'late', 'absent', 'excused']),
-                'recorded_by' => $instructor->id,
+                'source' => 'manual',
+                'marked_by' => $instructor->id,
+                'marked_at' => $date->copy()->setTime(9, 30),
             ]);
         }
 

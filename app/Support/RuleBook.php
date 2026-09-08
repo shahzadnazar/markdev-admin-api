@@ -267,6 +267,7 @@ class RuleBook
             'present' => 'Present',
             'late' => 'Late',
             'leave' => 'Approved leave',
+            'excused' => 'Excused',
             'absent' => 'Absent',
         ];
 

@@ -158,6 +158,8 @@
                             :value="$settings['attendance_weights']['late']" required min="0" max="100" class="no-spinner" />
                         <x-form.input type="number" label="Approved leave" name="attendance_weight_leave"
                             :value="$settings['attendance_weights']['leave']" required min="0" max="100" class="no-spinner" />
+                        <x-form.input type="number" label="Excused" name="attendance_weight_excused"
+                            :value="$settings['attendance_weights']['excused']" required min="0" max="100" class="no-spinner" />
                         <x-form.input type="number" label="Absent" name="attendance_weight_absent"
                             :value="$settings['attendance_weights']['absent']" required min="0" max="100" class="no-spinner" />
                     </div>

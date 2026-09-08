@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\AssignmentSubmission;
-use App\Models\AttendanceRecord;
 use App\Models\AuditLog;
 use App\Models\CalendarEvent;
 use App\Models\Course;
@@ -160,7 +159,12 @@ class DashboardController extends Controller
 
     protected function attendanceRate(?array $courseIds = null): ?float
     {
-        $monthly = AttendanceRecord::whereBetween('date', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+        // Half-open on the upper bound: `date` is a date-cast column, so a
+        // `<=` against the last of the month drops that whole day on any
+        // store that keeps the time part.
+        $monthly = \App\Models\DailyAttendance::where('date', '>=', now()->startOfMonth()->toDateString())
+            ->where('date', '<', now()->startOfMonth()->addMonth()->toDateString())
+            ->counted()
             ->when($courseIds !== null, fn ($query) => $query->whereIn('course_id', $courseIds))
             ->selectRaw("count(*) as total, sum(case when status in ('present', 'late') then 1 else 0 end) as attended")
             ->first();

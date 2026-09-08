@@ -54,9 +54,4 @@ class BiometricDevice extends Model
     {
         return $this->hasMany(BiometricPunch::class);
     }
-
-    public function attendanceRecords(): HasMany
-    {
-        return $this->hasMany(AttendanceRecord::class);
-    }
 }

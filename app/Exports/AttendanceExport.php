@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\AttendanceRecord;
+use App\Models\DailyAttendance;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -12,8 +12,9 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping
 {
     public function query(): Builder
     {
-        return AttendanceRecord::query()
-            ->with(['user', 'course', 'recorder'])
+        return DailyAttendance::query()
+            ->decided()
+            ->with(['user', 'course', 'marker'])
             ->orderByDesc('date');
     }
 
@@ -22,7 +23,7 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping
         return ['Date', 'Student', 'Email', 'Course', 'Session', 'Status', 'Notes', 'Recorded By'];
     }
 
-    /** @param AttendanceRecord $record */
+    /** @param DailyAttendance $record */
     public function map($record): array
     {
         return [
@@ -32,8 +33,8 @@ class AttendanceExport implements FromQuery, WithHeadings, WithMapping
             $record->course?->title,
             $record->session_title,
             $record->status,
-            $record->notes,
-            $record->recorder?->name,
+            $record->remarks,
+            $record->marker?->name,
         ];
     }
 }

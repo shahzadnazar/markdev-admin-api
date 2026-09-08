@@ -22,7 +22,7 @@ class BiometricPunch extends Model
         'punched_at',
         'direction',
         'status',
-        'attendance_record_id',
+        'daily_attendance_record_id',
         'note',
     ];
 
@@ -45,8 +45,15 @@ class BiometricPunch extends Model
         return $this->belongsTo(User::class)->withTrashed();
     }
 
+    /**
+     * The register row this punch produced.
+     *
+     * Named for what the punches screen calls it rather than for its table:
+     * the class-attendance sheet it used to point at is gone, and the column
+     * moved with it (daily_attendance_record_id).
+     */
     public function attendanceRecord(): BelongsTo
     {
-        return $this->belongsTo(AttendanceRecord::class);
+        return $this->belongsTo(DailyAttendance::class, 'daily_attendance_record_id');
     }
 }

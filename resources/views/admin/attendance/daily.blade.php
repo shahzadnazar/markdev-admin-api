@@ -5,6 +5,7 @@
     'late' => ['label' => 'Late', 'badge' => 'warning'],
     'absent' => ['label' => 'Absent', 'badge' => 'danger'],
     'leave' => ['label' => 'Leave', 'badge' => 'secondary'],
+    'excused' => ['label' => 'Excused', 'badge' => 'neutral'],
     ];
     // Separate from $statusMeta on purpose: $statusMeta is what somebody can
     // mark and filter by, and a holiday is neither — the day close writes it
@@ -129,7 +130,8 @@
                 $record = $records->get($student->id);
                 // Counts, rate and the last five days arrive already summarised
                 // from the controller, so the page does no counting of its own.
-                $studentHistory = $history[$student->id] ?? ['present' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0, 'total' => 0, 'rate' => null, 'recent' => []];
+                $studentHistory = $history[$student->id]
+                    ?? array_fill_keys(\App\Models\DailyAttendance::STATUSES, 0) + ['total' => 0, 'rate' => null, 'recent' => []];
                 $payload = [
                 'student' => [
                 'id' => $student->id,

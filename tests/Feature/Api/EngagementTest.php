@@ -4,7 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Announcement;
 use App\Models\Assignment;
-use App\Models\AttendanceRecord;
+use App\Models\DailyAttendance;
 use App\Models\CalendarEvent;
 use App\Models\Certificate;
 use App\Models\Faq;
@@ -16,6 +16,25 @@ use App\Models\User;
 
 class EngagementTest extends ApiTestCase
 {
+    /**
+     * One attendance row for a student on a day.
+     *
+     * The academy kept attendance in two tables until the class-attendance
+     * sheet was folded into the register; these wrote the retired one.
+     */
+    protected function register(\App\Models\User $user, \App\Models\Course $course, string $status, int $daysAgo): DailyAttendance
+    {
+        return DailyAttendance::create([
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'date' => now()->subDays($daysAgo)->toDateString(),
+            'status' => $status,
+            'session_title' => 'Session',
+            'source' => 'manual',
+            'marked_at' => now(),
+        ]);
+    }
+
     public function test_dashboard_aggregates_the_student_world(): void
     {
         $user = $this->actingAsStudent();
@@ -30,8 +49,8 @@ class EngagementTest extends ApiTestCase
         LearningActivity::create(['user_id' => $user->id, 'date' => now()->subDay()->toDateString(), 'minutes' => 30]);
 
         Assignment::create(['course_id' => $course->id, 'title' => 'Pending work', 'due_at' => now()->addDay(), 'max_score' => 10]);
-        AttendanceRecord::create(['user_id' => $user->id, 'course_id' => $course->id, 'date' => now()->toDateString(), 'status' => 'present']);
-        AttendanceRecord::create(['user_id' => $user->id, 'course_id' => $course->id, 'date' => now()->subDay()->toDateString(), 'status' => 'absent']);
+        $this->register($user, $course, 'present', 0);
+        $this->register($user, $course, 'absent', 1);
 
         $response = $this->getJson('/api/v1/dashboard')->assertOk();
 
@@ -57,20 +76,11 @@ class EngagementTest extends ApiTestCase
         [$course] = $this->makeCourse(1);
 
         foreach ([['present', 0], ['present', 1], ['late', 2], ['absent', 3]] as [$status, $daysAgo]) {
-            AttendanceRecord::create([
-                'user_id' => $user->id,
-                'course_id' => $course->id,
-                'date' => now()->subDays($daysAgo)->toDateString(),
-                'status' => $status,
-                'session_title' => 'Session',
-            ]);
+            $this->register($user, $course, $status, $daysAgo);
         }
 
         // Another student's records never leak.
-        AttendanceRecord::create([
-            'user_id' => $this->student()->id, 'course_id' => $course->id,
-            'date' => now()->toDateString(), 'status' => 'present',
-        ]);
+        $this->register($this->student(), $course, 'present', 0);
 
         $this->getJson('/api/v1/attendance')->assertOk()->assertJsonCount(4, 'data')
             ->assertJsonPath('data.0.status', 'present')
@@ -129,26 +139,26 @@ class EngagementTest extends ApiTestCase
             ],
         ]);
 
-        // The register and the class record are separate tables; the day
-        // carries whichever session it fell on, and nothing when it fell on
-        // none. Matching on a date-cast column is why this is a range query.
+        // Course and session title live on the register row itself now. They
+        // were the only two facts the retired class-attendance table held that
+        // this one did not, and the portal renders both.
         [$course] = $this->makeCourse(1);
-        AttendanceRecord::create([
-            'user_id' => $user->id,
-            'course_id' => $course->id,
-            'date' => now()->subDays(4)->toDateString(),
-            'status' => 'absent',
-            'session_title' => 'Live session — leave day',
-        ]);
+        \App\Models\DailyAttendance::where('user_id', $user->id)
+            ->onDate(now()->subDays(4))
+            ->update(['course_id' => $course->id, 'session_title' => 'Live session — leave day']);
 
-        // A session on a day the register never marked is still a day the
-        // student attended, so it joins the list rather than vanishing.
-        AttendanceRecord::create([
+        // An excused day keeps its own word rather than being reported as
+        // leave. It is worth the same 50 — so the rate does not move — but
+        // leave means an approved application exists and spends the student's
+        // monthly allowance, and this day has neither behind it.
+        \App\Models\DailyAttendance::create([
             'user_id' => $user->id,
             'course_id' => $course->id,
             'date' => now()->subDays(10)->toDateString(),
             'status' => 'excused',
-            'session_title' => 'Live session — register never marked',
+            'session_title' => 'Live session — excused',
+            'source' => 'manual',
+            'marked_at' => now(),
         ]);
 
         $this->getJson('/api/v1/attendance/daily')->assertOk()->assertJsonCount(6, 'data')
@@ -157,16 +167,21 @@ class EngagementTest extends ApiTestCase
             ->assertJsonPath('data.4.status', 'leave')
             ->assertJsonPath('data.4.session_title', 'Live session — leave day')
             ->assertJsonPath('data.4.course.title', $course->title)
-            // "excused" over there is "leave" here: one vocabulary reaches
-            // the portal.
-            ->assertJsonPath('data.5.status', 'leave')
-            ->assertJsonPath('data.5.session_title', 'Live session — register never marked');
+            ->assertJsonPath('data.5.status', 'excused')
+            ->assertJsonPath('data.5.session_title', 'Live session — excused')
+            ->assertJsonPath('data.5.course.title', $course->title);
 
         $this->getJson('/api/v1/attendance/summary')->assertOk()
             ->assertJsonPath('data.total_sessions', 6)
-            ->assertJsonPath('data.leave_count', 2);
-        $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.leave_count', 1)
+            ->assertJsonPath('data.excused_count', 1)
+            // (100 + 100 + 70 + 0 + 50 + 50) / 6 — the excused day is worth
+            // exactly what it was worth when it reached the portal as leave.
+            ->assertJsonPath('data.attendance_rate', 61.7);
+
+        $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.status', 'leave');
+        $this->getJson('/api/v1/attendance/daily?status=excused')->assertOk()->assertJsonCount(1, 'data');
 
         // The upper bound includes its own day, which a plain `<=` against a
         // date-cast column does not on every engine.

@@ -8,7 +8,7 @@ use App\Exports\EnrollmentsExport;
 use App\Exports\QuizResultsExport;
 use App\Exports\TransactionsExport;
 use App\Http\Controllers\Controller;
-use App\Models\AttendanceRecord;
+use App\Models\DailyAttendance;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\QuizAttempt;
@@ -53,7 +53,7 @@ class ReportController extends Controller
         $counts = [
             'enrollments' => Enrollment::count(),
             'course-completion' => Course::count(),
-            'attendance' => AttendanceRecord::count(),
+            'attendance' => DailyAttendance::decided()->count(),
             'quiz-results' => QuizAttempt::count(),
             'transactions' => Transaction::count(),
         ];

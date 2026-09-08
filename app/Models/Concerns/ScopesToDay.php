@@ -15,9 +15,10 @@ use Illuminate\Support\Carbon;
  * never equal "2026-07-01". A half-open range is right on both and still uses
  * the index.
  *
- * This lived on DailyAttendance until attendance_records needed the same
- * lookup. Copying it would have been the fourth copy of a rule this codebase
- * has already got wrong six times; one copy is the point.
+ * This lived on DailyAttendance until the per-class attendance table needed
+ * the same lookup, and it stays a trait now that table is gone: the rule has
+ * been got wrong seven times in this codebase, and having exactly one place
+ * that states it is worth more than saving a file.
  */
 trait ScopesToDay
 {

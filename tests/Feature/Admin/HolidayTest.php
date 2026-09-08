@@ -192,6 +192,7 @@ class HolidayTest extends TestCase
             'attendance_weight_present' => 100,
             'attendance_weight_late' => 70,
             'attendance_weight_leave' => 50,
+            'attendance_weight_excused' => 50,
             'attendance_weight_absent' => 0,
             'monthly_leave_allowance' => 2,
             'monthly_absent_allowance' => 2,

@@ -28,27 +28,21 @@ use Illuminate\Support\Facades\Auth;
  * and those are not a person circumventing a rule. The close never revisits a
  * settled day anyway; it only fills blanks.
  *
- * ## Both attendance tables
+ * ## It took two commits to get this right
  *
- * This academy keeps attendance twice: `daily_attendance_records` is the
- * day-per-student register that fines and percentages read, and
- * `attendance_records` is the per-class-session sheet an instructor marks
- * from Learning → Attendance. They share no key and neither writes the other.
+ * e58ec3c put the trait on the daily register and audited the per-class sheet
+ * as read-only on the strength of Api\V1\AttendanceController — missing
+ * Admin\AttendanceController::save(), which upserted the other table. An
+ * instructor could flip a class absence to present there, be told "Attendance
+ * saved", and leave the two screens disagreeing. 946e8e2 closed that by
+ * putting the trait on the second model too.
  *
- * e58ec3c applied this trait to the register only, and audited the class
- * sheet as read-only on the strength of Api\V1\AttendanceController — missing
- * Admin\AttendanceController::save(), which upserts `attendance_records`. So
- * an instructor could flip a class absence to present there, be told
- * "Attendance saved", and leave the two screens disagreeing. The trait is on
- * both models now.
- *
- * Reusing it needed nothing generalised: both tables spell the status
- * `absent` (`daily_attendance_records` in STATUSES, `attendance_records` in
- * its enum of present/absent/late/excused), and both write through model
- * instances, so `updating` fires on both. `AttendanceRecord::updateOrCreate`
- * is `firstOrNew()->fill()->save()` — an instance save, events and all —
- * which is exactly why it is safe and exactly why the query-builder note
- * below is the thing to watch.
+ * The academy keeps attendance once now: the per-class table was folded into
+ * the register and dropped, which is what makes this trait single-model again.
+ * That is the real fix — a rule written twice is a rule that drifts, and a
+ * fact recorded twice is two screens waiting to disagree. The trait stays a
+ * trait so the rule keeps a name and a place of its own rather than
+ * dissolving into the model it happens to be applied to.
  *
  * One thing this does NOT cover, and it is worth knowing: a mass update
  * through the query builder — `DailyAttendance::where(...)->update([...])` —

@@ -204,8 +204,10 @@ class BiometricRegisterPathTest extends ApiTestCase
 
     public function test_in_manual_mode_a_punch_does_not_reach_the_register(): void
     {
-        // Default mode. The punch records the class session, and the register
-        // is left to the instructor by design (5a4bf72).
+        // Default mode. The register is left to the instructor by design
+        // (5a4bf72), and that survives the retirement of the class sheet: the
+        // punch now writes no attendance row at all rather than writing a
+        // second table's version of the same day.
         $this->assertTrue(AttendanceConfig::isManual());
 
         $device = $this->device();
@@ -216,8 +218,13 @@ class BiometricRegisterPathTest extends ApiTestCase
         $this->punchAt($device, $student, $at);
 
         $this->assertNull($this->registerFor($student, $at));
-        // The class record is still written, so the punch is not lost.
-        $this->assertSame('present', \App\Models\AttendanceRecord::where('user_id', $student->id)->value('status'));
+
+        // The punch itself is what carries the fact forward — the next test
+        // is the one that shows the close settling the day from it, so
+        // nothing about the student's day is lost by not writing now.
+        $punch = \App\Models\BiometricPunch::where('user_id', $student->id)->sole();
+        $this->assertSame(\App\Models\BiometricPunch::STATUS_PROCESSED, $punch->status);
+        $this->assertNull($punch->daily_attendance_record_id);
     }
 
     public function test_in_manual_mode_a_punched_day_closes_from_the_punch(): void

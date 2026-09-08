@@ -86,6 +86,7 @@ class SettingController extends Controller
             'attendance_weight_present' => ['required', 'integer', 'min:0', 'max:100'],
             'attendance_weight_late' => ['required', 'integer', 'min:0', 'max:100'],
             'attendance_weight_leave' => ['required', 'integer', 'min:0', 'max:100'],
+            'attendance_weight_excused' => ['required', 'integer', 'min:0', 'max:100'],
             'attendance_weight_absent' => ['required', 'integer', 'min:0', 'max:100'],
             // At least one: zero would not be an allowance, it would be a ban,
             // and there is a toggle-shaped way to say that if it is ever wanted.

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\AttendanceRecord;
 use App\Models\BiometricDevice;
 use App\Models\BiometricPunch;
 use App\Models\User;
@@ -15,10 +14,14 @@ use Illuminate\Support\Facades\DB;
  * Rules:
  *  - A punch matches a student by users.biometric_id; unknown ids are kept
  *    as `unmatched` so admins can enroll the student and reprocess.
- *  - The first punch of the day decides the status: `present` when it lands
- *    before the device's session_start + late_after_minutes, `late` after.
- *    Devices without a session_start always mark `present`.
+ *  - The first punch of the day decides the status, judged against the
+ *    student's own attendance slot (or the academy day for a student on no
+ *    slot) — the same rule every other part of the register uses.
  *  - Later punches on the same day never downgrade an existing record.
+ *  - Only the daily register is written. The per-class sheet this also used
+ *    to fill was retired: two tables recording the same day disagreed with
+ *    each other, and the device's own session_start was a second late rule
+ *    competing with the student's slot.
  *  - Duplicate punches (same device + biometric id + timestamp) are ignored.
  */
 class BiometricAttendanceService
@@ -76,28 +79,36 @@ class BiometricAttendanceService
             return $punch;
         }
 
-        $status = $this->resolveStatus($device, $punch->punched_at);
-
-        // A punch also proves daily presence at the academy - fill the daily
-        // register (never overwriting an already-marked day).
-        $dailyMarked = \App\Models\DailyAttendance::where('user_id', $user->id)
+        // The register is the academy's one attendance table. A punch fills
+        // the day it proves the student was here for, and never overwrites a
+        // day that already has an answer — an instructor's mark, an approved
+        // leave, or an earlier punch all stand.
+        $existing = \App\Models\DailyAttendance::where('user_id', $user->id)
             ->onDate($punch->punched_at)
-            ->exists();
+            ->first();
 
-        // In manual mode instructors own the daily register, so a punch records
-        // the class session but must not fill the day on their behalf.
-        if (! $dailyMarked && \App\Support\AttendanceConfig::isBiometric()) {
-            // The daily register judges late against the student's own slot,
-            // taking the time from the slot and the date from this punch, so
-            // the same stored slot applies every day. Students with no slot
-            // fall back to the academy-wide day start in Settings. Either way
-            // this is independent of any per-device class session.
+        $record = $existing;
+
+        // In manual mode instructors own the register, so a punch must not
+        // fill the day on their behalf (5a4bf72). The punch is not lost:
+        // CloseAttendanceDay settles an unmarked day from the punch itself at
+        // end of day, reading biometric_punches rather than any record here.
+        if ($existing === null && \App\Support\AttendanceConfig::isBiometric()) {
+            // Late is judged against the student's own slot — the time from
+            // the slot, the date from this punch — falling back to the
+            // academy-wide day start for a student on no slot. This is the
+            // system's single late rule; the device's own session_start is no
+            // longer a second opinion on the same question.
             $dailyStatus = \App\Support\AttendanceConfig::statusForArrival($punch->punched_at, $user);
             $dayStart = \App\Support\AttendanceConfig::sessionStart($punch->punched_at, $user);
             $minutesLate = (int) $dayStart->diffInMinutes($punch->punched_at, false);
 
-            \App\Models\DailyAttendance::create([
+            $record = DB::transaction(fn () => \App\Models\DailyAttendance::create([
                 'user_id' => $user->id,
+                // What the device knows about the day, carried onto the row
+                // the class-attendance sheet used to hold.
+                'course_id' => $device->course_id,
+                'session_title' => $device->name.($device->location ? ' — '.$device->location : ''),
                 'date' => $punch->punched_at->toDateString(),
                 'status' => $dailyStatus,
                 'arrived_at' => $punch->punched_at->format('H:i:s'),
@@ -106,35 +117,15 @@ class BiometricAttendanceService
                     : 'Punched at '.$punch->punched_at->format('g:i A'),
                 'source' => 'biometric',
                 'marked_at' => now(),
-            ]);
+            ]));
         }
-
-        $record = DB::transaction(function () use ($punch, $device, $user, $status) {
-            $existing = AttendanceRecord::where('user_id', $user->id)
-                ->where('course_id', $device->course_id)
-                ->whereDate('date', $punch->punched_at->toDateString())
-                ->first();
-
-            if ($existing) {
-                // Never downgrade a manual or earlier-punch status.
-                return $existing;
-            }
-
-            return AttendanceRecord::create([
-                'user_id' => $user->id,
-                'course_id' => $device->course_id,
-                'session_title' => $device->name.($device->location ? ' — '.$device->location : ''),
-                'date' => $punch->punched_at->toDateString(),
-                'status' => $status,
-                'notes' => 'Punched at '.$punch->punched_at->format('H:i'),
-                'source' => 'biometric',
-                'biometric_device_id' => $device->id,
-            ]);
-        });
 
         $punch->fill([
             'status' => BiometricPunch::STATUS_PROCESSED,
-            'attendance_record_id' => $record->id,
+            // Null in manual mode on an unmarked day — there is genuinely no
+            // row yet. The punches screen hides the badge rather than
+            // inventing one.
+            'daily_attendance_record_id' => $record?->id,
             'note' => null,
         ])->save();
 
@@ -158,15 +149,4 @@ class BiometricAttendanceService
         return $count;
     }
 
-    protected function resolveStatus(BiometricDevice $device, Carbon $punchedAt): string
-    {
-        if (! $device->session_start) {
-            return 'present';
-        }
-
-        $sessionStart = $punchedAt->copy()->setTimeFromTimeString($device->session_start);
-        $lateAfter = $sessionStart->copy()->addMinutes($device->late_after_minutes);
-
-        return $punchedAt->lessThanOrEqualTo($lateAfter) ? 'present' : 'late';
-    }
 }

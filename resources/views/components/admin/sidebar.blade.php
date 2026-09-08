@@ -66,15 +66,13 @@
             @can('quizzes.view')
             <x-admin.nav-item :href="route('admin.quizzes.index')" icon="quiz" :active="request()->routeIs('admin.quizzes.*') || request()->routeIs('admin.questions.*')">Quizzes</x-admin.nav-item>
             @endcan
-            @can('attendance.view')
             {{-- Either permission: an instructor holds the scoped one and
-                 sees the same screens narrowed to their own categories. --}}
+                 sees the same screens narrowed to their own categories. The
+                 separate Class Attendance screen is gone — one register now. --}}
             @canany(['attendance.daily', 'attendance.daily.own-category'])
-            <x-admin.nav-item :href="route('admin.attendance.daily')" icon="check" :active="request()->routeIs('admin.attendance.daily')">Daily Attendance</x-admin.nav-item>
+            <x-admin.nav-item :href="route('admin.attendance.daily')" icon="check" :active="request()->routeIs('admin.attendance.daily')">Attendance</x-admin.nav-item>
             <x-admin.nav-item :href="route('admin.leaves.index')" icon="clipboard" :active="request()->routeIs('admin.leaves.*')">Leave Requests</x-admin.nav-item>
             @endcanany
-            <x-admin.nav-item :href="route('admin.attendance.index')" icon="calendar" :active="request()->routeIs('admin.attendance.index') || request()->routeIs('admin.attendance.log')">Class Attendance</x-admin.nav-item>
-            @endcan
             @can('devices.view')
             <x-admin.nav-item :href="route('admin.biometric.devices')" icon="server" :active="request()->routeIs('admin.biometric.*')">Biometric</x-admin.nav-item>
             @endcan

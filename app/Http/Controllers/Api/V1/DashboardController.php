@@ -7,7 +7,7 @@ use App\Http\Resources\CourseProgressResource;
 use App\Models\Announcement;
 use App\Models\AnnouncementRead;
 use App\Models\Assignment;
-use App\Models\AttendanceRecord;
+use App\Models\DailyAttendance;
 use App\Models\LearningActivity;
 use App\Models\LeaveApplication;
 use App\Models\Quiz;
@@ -41,8 +41,11 @@ class DashboardController extends ApiController
             )
             ->count();
 
-        $attendanceTotal = AttendanceRecord::where('user_id', $user->id)->count();
-        $attendancePresent = AttendanceRecord::where('user_id', $user->id)->where('status', 'present')->count();
+        // `counted`, not every row: a holiday and an unmarked day are not
+        // attendance, and letting either into the denominator would quietly
+        // lower the figure for every student in a month with an Eid.
+        $attendanceTotal = DailyAttendance::where('user_id', $user->id)->counted()->count();
+        $attendancePresent = DailyAttendance::where('user_id', $user->id)->where('status', 'present')->count();
 
         $continueLearning = $user->enrollments()
             ->whereNull('completed_at')

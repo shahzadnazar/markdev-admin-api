@@ -8,7 +8,11 @@
         ['key' => 'late', 'label' => 'Late', 'dot' => 'bg-warning'],
         ['key' => 'absent', 'label' => 'Absent', 'dot' => 'bg-error'],
         ['key' => 'leave', 'label' => 'Leave', 'dot' => 'bg-secondary'],
+        ['key' => 'excused', 'label' => 'Excused', 'dot' => 'bg-outline'],
     ] as $tile)
+        {{-- Excused is only shown when there is one: it is a rare status, and
+             a permanent 0 beside the four that matter is noise. --}}
+        @continue($tile['key'] === 'excused' && empty($counts['excused']))
         <span class="inline-flex items-center gap-1.5">
             <span class="size-2 shrink-0 rounded-full {{ $tile['dot'] }}"></span>
             <span class="font-display text-sm font-bold leading-none text-on-surface">{{ number_format($counts[$tile['key']] ?? 0) }}</span>
@@ -17,7 +21,7 @@
     @endforeach
 
     @if (! empty($counts['holiday']))
-        {{-- Shown beside the four statuses but never one of them: it is not in
+        {{-- Shown beside the statuses but never one of them: it is not in
              $byStatus, so no total, rate or fine can see it. --}}
         <span class="inline-flex items-center gap-1.5">
             <span class="size-2 shrink-0 rounded-full bg-primary"></span>

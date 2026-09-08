@@ -16,8 +16,17 @@ class DailyAttendance extends Model
 {
     use Auditable, LocksAbsences, ScopesToDay;
 
-    /** Statuses an instructor can choose. `pending` is never one of them. */
-    public const STATUSES = ['present', 'late', 'absent', 'leave'];
+    /**
+     * Statuses an instructor can choose. `pending` is never one of them.
+     *
+     * `excused` arrived with the retirement of the class-attendance sheet,
+     * which was the only screen that offered it. It is kept as its own word
+     * rather than folded into `leave`: `leave` means an approved application
+     * exists and is what the leave allowance is spent on, and writing it for a
+     * day with no application behind it would make the register say something
+     * that is not true. See the backfill migration for the whole argument.
+     */
+    public const STATUSES = ['present', 'late', 'absent', 'leave', 'excused'];
 
     /**
      * A day held open because nobody has marked it yet.
@@ -61,6 +70,10 @@ class DailyAttendance extends Model
         'present' => 100,
         'late' => 70,
         'leave' => 50,
+        // The same 50 the merged student view already scored an excused class
+        // session at, back when it was relabelled `leave` on the way out. The
+        // number is unchanged; only the word on the row is now honest.
+        'excused' => 50,
         'absent' => 0,
     ];
 
@@ -125,6 +138,8 @@ class DailyAttendance extends Model
 
     protected $fillable = [
         'user_id',
+        'course_id',
+        'session_title',
         'date',
         'status',
         'remarks',
@@ -149,6 +164,11 @@ class DailyAttendance extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function marker(): BelongsTo
