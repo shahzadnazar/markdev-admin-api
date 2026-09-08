@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Auth;
 /**
  * An absence, once recorded, can only be undone by someone allowed to.
  *
- * 459f3cc put that rule in the two controller methods that wrote the register
- * at the time. Two call sites became four, and the one added last —
+ * 459f3cc put that rule in the two controller methods that wrote the daily
+ * register at the time. Two call sites became four, and the one added last —
  * releasing a closed absence when a leave is approved late — never called it.
  * An instructor, who may now review leave, could undo a billable absence
  * without holding `attendance.correct-absent`.
@@ -28,13 +28,35 @@ use Illuminate\Support\Facades\Auth;
  * and those are not a person circumventing a rule. The close never revisits a
  * settled day anyway; it only fills blanks.
  *
+ * ## Both attendance tables
+ *
+ * This academy keeps attendance twice: `daily_attendance_records` is the
+ * day-per-student register that fines and percentages read, and
+ * `attendance_records` is the per-class-session sheet an instructor marks
+ * from Learning → Attendance. They share no key and neither writes the other.
+ *
+ * e58ec3c applied this trait to the register only, and audited the class
+ * sheet as read-only on the strength of Api\V1\AttendanceController — missing
+ * Admin\AttendanceController::save(), which upserts `attendance_records`. So
+ * an instructor could flip a class absence to present there, be told
+ * "Attendance saved", and leave the two screens disagreeing. The trait is on
+ * both models now.
+ *
+ * Reusing it needed nothing generalised: both tables spell the status
+ * `absent` (`daily_attendance_records` in STATUSES, `attendance_records` in
+ * its enum of present/absent/late/excused), and both write through model
+ * instances, so `updating` fires on both. `AttendanceRecord::updateOrCreate`
+ * is `firstOrNew()->fill()->save()` — an instance save, events and all —
+ * which is exactly why it is safe and exactly why the query-builder note
+ * below is the thing to watch.
+ *
  * One thing this does NOT cover, and it is worth knowing: a mass update
  * through the query builder — `DailyAttendance::where(...)->update([...])` —
  * fires no model events and so walks straight past this. There is exactly one
  * such site today, in CloseAttendanceDay, and it only ever writes rows it has
- * already filtered to `pending`. AbsenceLockTest keeps a list of them and
- * fails when a new one appears, so the gap stays known rather than becoming
- * the next forgotten call site.
+ * already filtered to `pending`. AbsenceLockTest keeps a list of them, for
+ * both models, and fails when a new one appears, so the gap stays known
+ * rather than becoming the next forgotten call site.
  */
 trait LocksAbsences
 {

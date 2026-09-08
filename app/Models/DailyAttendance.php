@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\LocksAbsences;
+use App\Models\Concerns\ScopesToDay;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class DailyAttendance extends Model
 {
-    use Auditable, LocksAbsences;
+    use Auditable, LocksAbsences, ScopesToDay;
 
     /** Statuses an instructor can choose. `pending` is never one of them. */
     public const STATUSES = ['present', 'late', 'absent', 'leave'];
@@ -62,26 +63,6 @@ class DailyAttendance extends Model
         'leave' => 50,
         'absent' => 0,
     ];
-
-    /**
-     * Rows for one calendar day.
-     *
-     * Not whereDate(): that compiles to date(`date`) = ?, and wrapping the
-     * column in a function stops MySQL using the (date, status) index or the
-     * (user_id, date) unique. Not a plain equality either — a date-cast
-     * attribute is written as "Y-m-d H:i:s", which a real DATE column
-     * truncates but SQLite stores verbatim, so "2026-07-01 00:00:00" would
-     * never equal "2026-07-01". A half-open range is right on both and still
-     * uses the index.
-     */
-    public function scopeOnDate(\Illuminate\Database\Eloquent\Builder $query, mixed $date): \Illuminate\Database\Eloquent\Builder
-    {
-        $day = \Illuminate\Support\Carbon::parse($date)->startOfDay();
-
-        return $query
-            ->where('date', '>=', $day->toDateString())
-            ->where('date', '<', $day->copy()->addDay()->toDateString());
-    }
 
     /** Days that count toward a percentage — not pending, not a holiday. */
     public function scopeCounted(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder

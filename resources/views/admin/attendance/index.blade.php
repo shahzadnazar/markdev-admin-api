@@ -37,10 +37,21 @@
             <input type="hidden" name="course_id" value="{{ $course->id }}">
             <input type="hidden" name="date" value="{{ $date->format('Y-m-d') }}">
 
-            <x-card class="mb-4 max-w-xl">
+            @php $hasAbsence = $existing->contains(fn ($record) => $record->status === 'absent'); @endphp
+
+            <x-card class="mb-4 max-w-xl space-y-4">
                 <x-form.input label="Session title (optional)" name="session_title"
                     :value="$existing->first()?->session_title ?? 'Live session — '.$date->format('j M')"
                     hint="Shown on the student's attendance record." />
+
+                {{-- A recorded absence is final for everyone else, so the box
+                     only appears for the people who can actually undo one. --}}
+                @can('attendance.correct-absent')
+                    @if ($hasAbsence)
+                        <x-form.input label="Reason for correcting an absence" name="reason"
+                            hint="Required only if you change a student who is already marked absent. Saved on the record and in the audit trail." />
+                    @endif
+                @endcan
             </x-card>
 
             <x-table>
@@ -60,6 +71,15 @@
                                 <input type="hidden" name="rows[{{ $loop->index }}][user_id]" value="{{ $student->id }}">
                                 <p class="font-medium text-on-surface">{{ $student->name }}</p>
                                 <p class="text-xs text-outline">{{ $student->email }}</p>
+                                @if (($record->status ?? null) === 'absent')
+                                    <p class="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-error">
+                                        @can('attendance.correct-absent')
+                                            Marked absent — changing this needs a reason
+                                        @else
+                                            Marked absent — only an admin can change this
+                                        @endcan
+                                    </p>
+                                @endif
                             </td>
                             <td class="td">
                                 <div class="flex flex-wrap gap-1.5">

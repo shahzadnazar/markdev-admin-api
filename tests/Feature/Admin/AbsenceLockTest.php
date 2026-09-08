@@ -237,6 +237,11 @@ class AbsenceLockTest extends TestCase
         // rows it has already filtered to `pending`. This fails when another
         // appears, so the gap stays known instead of becoming the next
         // forgotten call site.
+        //
+        // Both locked models are scanned. The class sheet is here because
+        // e58ec3c's audit stopped at the register and missed
+        // Admin\AttendanceController::save() entirely — a list that covers one
+        // of two tables is how that happened.
         $known = ['app/Console/Commands/CloseAttendanceDay.php'];
         $found = [];
 
@@ -256,7 +261,7 @@ class AbsenceLockTest extends TestCase
 
             // A chain that starts at the class and ends in ->update( is a
             // builder write; an instance write reads `$record->update(`.
-            if (preg_match('/DailyAttendance::[^;]{0,400}->update\(/s', $code)) {
+            if (preg_match('/(DailyAttendance|AttendanceRecord)::[^;]{0,400}->update\(/s', $code)) {
                 $found[] = str_replace(base_path().'/', '', $file->getPathname());
             }
         }
@@ -265,7 +270,7 @@ class AbsenceLockTest extends TestCase
         $this->assertSame(
             $known,
             $found,
-            'A mass update on daily_attendance_records bypasses the model lock. '
+            'A mass update on a locked attendance table bypasses the model lock. '
                 .'Either write through a model instance, or check mayUndoAbsence() first and add the file here.',
         );
     }
