@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Models\Concerns\LocksAbsences;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class DailyAttendance extends Model
 {
-    use Auditable;
+    use Auditable, LocksAbsences;
 
     /** Statuses an instructor can choose. `pending` is never one of them. */
     public const STATUSES = ['present', 'late', 'absent', 'leave'];

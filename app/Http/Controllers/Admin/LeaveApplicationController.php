@@ -140,7 +140,7 @@ class LeaveApplicationController extends Controller
         $approvedDates = $declineAll ? [] : ($data['days'] ?? []);
         $note = $data['review_note'] ?? null;
 
-        $status = DB::transaction(function () use ($request, $leave, $approvedDates, $note) {
+        $result = DB::transaction(function () use ($request, $leave, $approvedDates, $note) {
             $status = $leave->recordDecisions($approvedDates);
 
             $leave->update([
@@ -150,10 +150,12 @@ class LeaveApplicationController extends Controller
                 'reviewed_at' => now(),
             ]);
 
-            $this->releaseClosedAbsences($request, $leave, $approvedDates);
+            $lockedDays = $this->releaseClosedAbsences($request, $leave, $approvedDates);
 
-            return $status;
+            return [$status, $lockedDays];
         });
+
+        [$status, $lockedDays] = $result;
 
         $approved = count(array_unique($approvedDates));
         $declined = $rangeDates->count() - $approved;
@@ -170,10 +172,18 @@ class LeaveApplicationController extends Controller
 
         $leave->user?->notify(new LeaveApplicationReviewed($leave->fresh()));
 
+        // The decision is recorded either way; only the register correction
+        // waits for someone who may undo an absence.
+        $locked = $lockedDays === 0 ? '' : sprintf(
+            ' %d day(s) had already closed as an absence and stay that way — an admin has to release %s.',
+            $lockedDays,
+            $lockedDays === 1 ? 'it' : 'them',
+        );
+
         return back()->with('success', match ($status) {
-            'approved' => "Leave approved for {$leave->user?->name} — {$approved} day(s).",
+            'approved' => "Leave approved for {$leave->user?->name} — {$approved} day(s).".$locked,
             'rejected' => "Leave declined for {$leave->user?->name}.",
-            default => "Leave partly approved for {$leave->user?->name} — {$approved} day(s) approved, {$declined} declined.",
+            default => "Leave partly approved for {$leave->user?->name} — {$approved} day(s) approved, {$declined} declined.".$locked,
         });
     }
 
@@ -201,10 +211,10 @@ class LeaveApplicationController extends Controller
      *
      * @param  array<int, string>  $approvedDates
      */
-    protected function releaseClosedAbsences(Request $request, LeaveApplication $leave, array $approvedDates): void
+    protected function releaseClosedAbsences(Request $request, LeaveApplication $leave, array $approvedDates): int
     {
         if ($approvedDates === []) {
-            return;
+            return 0;
         }
 
         $approved = collect($approvedDates)->map(fn ($date) => Carbon::parse($date)->toDateString());
@@ -217,6 +227,17 @@ class LeaveApplicationController extends Controller
             ->where('status', 'absent')
             ->get()
             ->filter(fn (DailyAttendance $row) => $approved->contains($row->date->toDateString()));
+
+        // Undoing an absence needs `attendance.correct-absent` — an absence is
+        // billable and 459f3cc made it admin territory. A reviewer without it
+        // still records the leave; the days that already closed are counted
+        // and reported so somebody can release them, rather than the whole
+        // review failing or the lock being quietly skipped. Same shape as the
+        // late-cutoff case on the register: do what is allowed, say what was
+        // not.
+        if (! DailyAttendance::mayUndoAbsence()) {
+            return $rows->count();
+        }
 
         foreach ($rows as $row) {
             $old = ['status' => $row->status, 'remarks' => $row->remarks];
@@ -239,5 +260,7 @@ class LeaveApplicationController extends Controller
             // It has stopped being a chargeable absence.
             AbsenceFine::reconcile($row->user_id, $row->date->copy()->startOfMonth());
         }
+
+        return 0;
     }
 }

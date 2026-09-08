@@ -322,6 +322,16 @@ class DailyAttendanceController extends Controller
             fn (User $student) => ! AttendanceConfig::presentCutoffPassed($day, $student),
         );
 
+        // And the same absent lock. `$remaining` already excludes anyone with
+        // a decided row, so today nothing here is an absence — this is the
+        // rule stated where it belongs rather than left resting on that
+        // filter, which one edit could widen. Skipped and reported, matching
+        // the cutoff above: a bulk action that half-worked and said nothing
+        // is worse than one that says what it left alone.
+        [$markable, $locked] = $markable->partition(
+            fn (User $student) => ! $this->absenceIsLocked($student, $data['date']),
+        );
+
         foreach ($markable as $student) {
             DailyAttendance::updateOrCreate(
                 ['user_id' => $student->id, 'date' => $data['date']],
@@ -339,11 +349,16 @@ class DailyAttendanceController extends Controller
             'bulk' => 'remaining_present',
             'records' => $markable->count(),
             'skipped_past_cutoff' => $tooLate->count(),
+            'skipped_absent_locked' => $locked->count(),
         ]);
 
         $skipped = $tooLate->isEmpty()
             ? ''
             : " {$tooLate->count()} were past their late cutoff and must be marked late individually.";
+
+        $skipped .= $locked->isEmpty()
+            ? ''
+            : " {$locked->count()} are already marked absent — only an admin can change that.";
 
         return back()->with('success', "{$markable->count()} remaining student(s) marked present.".$skipped);
     }
@@ -483,6 +498,25 @@ class DailyAttendanceController extends Controller
             ->when($categoryIds !== null, fn ($query) => $query->whereIn('category_id', $categoryIds))
             ->orderBy('title')
             ->get(['id', 'title']);
+    }
+
+    /**
+     * Whether this student's day is a recorded absence the caller may not undo.
+     *
+     * Read per student rather than in one query because the set is a page of
+     * students at most, and being obviously right matters more here than
+     * saving a round trip.
+     */
+    protected function absenceIsLocked(User $student, string $date): bool
+    {
+        if (DailyAttendance::mayUndoAbsence()) {
+            return false;
+        }
+
+        return DailyAttendance::where('user_id', $student->id)
+            ->onDate($date)
+            ->where('status', 'absent')
+            ->exists();
     }
 
     /** 403 unless this record's student is in the caller's categories. */
