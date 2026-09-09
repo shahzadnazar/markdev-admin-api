@@ -179,8 +179,11 @@
         padding-right: 0.75rem;
     }
 
-    .sidebar-collapsed .sidebar-footer > div {
-        justify-content: center;
+    /* The footer is the flex row itself now that it is a link, rather than a
+       wrapper around one. Its gap would otherwise sit after the avatar with
+       nothing behind it and push the avatar off centre. */
+    .sidebar-collapsed .sidebar-footer {
+        gap: 0;
     }
 }
 
