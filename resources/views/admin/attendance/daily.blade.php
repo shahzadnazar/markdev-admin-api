@@ -128,10 +128,6 @@
                 @forelse ($students as $student)
                 @php
                 $record = $records->get($student->id);
-                // Counts, rate and the last five days arrive already summarised
-                // from the controller, so the page does no counting of its own.
-                $studentHistory = $history[$student->id]
-                    ?? array_fill_keys(\App\Models\DailyAttendance::STATUSES, 0) + ['total' => 0, 'rate' => null, 'recent' => []];
                 $payload = [
                 'student' => [
                 'id' => $student->id,
@@ -151,8 +147,6 @@
                 // question, and three spellings of it is how they drift apart.
                 'may_undo_absence' => \App\Models\DailyAttendance::mayUndoAbsence(),
                 ],
-
-                'history' => $studentHistory,
 
                 'record' => $record ? [
                 'id' => $record->id,
@@ -343,82 +337,6 @@
                     <div class="min-h-0 overflow-y-auto">
                         {{-- ---- Mark (first time — no PIN) ---- --}}
                         <form x-show="mode === 'mark'" method="POST" action="{{ route('admin.attendance.daily.mark') }}" class="space-y-4 px-5 py-4">
-                            <div class="rounded-xl border border-outline/15 bg-surface-ice/50 p-3.5">
-                                <div class="mb-3 flex items-center justify-between">
-                                    <p class="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-outline">
-                                        Previous attendance
-                                    </p>
-
-                                    <template x-if="history.total > 0">
-                                        <span class="font-mono text-xs font-semibold text-primary">
-                                            <span x-text="history.rate"></span>% attendance
-                                        </span>
-                                    </template>
-                                </div>
-
-                                <div class="grid grid-cols-4 gap-2">
-                                    <div class="rounded-lg bg-success/10 px-2.5 py-2">
-                                        <p class="font-display text-lg font-bold text-success"
-                                            x-text="history.present"></p>
-                                        <p class="font-mono text-[9px] uppercase tracking-wide text-outline">
-                                            Present
-                                        </p>
-                                    </div>
-
-                                    <div class="rounded-lg bg-warning/10 px-2.5 py-2">
-                                        <p class="font-display text-lg font-bold text-warning"
-                                            x-text="history.late"></p>
-                                        <p class="font-mono text-[9px] uppercase tracking-wide text-outline">
-                                            Late
-                                        </p>
-                                    </div>
-
-                                    <div class="rounded-lg bg-error/10 px-2.5 py-2">
-                                        <p class="font-display text-lg font-bold text-error"
-                                            x-text="history.absent"></p>
-                                        <p class="font-mono text-[9px] uppercase tracking-wide text-outline">
-                                            Absent
-                                        </p>
-                                    </div>
-
-                                    <div class="rounded-lg bg-secondary/10 px-2.5 py-2">
-                                        <p class="font-display text-lg font-bold text-secondary"
-                                            x-text="history.leave"></p>
-                                        <p class="font-mono text-[9px] uppercase tracking-wide text-outline">
-                                            Leave
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <template x-if="history.recent.length > 0">
-                                    <div class="mt-3 border-t border-outline/10 pt-3">
-                                        <p class="mb-2 text-xs font-medium text-on-surface">
-                                            Recent records
-                                        </p>
-
-                                        <div class="space-y-1">
-                                            <template x-for="item in history.recent" :key="item.date">
-                                                <div class="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-white">
-                                                    <span class="font-mono text-[11px] text-outline"
-                                                        x-text="item.date"></span>
-
-                                                    <span
-                                                        class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
-                                                        :class="badgeClass(item.status)"
-                                                        x-text="item.status">
-                                                    </span>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-
-                                <template x-if="history.total === 0">
-                                    <p class="mt-3 border-t border-outline/10 pt-3 text-xs text-outline">
-                                        No previous attendance records.
-                                    </p>
-                                </template>
-                            </div>
                             @csrf
                             <input type="hidden" name="date" value="{{ $date->toDateString() }}">
                             <input type="hidden" name="user_id" :value="student.id">
@@ -546,15 +464,6 @@
                 mode: 'mark',
                 student: {},
                 record: {},
-                history: {
-                    present: 0,
-                    late: 0,
-                    absent: 0,
-                    leave: 0,
-                    total: 0,
-                    rate: null,
-                    recent: [],
-                },
                 pin: '',
                 markStatus: 'present',
                 newStatus: 'present',
@@ -566,15 +475,6 @@
                     // present is disabled, so it cannot be left selected.
                     this.markStatus = payload.student.cutoff_passed ? 'late' : 'present';
                     this.record = {};
-                    this.history = payload.history || {
-                        present: 0,
-                        late: 0,
-                        absent: 0,
-                        leave: 0,
-                        total: 0,
-                        rate: null,
-                        recent: [],
-                    };
                     this.mode = 'mark';
                     this.open = true;
                 },

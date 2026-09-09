@@ -69,7 +69,6 @@ class DailyAttendanceController extends Controller
     'cutoffs' => $cutoffs,
     'students' => $students,
     'records' => $records,
-    'history' => $this->historyFor($studentIds, $date),
     'date' => $date,
     'statusFilter' => $statusFilter,
     'courseId' => $courseId,
@@ -527,92 +526,6 @@ class DailyAttendanceController extends Controller
         abort_if($student === null, 404);
 
         $this->authorizeStudentCategory($request, $student);
-    }
-
-    /**
-     * Prior attendance for the students on this page, summarised in the database.
-     *
-     * The register shows four counts, a rate and the last five days per student.
-     * It used to get those by loading every historical row for the page and
-     * counting them in PHP, so the work grew with the whole table rather than
-     * with the page — on a register with a few terms behind it that is enough
-     * to run a request into its time limit. Now the database returns only the
-     * numbers shown.
-     *
-     * @param  \Illuminate\Support\Collection<int, int>  $studentIds
-     * @return array<int, array<string, mixed>>
-     */
-    protected function historyFor($studentIds, \Illuminate\Support\Carbon $date): array
-    {
-        // Same reason as dayCounts: listing the statuses again is how one
-        // gets forgotten. A status missing from $blank would be dropped by the
-        // isset() below and silently left out of the student's total.
-        $blank = array_fill_keys(DailyAttendance::STATUSES, 0)
-            + ['total' => 0, 'rate' => null, 'recent' => []];
-
-        if ($studentIds->isEmpty()) {
-            return [];
-        }
-
-        $day = $date->toDateString();
-        $history = [];
-        foreach ($studentIds as $id) {
-            $history[$id] = $blank;
-        }
-
-        $counts = DailyAttendance::query()
-            ->whereIn('user_id', $studentIds)
-            ->where('date', '<', $day)
-            ->counted()
-            ->selectRaw('user_id, status, count(*) as total')
-            ->groupBy('user_id', 'status')
-            ->get();
-
-        foreach ($counts as $row) {
-            if (isset($history[$row->user_id])) {
-                $history[$row->user_id][$row->status] = (int) $row->total;
-            }
-        }
-
-        // Only five days are shown per student, so only five are fetched. The
-        // window function ranks each student's days inside a single query,
-        // rather than one query per row on the page.
-        $ranked = DailyAttendance::query()
-            ->select('user_id', 'date', 'status')
-            ->selectRaw('row_number() over (partition by user_id order by date desc) as rn')
-            ->whereIn('user_id', $studentIds)
-            ->where('date', '<', $day)
-            ->counted()
-            ->toBase();
-
-        $recent = \Illuminate\Support\Facades\DB::query()
-            ->fromSub($ranked, 'ranked')
-            ->where('rn', '<=', 5)
-            ->get()
-            ->groupBy('user_id');
-
-        foreach ($history as $id => $entry) {
-            $total = 0;
-            foreach (DailyAttendance::STATUSES as $status) {
-                $total += $entry[$status];
-            }
-            $history[$id]['total'] = $total;
-            // Only genuine absences hurt: approved leave counts as attended,
-            // and so does a day the academy excused.
-            $history[$id]['rate'] = $total > 0
-                ? round(($total - $entry['absent']) / $total * 100, 1)
-                : null;
-            $history[$id]['recent'] = $recent->get($id, collect())
-                ->sortBy('rn')
-                ->map(fn ($row) => [
-                    'date' => \Illuminate\Support\Carbon::parse($row->date)->format('j M Y'),
-                    'status' => $row->status,
-                ])
-                ->values()
-                ->all();
-        }
-
-        return $history;
     }
 
     /** Day summary for the filtered cohort (search + course aware). */
