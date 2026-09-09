@@ -146,7 +146,10 @@
                 // An absence can cost the student money, so undoing one is
                 // admin territory. The controller enforces it; this is so the
                 // form says so rather than failing on submit.
-                'may_undo_absence' => auth()->user()->can('attendance.correct-absent'),
+                // Asked of the model, not of the user directly: the guard, the
+                // hidden control below and this all have to answer the same
+                // question, and three spellings of it is how they drift apart.
+                'may_undo_absence' => \App\Models\DailyAttendance::mayUndoAbsence(),
                 ],
 
                 'history' => $studentHistory,
@@ -171,7 +174,7 @@
                 ] : null,
                 ];
                 @endphp
-                <tr class="row" @if ($record && session('reopen_update')==$record->id)
+                <tr class="row" @if ($record && ! $record->isLockedAbsence() && session('reopen_update')==$record->id)
                     x-init='openUpdate(@json($payload))'
                     @endif>
                     <td class="td">
@@ -267,9 +270,24 @@
                                 Mark
                             </button>
 
+                            @elseif ($record->isLockedAbsence())
+
+                            {{-- A settled absence, for someone who cannot undo
+                                 one. The PIN dialog is not offered here: it
+                                 would open, take a PIN, and be refused by the
+                                 controller every time. The refusal still lives
+                                 on the server — this only stops inviting it. --}}
+                            <span data-absence-locked
+                                title="Absent is final. Ask an admin to correct it."
+                                class="inline-flex items-center gap-1.5 rounded-lg bg-error/10 px-2.5 py-2 font-mono text-[10px] font-medium tracking-[0.08em] text-error uppercase">
+                                <x-icon name="shield" class="size-3.5" />
+                                Locked
+                                <span class="sr-only">— absent is final. Ask an admin to correct it.</span>
+                            </span>
+
                             @else
 
-                            <button type="button"
+                            <button type="button" data-correction-trigger
                                 x-on:click='openUpdate(@json($payload))'
                                 title="Update today's attendance (PIN required)"
                                 class="rounded-lg p-2 text-on-surface-variant transition hover:bg-warning/15 hover:text-warning">

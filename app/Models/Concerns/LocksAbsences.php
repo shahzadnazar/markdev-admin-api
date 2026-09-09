@@ -76,6 +76,24 @@ trait LocksAbsences
     }
 
     /**
+     * Whether this row is a settled absence the current user cannot change.
+     *
+     * For the screens, so a correction control is not offered where it would
+     * always be refused. It asks the same two questions the guard above does,
+     * in the same place, because a view that decided this for itself would be
+     * a third copy of the rule — and this codebase has already watched that
+     * particular rule drift twice.
+     *
+     * Presentation only. Hiding a button is not a rule: the `updating` hook
+     * and the controller check are what actually stop the write, and they run
+     * whether or not anything was ever rendered.
+     */
+    public function isLockedAbsence(): bool
+    {
+        return $this->status === 'absent' && ! static::mayUndoAbsence();
+    }
+
+    /**
      * Whether the person acting may undo an absence.
      *
      * True when nobody is authenticated: that is the scheduler or a console
