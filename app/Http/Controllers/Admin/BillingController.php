@@ -38,12 +38,19 @@ class BillingController extends Controller
                 ->whereHas('invoices'))
             ->latest()
             ->paginate(10)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
 
         $outstanding = Invoice::whereIn('status', ['open', 'pending', 'past_due'])
             ->whereNotNull('fee_plan_id')
             ->selectRaw('coalesce(sum(amount + fine_amount + absence_fine_amount - absence_fine_credit), 0) as total')
             ->value('total');
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Search button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.billing.plans._results', ['plans' => $plans]);
+        }
 
         return view('admin.billing.plans.index', [
             'plans' => $plans,
@@ -136,7 +143,14 @@ class BillingController extends Controller
             })
             ->latest('issued_at')
             ->paginate(12)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.billing.invoices._results', ['invoices' => $invoices]);
+        }
 
         return view('admin.billing.invoices.index', ['invoices' => $invoices]);
     }
@@ -319,7 +333,14 @@ class BillingController extends Controller
             })
             ->latest()
             ->paginate(15)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.billing.transactions._results', ['transactions' => $transactions]);
+        }
 
         return view('admin.billing.transactions.index', ['transactions' => $transactions]);
     }
@@ -378,7 +399,18 @@ class BillingController extends Controller
             })
             ->orderByDesc('created_at')
             ->paginate(10)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Search button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.billing._submissions-results', [
+                'submissions' => $submissions,
+                // The empty state reads differently per tab.
+                'status' => $status,
+            ]);
+        }
 
         return view('admin.billing.submissions', [
             'submissions' => $submissions,

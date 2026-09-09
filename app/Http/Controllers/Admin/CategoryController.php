@@ -19,7 +19,14 @@ class CategoryController extends Controller
             ->when($request->filled('search'), fn ($query) => $query->where('name', 'like', '%'.trim($request->string('search')).'%'))
             ->orderBy('name')
             ->paginate(12)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.categories._results', ['categories' => $categories]);
+        }
 
         return view('admin.categories.index', ['categories' => $categories]);
     }

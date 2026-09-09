@@ -29,7 +29,14 @@ class AssignmentController extends Controller
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
             ->latest()
             ->paginate(10)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.assignments._results', ['assignments' => $assignments]);
+        }
 
         return view('admin.assignments.index', [
             'assignments' => $assignments,

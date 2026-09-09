@@ -31,7 +31,14 @@ class CourseController extends Controller
             ->when($request->string('trashed')->toString() === '1', fn ($query) => $query->onlyTrashed())
             ->latest()
             ->paginate(10)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.courses._results', ['courses' => $courses]);
+        }
 
         return view('admin.courses.index', [
             'courses' => $courses,

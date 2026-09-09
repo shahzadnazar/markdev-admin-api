@@ -34,7 +34,7 @@ class EnrollmentController extends Controller
             })
             ->latest('enrolled_at')
             ->paginate(12)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
 
         $plans = FeePlan::query()
             ->whereIn('user_id', $enrollments->pluck('user_id')->filter())
@@ -45,6 +45,13 @@ class EnrollmentController extends Controller
             ])
             ->get()
             ->keyBy(fn ($plan) => $plan->user_id.'-'.$plan->course_id);
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.enrollments._results', ['enrollments' => $enrollments, 'plans' => $plans]);
+        }
 
         return view('admin.enrollments.index', [
             'enrollments' => $enrollments,
@@ -85,7 +92,20 @@ class EnrollmentController extends Controller
             ->when($tab === 'unenrolled', fn ($query) => $query->whereDoesntHave('enrollments'))
             ->orderBy('name')
             ->paginate(25)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the student list, so typing never reloads
+        // the page and the cursor stays in the search box. Apply still submits
+        // the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.enrollments._create-results', [
+                'students' => $students,
+                // The deep-link auto-open block sits inside the swapped markup.
+                // $autoPayload is not passed: the partial sets it itself as it
+                // walks the students, and it does not exist out here.
+                'autoOpen' => $autoOpen,
+            ]);
+        }
 
         return view('admin.enrollments.create', [
             'students' => $students,

@@ -11,7 +11,7 @@
         </x-slot:actions>
     </x-page-header>
 
-    <x-filter-bar :action="route('admin.billing.invoices.index')">
+    <x-filter-bar results="invoices-results" :action="route('admin.billing.invoices.index')">
         <div class="w-full sm:w-64">
             <x-form.label for="search" value="Search" />
             <input type="search" name="search" id="search" value="{{ request('search') }}" placeholder="Number or student…" class="field">
@@ -27,60 +27,8 @@
         </div>
     </x-filter-bar>
 
-    <x-table>
-        <thead class="bg-surface-ice/60">
-            <tr>
-                <th class="th">Invoice</th>
-                <th class="th">Student</th>
-                <th class="th td-num">Amount</th>
-                <th class="th">Issued</th>
-                <th class="th">Due</th>
-                <th class="th">Status</th>
-                <th class="th text-right">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($invoices as $invoice)
-                <tr class="row">
-                    <td class="td">
-                        <a href="{{ route('admin.billing.invoices.show', $invoice) }}" class="font-mono text-xs font-medium text-primary hover:underline">{{ $invoice->number }}</a>
-                        @if ($invoice->fee_plan_id && $invoice->sequence_no)
-                            <a href="{{ route('admin.billing.plans.show', $invoice->fee_plan_id) }}"
-                                class="mt-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-primary hover:bg-primary/15">
-                                installment {{ $invoice->sequence_no }}{{ $invoice->feePlan?->installment_months ? '/'.$invoice->feePlan->installment_months : '' }}
-                            </a>
-                        @elseif ($invoice->title)
-                            <p class="truncate text-xs text-outline">{{ $invoice->title }}</p>
-                        @endif
-                    </td>
-                    <td class="td">
-                        <p class="font-medium text-on-surface">{{ $invoice->user?->name ?? 'Deleted user' }}</p>
-                    </td>
-                    <td class="td td-num font-mono text-sm text-on-surface">
-                        {{ $invoice->currency === 'PKR' ? 'Rs' : $invoice->currency }} {{ number_format((float) $invoice->amount) }}
-                        @if ((float) $invoice->fine_amount > 0)
-                            <span class="block text-[11px] text-error">+{{ number_format((float) $invoice->fine_amount, 0) }} fine ({{ $invoice->fine_days }}d)</span>
-                        @endif
-                    </td>
-                    <td class="td font-mono text-xs text-outline">{{ $invoice->issued_at?->format('j M Y') }}</td>
-                    <td class="td font-mono text-xs {{ $invoice->status === 'past_due' ? 'text-error' : 'text-outline' }}">{{ $invoice->due_at?->format('j M Y') ?? '—' }}</td>
-                    <td class="td">
-                        <x-badge :variant="['upcoming' => 'neutral', 'open' => 'primary', 'pending' => 'warning', 'paid' => 'success', 'past_due' => 'danger', 'void' => 'neutral'][$invoice->status] ?? 'neutral'">
-                            {{ str_replace('_', ' ', $invoice->status) }}
-                        </x-badge>
-                    </td>
-                    <td class="td text-right">
-                        <x-btn variant="ghost" size="sm" :href="route('admin.billing.invoices.show', $invoice)" aria-label="Open invoice" title="Open invoice">
-                            <x-icon name="eye" class="size-4" />
-                        </x-btn>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="7"><x-empty-state icon="banknotes" title="No invoices" description="Issue an invoice against a student's fee plan." /></td></tr>
-            @endforelse
-        </tbody>
-        @if ($invoices->hasPages())
-            <x-slot:footer>{{ $invoices->links() }}</x-slot:footer>
-        @endif
-    </x-table>
+    <div id="invoices-results" class="transition-opacity duration-150">
+        @include('admin.billing.invoices._results')
+    </div>
+
 </x-admin.layout>

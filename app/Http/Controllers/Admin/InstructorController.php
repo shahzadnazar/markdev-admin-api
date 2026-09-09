@@ -32,7 +32,7 @@ class InstructorController extends Controller
             ->when($status !== null, fn ($query) => $query->where('is_active', $status === 'active'))
             ->orderBy('name')
             ->paginate(10)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
 
         $totals = [
             'faculty' => User::role('instructor')->count(),
@@ -43,6 +43,13 @@ class InstructorController extends Controller
                 Course::whereNotNull('instructor_id')->select('id'),
             )->distinct('user_id')->count('user_id'),
         ];
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.instructors._results', ['instructors' => $instructors]);
+        }
 
         return view('admin.instructors.index', [
             'instructors' => $instructors,

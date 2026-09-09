@@ -17,14 +17,25 @@ class HelpController extends Controller
     /** Single help-center workspace: categories, articles, faqs. */
     public function index(Request $request): View
     {
+        $articles = HelpArticle::with('category')
+            ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
+            ->latest()
+            ->paginate(10, ['*'], 'articles_page')
+            // `partial` is a transport detail of live search and must never end
+            // up inside the pagination links it renders.
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'articles_page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.help._results', ['articles' => $articles]);
+        }
+
         return view('admin.help.index', [
             'tab' => in_array($request->query('tab'), ['articles', 'categories', 'faqs'], true) ? $request->query('tab') : 'articles',
             'categories' => HelpCategory::withCount('articles')->orderBy('position')->get(),
-            'articles' => HelpArticle::with('category')
-                ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
-                ->latest()
-                ->paginate(10, ['*'], 'articles_page')
-                ->withQueryString(),
+            'articles' => $articles,
             'faqs' => Faq::orderBy('position')->get(),
         ]);
     }

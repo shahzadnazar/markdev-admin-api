@@ -34,7 +34,18 @@ class BiometricController extends Controller
             })
             ->orderBy('name')
             ->paginate(10)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.biometric._devices-results', [
+                'devices' => $devices,
+                // The edit modals live in the swapped markup and build a course picker.
+                'courses' => Course::orderBy('title')->get(['id', 'title']),
+            ]);
+        }
 
         return view('admin.biometric.devices', [
             'devices' => $devices,

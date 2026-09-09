@@ -33,7 +33,7 @@ class NoteController extends Controller
             )
             ->latest()
             ->paginate(10)
-            ->withQueryString();
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
 
         $courses = Course::query()
             ->when(
@@ -42,6 +42,13 @@ class NoteController extends Controller
             )
             ->orderBy('title')
             ->get(['id', 'title']);
+
+        // Live search re-renders only the results, so typing never reloads the
+        // page and the cursor stays in the search box. The Filter button still
+        // submits the form normally and lands here without `partial`.
+        if ($request->boolean('partial')) {
+            return view('admin.notes._results', ['notes' => $notes]);
+        }
 
         return view('admin.notes.index', [
             'notes' => $notes,
