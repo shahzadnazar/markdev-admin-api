@@ -1,5 +1,4 @@
 import './bootstrap';
-import './live-search';
 
 import Alpine from 'alpinejs';
 

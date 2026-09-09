@@ -260,5 +260,6 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
             @endforeach
         </div>
     @endif
+    <x-admin.live-search />
 </body>
 </html>
