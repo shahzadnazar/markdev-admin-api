@@ -269,6 +269,8 @@ class HolidayAnnouncementTest extends TestCase
             'monthly_absent_allowance' => 2,
             'absent_fine_amount' => 500,
             'attendance_mode' => 'manual',
+            'quiz_default_attempts' => 1,
+            'quiz_seconds_per_question' => 30,
         ];
 
         $this->actingAs($this->admin)->put(route('admin.settings.update'), $payload)->assertRedirect();

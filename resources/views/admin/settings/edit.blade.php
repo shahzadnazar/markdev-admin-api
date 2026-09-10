@@ -182,6 +182,31 @@
                         :hint="($settings['attendance_pin_set'] ? 'A PIN is set — type a new 4-8 digit PIN to replace it.' : 'Not set yet — daily attendance corrections stay locked until you set one.').' Staff must enter it to change an already-marked day.'" />
                 </div>
 
+                {{-- Defaults for a NEW quiz, and for every existing quiz that
+                     has not been given its own numbers. A quiz's own form can
+                     override either — a final exam may reasonably differ from
+                     a practice quiz — and a quiz that does is unaffected by
+                     changes here. --}}
+                <div class="border-t border-surface-ice pt-5">
+                    <p class="text-sm font-medium text-on-surface">Quiz defaults</p>
+                    <p class="mt-1 text-xs text-outline">
+                        What a quiz allows when it does not say otherwise. The time limit is per QUESTION —
+                        a quiz's whole clock is this times its question count, worked out when a student starts,
+                        so a quiz that gains a question gains time. Changing these takes effect immediately;
+                        an attempt already running keeps the clock it started with.
+                    </p>
+                    <div class="mt-3 grid gap-5 sm:grid-cols-2">
+                        <x-form.input type="number" label="Attempts per quiz" name="quiz_default_attempts"
+                            :value="$settings['quiz_default_attempts']" required
+                            min="{{ \App\Support\QuizRules::MIN_ATTEMPTS }}" max="{{ \App\Support\QuizRules::MAX_ATTEMPTS }}"
+                            hint="How many times a student may sit a quiz. Lowering this never removes an attempt already taken — a student who has used more than the new number simply has none left." />
+                        <x-form.input type="number" label="Seconds per question" name="quiz_seconds_per_question"
+                            :value="$settings['quiz_seconds_per_question']" required
+                            min="{{ \App\Support\QuizRules::MIN_SECONDS_PER_QUESTION }}" max="{{ \App\Support\QuizRules::MAX_SECONDS_PER_QUESTION }}"
+                            hint="At {{ $settings['quiz_seconds_per_question'] }}s, a 10-question quiz runs {{ \App\Support\QuizRules::humanTotal(10 * (int) $settings['quiz_seconds_per_question']) }} and a 4-question quiz {{ \App\Support\QuizRules::humanTotal(4 * (int) $settings['quiz_seconds_per_question']) }}." />
+                    </div>
+                </div>
+
                 <x-form.toggle label="Maintenance mode" name="maintenance_mode" :checked="(bool) old('maintenance_mode', $settings['maintenance_mode'])"
                     hint="Shows a maintenance banner to admin users; plan portal downtime with your team." />
 

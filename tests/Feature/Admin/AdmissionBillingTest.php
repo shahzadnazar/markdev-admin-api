@@ -278,6 +278,8 @@ class AdmissionBillingTest extends TestCase
             'monthly_absent_allowance' => 2,
             'absent_fine_amount' => 150,
             'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
+            'quiz_default_attempts' => 1,
+            'quiz_seconds_per_question' => 30,
         ])->assertSessionHas('success');
 
         // The form no longer posts a timezone; the academy is fixed to

@@ -426,6 +426,8 @@ class AbsenceFineTest extends TestCase
             'monthly_absent_allowance' => 3,
             'absent_fine_amount' => 250,
             'attendance_mode' => AttendanceConfig::MODE_MANUAL,
+            'quiz_default_attempts' => 1,
+            'quiz_seconds_per_question' => 30,
         ], $overrides));
     }
 

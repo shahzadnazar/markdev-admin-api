@@ -56,8 +56,22 @@
 
             <p class="eyebrow pt-2">Rules</p>
             <div class="grid gap-5 sm:grid-cols-3">
-                <x-form.input label="Time limit (min)" name="time_limit_minutes" type="number" min="1" :value="$quiz?->time_limit_minutes" hint="Blank = untimed." />
-                <x-form.input label="Attempts allowed" name="attempts_allowed" type="number" min="1" :value="$quiz?->attempts_allowed" hint="Blank = unlimited." />
+                {{-- Blank means "follow the academy default", and the hint says
+                     what that default currently is rather than making an admin
+                     go and look. It never meant "unlimited": the old hint said
+                     so, but the service compared against the raw column and in
+                     PHP `0 >= null` is true, so a blank field refused the very
+                     first attempt. --}}
+                <x-form.input label="Seconds per question" name="seconds_per_question" type="number"
+                    min="{{ \App\Support\QuizRules::MIN_SECONDS_PER_QUESTION }}"
+                    max="{{ \App\Support\QuizRules::MAX_SECONDS_PER_QUESTION }}"
+                    :value="$quiz?->seconds_per_question"
+                    hint="Blank = academy default ({{ \App\Support\QuizRules::defaultSecondsPerQuestion() }}s). The whole quiz gets this times its question count." />
+                <x-form.input label="Attempts allowed" name="attempts_allowed" type="number"
+                    min="{{ \App\Support\QuizRules::MIN_ATTEMPTS }}"
+                    max="{{ \App\Support\QuizRules::MAX_ATTEMPTS }}"
+                    :value="$quiz?->attempts_allowed"
+                    hint="Blank = academy default ({{ \App\Support\QuizRules::defaultAttempts() }})." />
                 <x-form.input label="Passing score (%)" name="passing_score" type="number" min="0" max="100" :value="$quiz?->passing_score" />
             </div>
 

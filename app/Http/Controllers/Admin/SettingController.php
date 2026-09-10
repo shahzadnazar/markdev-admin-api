@@ -38,6 +38,11 @@ class SettingController extends Controller
                 'monthly_leave_allowance' => \App\Support\LeaveAllowance::perMonth(),
                 'monthly_absent_allowance' => \App\Support\AbsenceFine::allowance(),
                 'absent_fine_amount' => \App\Support\AbsenceFine::perAbsence(),
+                // Defaults for a NEW quiz. A quiz storing NULL follows these
+                // and keeps following them; one storing a number has been
+                // pinned on its own form.
+                'quiz_default_attempts' => \App\Support\QuizRules::defaultAttempts(),
+                'quiz_seconds_per_question' => \App\Support\QuizRules::defaultSecondsPerQuestion(),
             ],
             // Lateness is judged per slot now; the two keys above are what a
             // student without one falls back to.
@@ -96,6 +101,22 @@ class SettingController extends Controller
             // academy says absences are tracked but never charged for.
             'absent_fine_amount' => ['required', 'numeric', 'min:0', 'max:100000'],
             'attendance_mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
+            // One attempt is the academy default; more is a per-quiz decision.
+            // Zero would not be an allowance, it would be a quiz nobody can
+            // sit, and unpublishing is the way to say that.
+            'quiz_default_attempts' => [
+                'required', 'integer',
+                'min:'.\App\Support\QuizRules::MIN_ATTEMPTS,
+                'max:'.\App\Support\QuizRules::MAX_ATTEMPTS,
+            ],
+            // Seconds PER QUESTION, not per quiz: the total is this times the
+            // questions the quiz has when the attempt starts. The floor stops
+            // a typo creating a quiz that expires before it renders.
+            'quiz_seconds_per_question' => [
+                'required', 'integer',
+                'min:'.\App\Support\QuizRules::MIN_SECONDS_PER_QUESTION,
+                'max:'.\App\Support\QuizRules::MAX_SECONDS_PER_QUESTION,
+            ],
         ], [
             'monthly_leave_allowance.min' => 'Monthly leave allowance must be at least 1.',
             'monthly_leave_allowance.required' => 'Monthly leave allowance must be at least 1.',
@@ -105,6 +126,10 @@ class SettingController extends Controller
             'academy_working_days.min' => 'Pick at least one working day — the academy has to open sometime.',
             'holiday_announce_days_before.min' => 'Holiday notice must go out at least 1 day before.',
             'holiday_announce_days_before.required' => 'Holiday notice must go out at least 1 day before.',
+            'quiz_default_attempts.min' => 'A quiz has to allow at least 1 attempt.',
+            'quiz_default_attempts.required' => 'A quiz has to allow at least 1 attempt.',
+            'quiz_seconds_per_question.min' => 'Give a question at least 5 seconds.',
+            'quiz_seconds_per_question.required' => 'Give a question at least 5 seconds.',
         ]);
 
         // Stored as sorted ISO-8601 numbers, the same shape as a slot's days,

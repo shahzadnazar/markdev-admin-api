@@ -35,9 +35,13 @@ class DashboardController extends ApiController
             ->whereDoesntHave('attempts', fn (Builder $q) => $q->where('user_id', $user->id)
                 ->whereNotNull('submitted_at')
                 ->where('passed', true))
+            // COALESCE, because attempts_allowed is nullable now and NULL
+            // means "follow the academy default". `count < NULL` is NULL in
+            // SQL, which is falsy — every quiz on the default would have
+            // silently dropped out of this count.
             ->whereRaw(
-                '(select count(*) from quiz_attempts where quiz_attempts.quiz_id = quizzes.id and quiz_attempts.user_id = ? and quiz_attempts.submitted_at is not null) < quizzes.attempts_allowed',
-                [$user->id],
+                '(select count(*) from quiz_attempts where quiz_attempts.quiz_id = quizzes.id and quiz_attempts.user_id = ? and quiz_attempts.submitted_at is not null) < coalesce(quizzes.attempts_allowed, ?)',
+                [$user->id, \App\Support\QuizRules::defaultAttempts()],
             )
             ->count();
 

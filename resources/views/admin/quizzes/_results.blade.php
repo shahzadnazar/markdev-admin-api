@@ -15,9 +15,13 @@
             <tr class="row">
                 <td class="td">
                     <a href="{{ route('admin.quizzes.show', $quiz) }}" class="font-medium text-on-surface hover:text-primary">{{ $quiz->title }}</a>
-                    @if ($quiz->time_limit_minutes)
-                        <p class="text-xs text-outline">{{ $quiz->time_limit_minutes }} min limit · {{ $quiz->attempts_allowed ?? '∞' }} attempts</p>
-                    @endif
+                    {{-- Always shown now: every quiz has a limit, because the
+                         rate falls back to the academy default. There is no
+                         "no limit" state left to hide this for. --}}
+                    <p class="text-xs text-outline">
+                        {{ $quiz->secondsPerQuestion() }}s per question ·
+                        {{ $quiz->allowedAttempts() }} {{ \Illuminate\Support\Str::plural('attempt', $quiz->allowedAttempts()) }}
+                    </p>
                 </td>
                 <td class="td max-w-[16rem]"><p class="truncate text-on-surface-variant">{{ $quiz->course?->title }}</p></td>
                 <td class="td td-num font-mono text-xs">{{ $quiz->questions_count }}</td>

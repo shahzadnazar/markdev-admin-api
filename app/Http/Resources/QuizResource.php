@@ -17,8 +17,12 @@ class QuizResource extends JsonResource
             'lesson_id' => $this->lesson_id,
             'title' => $this->title,
             'description' => $this->description,
-            'time_limit_minutes' => $this->time_limit_minutes !== null ? (int) $this->time_limit_minutes : null,
-            'attempts_allowed' => (int) $this->attempts_allowed,
+            // The RESOLVED rules, not the raw columns. NULL on a column means
+            // "follow the academy default", and the portal has no business
+            // knowing that — it should be told what this quiz actually gives.
+            'seconds_per_question' => $this->secondsPerQuestion(),
+            'time_limit_seconds' => $this->timeLimitSeconds((int) ($this->questions_count ?? 0)),
+            'attempts_allowed' => $this->allowedAttempts(),
             'attempts_used' => (int) ($this->attempts_used ?? 0),
             'questions_count' => (int) ($this->questions_count ?? 0),
             'total_points' => (int) ($this->total_points ?? 0),

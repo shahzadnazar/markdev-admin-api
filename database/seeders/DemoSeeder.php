@@ -253,8 +253,10 @@ class DemoSeeder extends Seeder
             'lesson_id' => $laravelLessons->firstWhere('type', 'quiz')?->id,
             'title' => 'Eloquent knowledge check',
             'description' => 'Relationships, scopes and query performance.',
-            'time_limit_minutes' => 15,
-            'attempts_allowed' => 3,
+            // Pinned deliberately, to demonstrate the per-quiz override
+            // alongside the two quizzes that follow the academy default.
+            'seconds_per_question' => 60,
+            'attempts_allowed' => 2,
             'passing_score' => 60,
             'is_published' => true,
         ]);
@@ -308,7 +310,6 @@ class DemoSeeder extends Seeder
             'course_id' => $react->id,
             'lesson_id' => $reactLessons->firstWhere('type', 'quiz')?->id,
             'title' => 'Patterns quiz',
-            'attempts_allowed' => 2,
             'passing_score' => 70,
             'is_published' => true,
         ]);

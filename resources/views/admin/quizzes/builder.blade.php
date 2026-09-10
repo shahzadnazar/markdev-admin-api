@@ -26,8 +26,12 @@
             @foreach ([
                 'Questions' => $quiz->questions->count(),
                 'Total points' => $quiz->questions->sum('points'),
-                'Time limit' => $quiz->time_limit_minutes ? $quiz->time_limit_minutes.' min' : 'No limit',
-                'Attempts allowed' => $quiz->attempts_allowed,
+                {{-- Derived: the rate times the questions this quiz has right
+                     now, so adding one below changes this figure too. --}}
+                'Time limit' => \App\Support\QuizRules::humanTotal($quiz->timeLimitSeconds($quiz->questions->count()))
+                    .' ('.$quiz->secondsPerQuestion().'s per question)',
+                'Attempts allowed' => $quiz->allowedAttempts()
+                    .($quiz->attempts_allowed === null ? ' (academy default)' : ''),
                 'Passing score' => $quiz->passing_score.'%',
             ] as $label => $value)
                 <div>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Quiz;
+use App\Support\QuizRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -124,8 +125,19 @@ class QuizController extends Controller
             'lesson_id' => ['nullable', Rule::exists('lessons', 'id')->where('course_id', $request->integer('course_id'))],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'time_limit_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
-            'attempts_allowed' => ['nullable', 'integer', 'min:1', 'max:50'],
+            // Both nullable, and NULL means "follow the academy default" —
+            // not "unlimited", which is what the old hint claimed and the
+            // service never implemented.
+            'seconds_per_question' => [
+                'nullable', 'integer',
+                'min:'.QuizRules::MIN_SECONDS_PER_QUESTION,
+                'max:'.QuizRules::MAX_SECONDS_PER_QUESTION,
+            ],
+            'attempts_allowed' => [
+                'nullable', 'integer',
+                'min:'.QuizRules::MIN_ATTEMPTS,
+                'max:'.QuizRules::MAX_ATTEMPTS,
+            ],
             'passing_score' => ['nullable', 'integer', 'min:0', 'max:100'],
             'available_from' => ['nullable', 'date'],
             'available_until' => ['nullable', 'date', 'after_or_equal:available_from'],
@@ -133,6 +145,11 @@ class QuizController extends Controller
         ]);
 
         $data['lesson_id'] = $data['lesson_id'] ?? null;
+        // A blank field is an intent, not a missing key: it says "follow the
+        // academy default", so it has to be written as NULL rather than left
+        // out of the update.
+        $data['seconds_per_question'] = $data['seconds_per_question'] ?? null;
+        $data['attempts_allowed'] = $data['attempts_allowed'] ?? null;
         $data['is_published'] = $request->boolean('is_published');
 
         return $data;

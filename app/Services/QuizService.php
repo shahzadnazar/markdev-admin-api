@@ -29,10 +29,11 @@ class QuizService
             ]);
         }
 
-        // Quizzes without an explicit limit get one minute per question, so
-        // every attempt runs against a clock (MCQ pacing rule).
-        $limitMinutes = $quiz->time_limit_minutes ?: max(1, $quiz->questions()->count());
-        $expiresAt = $now->copy()->addMinutes($limitMinutes);
+        // Seconds per question, times the questions this quiz has right now.
+        // Derived here rather than read off the row, so a quiz that gained a
+        // question in the builder gives the student the time to answer it.
+        $limitSeconds = $quiz->timeLimitSeconds($quiz->questions()->count());
+        $expiresAt = $now->copy()->addSeconds($limitSeconds);
 
         $open = QuizAttempt::where('quiz_id', $quiz->id)
             ->where('user_id', $user->id)
@@ -54,7 +55,7 @@ class QuizService
                 // Resuming never refreshes the clock — that would let a student
                 // reset their own timer by re-hitting the start endpoint.
                 if ($open->expires_at === null) {
-                    $open->update(['expires_at' => $open->started_at->copy()->addMinutes($limitMinutes)]);
+                    $open->update(['expires_at' => $open->started_at->copy()->addSeconds($limitSeconds)]);
                 }
 
                 return $open;
@@ -66,7 +67,9 @@ class QuizService
             ->whereNotNull('submitted_at')
             ->count();
 
-        if ($finished >= $quiz->attempts_allowed) {
+        // allowedAttempts(), not the raw column: NULL there means "follow the
+        // academy setting", and comparing against NULL would refuse everyone.
+        if ($finished >= $quiz->allowedAttempts()) {
             throw ValidationException::withMessages([
                 'quiz' => ['You have no attempts remaining for this quiz.'],
             ]);

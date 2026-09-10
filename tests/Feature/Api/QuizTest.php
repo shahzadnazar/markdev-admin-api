@@ -24,8 +24,10 @@ class QuizTest extends ApiTestCase
         $quiz = Quiz::create(array_merge([
             'course_id' => $course->id,
             'title' => 'Knowledge check',
-            'time_limit_minutes' => 15,
-            'attempts_allowed' => 2,
+            // NULL on both means "follow the academy default", which is what
+            // most quizzes do; tests that care pin their own via $overrides.
+            'seconds_per_question' => null,
+            'attempts_allowed' => null,
             'passing_score' => 60,
             'is_published' => true,
         ], $overrides));
