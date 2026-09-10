@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Assignment;
 use App\Models\Category;
 use App\Models\Course;
 use App\Models\Note;
@@ -112,6 +113,81 @@ class DropzoneTest extends TestCase
         );
     }
 
+    public function test_take_is_told_whether_it_is_a_drop_or_a_change(): void
+    {
+        /*
+         * The bug this guards, in full, because the fix looks like a
+         * refactor and will be "simplified" back otherwise.
+         *
+         * take() used to append its argument to whatever the input already
+         * held. That is right for a drop — the input has never seen those
+         * files — and wrong for a change, because the browser has ALREADY
+         * written the new selection onto the input and thrown the old one
+         * away. So choosing one file through Browse counted it twice: once
+         * from the input, once from the argument.
+         *
+         * And it was not a doubled picture. commit() writes the list back
+         * onto the input through a DataTransfer, so the input carried two,
+         * the form posted two, and the controller stored two files on disk
+         * under two rows. Measured on /admin/assignments/create.
+         *
+         * Alpine cannot run in PHPUnit, so this reads the source: the append
+         * has to stay gated on a drop, and every call site has to say which
+         * event it is. The behaviour itself is covered by
+         * test_two_posted_files_are_stored_as_two below and by the browser
+         * matrix in the commit message.
+         */
+        $code = $this->componentSource();
+
+        // Both call sites declare themselves …
+        $this->assertStringContainsString("take(\$event.dataTransfer.files, 'drop')", $code);
+        $this->assertStringContainsString("take(\$event.target.files, 'change')", $code);
+
+        // … take() reads the declaration …
+        $this->assertMatchesRegularExpression('/take\(\s*list\s*,\s*mode\s*\)/', $code);
+
+        // … and appending happens only on a drop. An unconditional
+        // `[...this.files(), ...kept]` is the original bug verbatim.
+        $this->assertStringContainsString("mode === 'drop'", $code);
+        $this->assertDoesNotMatchRegularExpression(
+            '/this\.commit\(\s*this\.multiple\s*\?\s*\[\s*\.\.\.this\.files\(\)/',
+            $code,
+            'take() is appending the input\'s own files again — Browse will duplicate',
+        );
+    }
+
+    public function test_a_single_posted_file_is_stored_once(): void
+    {
+        // The consequence of the duplicate, at the only layer PHPUnit can
+        // see: one file chosen must not become two attachments.
+        Storage::fake('public');
+
+        $assignment = $this->postAssignment('One attachment', [
+            UploadedFile::fake()->create('brief.pdf', 12, 'application/pdf'),
+        ]);
+
+        $this->assertCount(1, $assignment->attachments);
+        $this->assertSame('brief.pdf', $assignment->attachments->first()->name);
+    }
+
+    public function test_two_posted_files_are_stored_as_two(): void
+    {
+        // The other half of the same guard: a fix that deduplicates on the
+        // server would hide the bug and break genuinely picking two files.
+        Storage::fake('public');
+
+        $assignment = $this->postAssignment('Two attachments', [
+            UploadedFile::fake()->create('brief.pdf', 12, 'application/pdf'),
+            UploadedFile::fake()->create('rubric.docx', 8),
+        ]);
+
+        $this->assertCount(2, $assignment->attachments);
+        $this->assertEqualsCanonicalizing(
+            ['brief.pdf', 'rubric.docx'],
+            $assignment->attachments->pluck('name')->all(),
+        );
+    }
+
     public function test_the_chips_come_from_props_rather_than_being_hardcoded(): void
     {
         $html = $this->render('name="file" accept=".csv,.txt" accept-label="CSV, TXT" :max-kb="64"');
@@ -210,6 +286,42 @@ class DropzoneTest extends TestCase
                 'title' => 'No file at all',
             ])
             ->assertSessionHasErrors('file');
+    }
+
+    /**
+     * The component's JavaScript with its comments taken out.
+     *
+     * This file explains at length why the append is conditional, so a guard
+     * reading the raw source would match its own explanation and pass on
+     * broken code.
+     */
+    protected function componentSource(): string
+    {
+        $source = file_get_contents(resource_path('views/components/form/dropzone.blade.php'));
+
+        $source = preg_replace('/\{\{--.*?--\}\}/s', '', $source);
+        $source = preg_replace('#/\*.*?\*/#s', '', $source);
+
+        return preg_replace('#^\s*//.*$#m', '', $source);
+    }
+
+    /** Create an assignment with attachments through the real controller. */
+    protected function postAssignment(string $title, array $files): Assignment
+    {
+        $course = $this->course();
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.assignments.store'), [
+                'course_id' => $course->id,
+                'title' => $title,
+                'max_score' => 100,
+                'attachments' => $files,
+            ])
+            ->assertRedirect();
+
+        $assignment = Assignment::where('title', $title)->firstOrFail();
+
+        return $assignment->load('attachments');
     }
 
     protected function course(): Course

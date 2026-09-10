@@ -90,14 +90,35 @@
             return (value < 10 ? value.toFixed(1) : Math.round(value)) + ' ' + units[unit];
         },
 
-        /** Adopt a FileList, keeping only what passes and telling the user why. */
-        take(list) {
-            const files = Array.from(list ?? []);
-            if (files.length === 0) return;
+        /**
+         * Adopt a FileList, keeping only what passes and telling the user why.
+         *
+         * `mode` is load-bearing, not decoration. A DROP hands us files the
+         * input has never seen, so on a multiple zone they ADD to what is
+         * already chosen. A CHANGE hands us files the browser has ALREADY
+         * written onto the input, replacing whatever was there — so on a
+         * change the browser's list IS the new selection.
+         *
+         * One path cannot be right for both. It was written as an append, and
+         * Browse counted every file twice: once from the input, once from the
+         * argument. Not merely a doubled display — commit() writes the list
+         * back onto the input, so the form posted two copies and the server
+         * stored two.
+         *
+         * Anything that is neither reads as 'change', because replacing is the
+         * answer that cannot silently duplicate.
+         */
+        take(list, mode) {
+            const incoming = Array.from(list ?? []);
+            const appending = mode === 'drop' && this.multiple;
+
+            // A drop of nothing is nothing. A change to nothing is the browser
+            // clearing the field, and the cards have to follow it.
+            if (incoming.length === 0 && mode === 'drop') return;
 
             const kept = [];
             const refused = [];
-            for (const file of files) {
+            for (const file of incoming) {
                 const reason = this.reject(file);
                 reason ? refused.push(reason) : kept.push(file);
             }
@@ -106,7 +127,11 @@
             // the form would post it anyway behind the message saying it is no
             // good and lean on the server to say so twice.
             this.error = refused.length ? refused.join(' ') : null;
-            this.commit(this.multiple ? [...this.files(), ...kept] : kept.slice(0, 1));
+
+            // On a drop the input's own files are still ours to keep; on a
+            // change the browser has already discarded them.
+            const base = appending ? this.files() : [];
+            this.commit(this.multiple ? [...base, ...kept] : kept.slice(0, 1));
         },
 
         /** The files currently on the real input. */
@@ -148,7 +173,7 @@
             }));
         },
     }"
-    x-on:drop.prevent="dragging = false; take($event.dataTransfer.files)"
+    x-on:drop.prevent="dragging = false; take($event.dataTransfer.files, 'drop')"
     x-on:dragover.prevent="dragging = true"
     x-on:dragleave="dragging = false">
 
@@ -170,7 +195,7 @@
             @required($required)
             @if ($errors->has($errorName)) aria-invalid="true" @endif
             aria-describedby="{{ $id }}-chips"
-            x-on:change="error = null; take($event.target.files)">
+            x-on:change="take($event.target.files, 'change')">
 
         {{-- Files chosen just now, drawn from the input itself. --}}
         <template x-for="(card, index) in picked" :key="index">
