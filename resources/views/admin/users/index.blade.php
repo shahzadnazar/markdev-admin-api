@@ -14,23 +14,13 @@
             <x-form.label for="search" value="Search" />
             <input type="search" name="search" id="search" value="{{ request('search') }}" placeholder="Name, email or phone…" class="field">
         </div>
-        <div class="w-40">
-            <x-form.label for="role" value="Role" />
-            <select name="role" id="role" class="field">
-                <option value="">All roles</option>
-                @foreach ($roles as $role)
-                    <option value="{{ $role }}" @selected(request('role') === $role)>{{ $role }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="w-36">
-            <x-form.label for="status" value="Status" />
-            <select name="status" id="status" class="field">
-                <option value="">Any</option>
-                <option value="active" @selected(request('status') === 'active')>Active</option>
-                <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
-            </select>
-        </div>
+        <x-form.multiselect name="role" label="Role" placeholder="All roles" width="w-40"
+            :options="$roles->mapWithKeys(fn ($r) => [$r => ucfirst(str_replace('-', ' ', $r))])->all()"
+            :selected="$selected['role']" />
+
+        <x-form.multiselect name="status" label="Status" placeholder="Any" width="w-36"
+            :options="['active' => 'Active', 'inactive' => 'Inactive']" :selected="$selected['status']" />
+
         {{-- Only for someone who could restore or empty it. The controller
              decides, so the checkbox and the query string cannot disagree. --}}
         @if ($mayViewTrash)

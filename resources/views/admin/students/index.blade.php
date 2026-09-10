@@ -76,12 +76,8 @@
                         class="field w-full pl-9" autocomplete="off" data-live>
                 </div>
 
-                <select name="course" class="field w-52" data-live>
-                    <option value="">All courses</option>
-                    @foreach ($courses as $course)
-                        <option value="{{ $course->id }}" @selected(request('course') == $course->id)>{{ $course->title }}</option>
-                    @endforeach
-                </select>
+                <x-form.multiselect name="course" placeholder="All courses" width="w-52" live
+                    :options="$courses->pluck('title', 'id')->all()" :selected="$selected['course']" />
 
                 {{-- Was @can('students.delete') here, which was right — but the
                      controller had no matching check, so ?trashed=1 in the URL

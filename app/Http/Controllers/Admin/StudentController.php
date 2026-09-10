@@ -24,6 +24,7 @@ use Illuminate\View\View;
  */
 class StudentController extends Controller
 {
+    use \App\Http\Controllers\Admin\Concerns\FiltersByValues;
     use \App\Http\Controllers\Admin\Concerns\FiltersTrashed;
 
     /** Validated keys that do not map to student_profiles columns. */
@@ -41,6 +42,9 @@ class StudentController extends Controller
         // Restore and Delete permanently both refuse. Ignored now, not refused.
         $mayViewTrash = $this->mayViewTrash($request, 'students.delete');
         $trashed = $this->showingTrashed($request, 'students.delete');
+
+        $courses = Course::orderBy('title')->get(['id', 'title']);
+        $courseIds = $this->filterIds($request, 'course', $courses->pluck('id')->all());
 
         // The status filter is meaningless inside the trash box.
         $status = ! $trashed && in_array($request->query('status'), ['active', 'inactive'], true)
@@ -107,8 +111,11 @@ class StudentController extends Controller
             ->when($joinedTo !== null, fn ($query) => $query
                 ->whereHas('studentProfile', fn ($profile) => $profile
                     ->whereDate('date_of_joining', '<=', $joinedTo)))
-            ->when($request->filled('course'), fn ($query) => $query
-                ->whereHas('enrollments', fn ($inner) => $inner->where('course_id', $request->integer('course'))))
+            // Enrolled on any of the ticked courses. Empty is no filter, not
+            // whereIn(..., []) — which would match nobody and read as an empty
+            // academy rather than an empty selection.
+            ->when($courseIds, fn ($query) => $query
+                ->whereHas('enrollments', fn ($inner) => $inner->whereIn('course_id', $courseIds)))
             ->when($status !== null, fn ($query) => $query->where('is_active', $status === 'active'))
             // `created_at` alone is not a unique sort key — students registered in
             // the same second (bulk imports, seeded cohorts) tie, and MySQL gives no
@@ -145,7 +152,8 @@ class StudentController extends Controller
             'trashed' => $trashed,
             'mayViewTrash' => $mayViewTrash,
             'filters' => $filters,
-            'courses' => Course::orderBy('title')->get(['id', 'title']),
+            'courses' => $courses,
+            'selected' => ['course' => $courseIds],
             'totals' => $this->cohortTotals(),
         ]);
     }

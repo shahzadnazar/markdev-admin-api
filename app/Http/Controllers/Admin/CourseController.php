@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Admin\Concerns\FiltersTrashed;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
@@ -17,7 +18,33 @@ use Illuminate\View\View;
 
 class CourseController extends Controller
 {
-    use FiltersTrashed, RestrictsToInstructor;
+    use FiltersByValues, FiltersTrashed, RestrictsToInstructor;
+
+    /** What the level and status filters may be asked for. */
+    public const LEVELS = ['beginner', 'intermediate', 'advanced'];
+
+    public const STATUSES = ['draft', 'published', 'archived'];
+
+    /**
+     * Categories worth offering as a filter, for this viewer.
+     *
+     * An instructor's list was every category in the academy, which named
+     * fields they do not teach and cannot see a single course in. Narrowed to
+     * the categories their own courses actually sit in — the same set the list
+     * below is already limited to.
+     *
+     * @param  array<int, int>|null  $managedCourseIds  null when unrestricted
+     */
+    protected function filterableCategories(?array $managedCourseIds)
+    {
+        return Category::query()
+            ->when($managedCourseIds !== null, fn ($query) => $query->whereHas(
+                'courses',
+                fn ($courses) => $courses->whereIn('id', $managedCourseIds),
+            ))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
 
     public function index(Request $request): View
     {
@@ -28,14 +55,27 @@ class CourseController extends Controller
         $mayViewTrash = $this->mayViewTrash($request, 'courses.delete', 'courses.restore');
         $trashed = $this->showingTrashed($request, 'courses.delete', 'courses.restore');
 
+        $mine = $this->managedCourseIds($request);
+        $categories = $this->filterableCategories($mine);
+
+        // The options a filter offers are also the values it will accept, so an
+        // instructor's own list is what bounds them: ?category[]=99 for a field
+        // they do not teach drops out rather than widening their view.
+        $categoryIds = $this->filterIds($request, 'category', $categories->pluck('id')->all());
+        $levels = $this->filterValues($request, 'level', self::LEVELS);
+        $statuses = $this->filterValues($request, 'status', self::STATUSES);
+
         $courses = Course::query()
-            ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('id', $mine))
+            ->when($mine !== null, fn ($query) => $query->whereIn('id', $mine))
             ->with(['category', 'instructor'])
             ->withCount(['lessons', 'enrollments'])
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
-            ->when($request->filled('category'), fn ($query) => $query->where('category_id', $request->integer('category')))
-            ->when($request->filled('level'), fn ($query) => $query->where('level', $request->string('level')->toString()))
-            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
+            // `when($array)` and not `when(filled(...))`: an empty selection is
+            // no filter at all, where whereIn('...', []) would match no rows and
+            // read as "there is nothing here".
+            ->when($categoryIds, fn ($query) => $query->whereIn('category_id', $categoryIds))
+            ->when($levels, fn ($query) => $query->whereIn('level', $levels))
+            ->when($statuses, fn ($query) => $query->whereIn('status', $statuses))
             ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->latest()
             ->paginate(10)
@@ -52,7 +92,12 @@ class CourseController extends Controller
             'courses' => $courses,
             'mayViewTrash' => $mayViewTrash,
             'trashed' => $trashed,
-            'categories' => Category::orderBy('name')->get(['id', 'name']),
+            'categories' => $categories,
+            'selected' => [
+                'category' => $categoryIds,
+                'level' => $levels,
+                'status' => $statuses,
+            ],
         ]);
     }
 

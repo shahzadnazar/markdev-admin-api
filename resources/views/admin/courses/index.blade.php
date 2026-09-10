@@ -17,33 +17,17 @@
             <x-form.label for="search" value="Search" />
             <input type="search" name="search" id="search" value="{{ request('search') }}" placeholder="Course title…" class="field">
         </div>
-        <div class="w-44">
-            <x-form.label for="category" value="Category" />
-            <select name="category" id="category" class="field">
-                <option value="">All</option>
-                @foreach ($categories as $category)
-                    <option value="{{ $category->id }}" @selected(request('category') == $category->id)>{{ $category->name }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="w-40">
-            <x-form.label for="level" value="Level" />
-            <select name="level" id="level" class="field">
-                <option value="">Any</option>
-                @foreach (['beginner', 'intermediate', 'advanced'] as $level)
-                    <option value="{{ $level }}" @selected(request('level') === $level)>{{ ucfirst($level) }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="w-40">
-            <x-form.label for="status" value="Status" />
-            <select name="status" id="status" class="field">
-                <option value="">Any</option>
-                @foreach (['draft', 'published', 'archived'] as $status)
-                    <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>
-                @endforeach
-            </select>
-        </div>
+        <x-form.multiselect name="category" label="Category" placeholder="All"
+            :options="$categories->pluck('name', 'id')->all()" :selected="$selected['category']" />
+
+        <x-form.multiselect name="level" label="Level" placeholder="Any" width="w-40"
+            :options="collect(\App\Http\Controllers\Admin\CourseController::LEVELS)->mapWithKeys(fn ($l) => [$l => ucfirst($l)])->all()"
+            :selected="$selected['level']" />
+
+        <x-form.multiselect name="status" label="Status" placeholder="Any" width="w-40"
+            :options="collect(\App\Http\Controllers\Admin\CourseController::STATUSES)->mapWithKeys(fn ($s) => [$s => ucfirst($s)])->all()"
+            :selected="$selected['status']" />
+
         {{-- Only for someone who could restore or empty it. The controller
              decides, so the checkbox and the query string cannot disagree. --}}
         @if ($mayViewTrash)

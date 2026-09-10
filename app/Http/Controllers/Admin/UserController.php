@@ -13,7 +13,11 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    use \App\Http\Controllers\Admin\Concerns\FiltersByValues;
     use \App\Http\Controllers\Admin\Concerns\FiltersTrashed;
+
+    /** What the status filter may be asked for. */
+    public const STATUSES = ['active', 'inactive'];
 
     public function index(Request $request): View
     {
@@ -21,6 +25,12 @@ class UserController extends Controller
         // so the trashed list showed them rows whose every action refuses.
         $mayViewTrash = $this->mayViewTrash($request, 'users.delete', 'users.restore');
         $trashed = $this->showingTrashed($request, 'users.delete', 'users.restore');
+
+        // Students live in their own module, so they are not offered here and
+        // cannot be asked for either — the options bound what the filter takes.
+        $roles = Role::where('name', '!=', 'student')->orderBy('name')->pluck('name');
+        $roleNames = $this->filterValues($request, 'role', $roles->all());
+        $statuses = $this->filterValues($request, 'status', self::STATUSES);
 
         $users = User::query()
             ->with('roles')
@@ -33,8 +43,10 @@ class UserController extends Controller
                     ->orWhere('email', 'like', $term)
                     ->orWhere('phone', 'like', $term));
             })
-            ->when($request->filled('role'), fn ($query) => $query->role($request->string('role')->toString()))
-            ->when($request->filled('status'), fn ($query) => $query->where('is_active', $request->string('status')->toString() === 'active'))
+            ->when($roleNames, fn ($query) => $query->role($roleNames))
+            // Both ticked is every user, which is the same as neither — so it
+            // filters only while exactly one is chosen.
+            ->when(count($statuses) === 1, fn ($query) => $query->where('is_active', $statuses[0] === 'active'))
             ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->latest()
             ->paginate(12)
@@ -51,7 +63,8 @@ class UserController extends Controller
             'users' => $users,
             'mayViewTrash' => $mayViewTrash,
             'trashed' => $trashed,
-            'roles' => Role::where('name', '!=', 'student')->orderBy('name')->pluck('name'),
+            'roles' => $roles,
+            'selected' => ['role' => $roleNames, 'status' => $statuses],
         ]);
     }
 
