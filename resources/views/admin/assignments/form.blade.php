@@ -73,15 +73,17 @@
                     @endforeach
                 </div>
             @endif
-            {{-- attachments.* is file|max:20480 — no mimes, so the chip says
-                 "Any file" rather than inventing a list the server does not
-                 enforce. Several files at once, each removable before submit. --}}
+            {{-- attachments.* is file|max:5120 with NO mimes list, so the
+                 chip stays "Any file" — inventing a list would be narrower
+                 than what the server takes. A zip is in "any file" already,
+                 but a student asking "can I upload a zip?" deserves an answer,
+                 so the hint says it out loud. --}}
             <x-form.dropzone
                 name="attachments[]"
                 label="Add attachments"
                 multiple
-                :max-kb="20480"
-                hint="Attach briefs, starter files or rubrics."
+                :max-kb="5120"
+                hint="Attach briefs, starter files or rubrics — a .zip is fine."
             />
         </x-card>
 

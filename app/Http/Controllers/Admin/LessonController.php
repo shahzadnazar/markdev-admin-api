@@ -90,7 +90,9 @@ class LessonController extends Controller
 
     public function storeResource(Request $request, Lesson $lesson): RedirectResponse
     {
-        $request->validate(['file' => ['required', 'file', 'max:20480']]);
+        // Attachment-style: 5 MB, no mimes list, so a zip of course material
+        // is accepted — as it already was.
+        $request->validate(['file' => ['required', 'file', 'max:5120']]);
 
         $file = $request->file('file');
         $path = $file->store('resources', 'public');
@@ -129,7 +131,8 @@ class LessonController extends Controller
             'provider' => ['nullable', Rule::in(['youtube', 'vimeo', 'self_hosted'])],
             'url' => ['nullable', 'string', 'max:1000'],
             'embed_url' => ['nullable', 'string', 'max:1000'],
-            'thumbnail' => ['nullable', 'image', 'max:2048'],
+            // An image field: 1 MB. `image` already refuses an archive.
+            'thumbnail' => ['nullable', 'image', 'max:1024'],
         ]);
 
         $data['is_preview'] = $request->boolean('is_preview');

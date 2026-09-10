@@ -114,6 +114,8 @@
                         required
                     >
                         Columns: <span class="font-mono">biometric_id, punched_at[, direction]</span> — a header row is fine.
+                        Import a term at a time if the export is large; re-importing a row already
+                        recorded is counted as a duplicate, not a second punch.
                     </x-form.dropzone>
                     <x-btn class="w-full"><x-icon name="upload" class="size-4" /> Import</x-btn>
                 </form>

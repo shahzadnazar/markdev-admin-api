@@ -223,6 +223,67 @@ class DropzoneSweepTest extends TestCase
         }
     }
 
+    /**
+     * Every chip says what its own validator says.
+     *
+     * The zones and the rules live in different files, so the only thing
+     * stopping them drifting is that something compares them. This walks each
+     * screen, reads the max: the controller actually applies, and demands the
+     * rendered chip be UploadLimits' answer for that number — which is the
+     * rule, or php.ini when php.ini is smaller. A chip promising more than the
+     * server takes is the lie this whole component exists to avoid.
+     *
+     * The KB below is the declared policy, and two tests are compared against
+     * it from opposite sides: UploadLimitPolicyTest proves the CONTROLLER
+     * applies that number, and this proves the VIEW prints it. Change one side
+     * only and the other fails.
+     *
+     * @return array<string, array{0: string, 1: string, 2: int}>
+     */
+    public static function chipCases(): array
+    {
+        return [
+            // screen => [route args handled below, field id, the rule's max: in KB]
+            'assignment attachments' => ['assignments.create', 'attachments', 5120],
+            'course thumbnail' => ['courses.create', 'thumbnail', 1024],
+            'note file' => ['notes.create', 'file', 5120],
+            'biometric csv' => ['biometric.punches', 'file', 5120],
+            'student photo' => ['students.create', 'photo', 1024],
+            'student cnic' => ['students.create', 'cnic_doc', 5120],
+            'student degree' => ['students.create', 'degree_doc', 5120],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('chipCases')]
+    public function test_the_chip_matches_the_rule(string $route, string $field, int $ruleKb): void
+    {
+        $html = $this->actingAs($this->admin)->get(route('admin.'.$route))->assertOk()->getContent();
+
+        $expected = 'Max '.\App\Support\UploadLimits::maxLabel($ruleKb);
+
+        // The chips sit inside this field's own zone, so scope to it — two
+        // zones on one page would otherwise cover for each other.
+        $zone = $this->zoneFor($html, $field);
+
+        $this->assertStringContainsString(
+            $expected,
+            $zone,
+            "the {$field} zone should say \"{$expected}\" for a max:{$ruleKb} rule",
+        );
+    }
+
+    /** The markup of one field's drop zone, from its input back to its label. */
+    protected function zoneFor(string $html, string $field): string
+    {
+        $inputAt = strpos($html, 'id="'.$field.'"');
+        $this->assertNotFalse($inputAt, "no zone rendered for {$field}");
+
+        $labelAt = strrpos(substr($html, 0, $inputAt), '<label');
+        $endAt = strpos($html, '</label>', $inputAt);
+
+        return substr($html, $labelAt, $endAt - $labelAt);
+    }
+
     protected function course(string $title): Course
     {
         return Course::create([

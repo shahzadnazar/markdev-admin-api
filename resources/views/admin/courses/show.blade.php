@@ -223,7 +223,7 @@
                                     <x-form.input label="Watch URL" name="url" placeholder="https://…" :value="$reopen ? old('url') : null" />
                                 </div>
                                 <x-form.input label="Embed URL" name="embed_url" placeholder="https://…/embed/…" :value="$reopen ? old('embed_url') : null" />
-                                {{-- nullable|image|max:2048.
+                                {{-- nullable|image|max:1024 — an image field.
 
                                      The id is per module because this modal is
                                      rendered once per module. A plain input
@@ -237,7 +237,7 @@
                                     label="Thumbnail (optional)"
                                     accept="image/*"
                                     accept-label="PNG, JPG, WEBP"
-                                    :max-kb="2048"
+                                    :max-kb="1024"
                                     preview
                                     hint="Shown on the lesson card in the student portal."
                                 />

@@ -1,4 +1,4 @@
-@props(['name', 'label', 'accept', 'required' => false, 'existing' => null, 'kind' => 'any'])
+@props(['name', 'label', 'accept', 'maxKb', 'required' => false, 'existing' => null, 'kind' => 'any'])
 
 @php
     $existingUrl = $existing ? \App\Models\StudentProfile::documentSrc($existing) : null;
@@ -13,16 +13,18 @@
     four places. It is a wrapper now, so a fix to dragging, to the focus ring
     or to how the size chip is worked out lands here too.
 
-    StudentController::validated() is `max:1024` on all three, with mimes
-    jpg,jpeg,png,webp (+pdf for the two documents), and required only while
-    creating. `max-kb` is that rule; the chip is the rule capped by php.ini.
+    The three fields no longer share one limit, so `max-kb` is passed in.
+    StudentController::validated() gives `photo` 1 MB — it takes images only —
+    and the two documents 5 MB, because they also take a PDF and are usually a
+    phone photo of a card. Mimes are jpg,jpeg,png,webp (+pdf for the
+    documents); none of them takes an archive. Required only while creating.
 --}}
 <x-form.dropzone
     :name="$name"
     :label="$label"
     :accept="$accept"
     :accept-label="$kind === 'image' ? 'JPG, PNG, WEBP' : 'JPG, PNG, WEBP, PDF'"
-    :max-kb="1024"
+    :max-kb="$maxKb"
     :required="$required"
     preview
     :existing="$existingUrl"

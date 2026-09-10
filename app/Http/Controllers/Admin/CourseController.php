@@ -254,7 +254,8 @@ class CourseController extends Controller
             'is_free' => ['nullable', 'boolean'],
             'price' => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'tags' => ['nullable', 'string', 'max:500'],
-            'thumbnail' => ['nullable', 'image', 'max:4096'],
+            // An image field: 1 MB. `image` already refuses an archive.
+            'thumbnail' => ['nullable', 'image', 'max:1024'],
         ]);
 
         // Blank slug: build one from the title, keeping it unique.

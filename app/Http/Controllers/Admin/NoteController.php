@@ -174,10 +174,14 @@ class NoteController extends Controller
             'course_id' => ['required', 'integer', 'exists:courses,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            // 5 MB, and the document list is deliberately unchanged. A note
+            // is one readable document, not a bundle: extension() maps each of
+            // these mimes to a filename for the download route, and an archive
+            // has nothing to map to. Archives belong on lesson resources.
             'file' => [
                 $fileRequired ? 'required' : 'nullable',
                 'file',
-                'max:20480',
+                'max:5120',
                 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,txt',
             ],
         ]);

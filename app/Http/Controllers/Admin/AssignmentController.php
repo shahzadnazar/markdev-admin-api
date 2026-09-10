@@ -199,7 +199,11 @@ class AssignmentController extends Controller
             'due_at' => ['nullable', 'date'],
             'max_score' => ['required', 'integer', 'min:1', 'max:1000'],
             'attachments' => ['nullable', 'array'],
-            'attachments.*' => ['file', 'max:20480'],
+            // Attachment-style: 5 MB, and deliberately no mimes list. A zip
+            // is already accepted here because nothing restricts the type, and
+            // adding mimes:zip would FORBID the pdfs and docs this field exists
+            // for. Verified with a real archive.
+            'attachments.*' => ['file', 'max:5120'],
         ]);
 
         $data['lesson_id'] = $data['lesson_id'] ?? null;

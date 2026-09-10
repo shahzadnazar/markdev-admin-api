@@ -433,10 +433,14 @@ class StudentController extends Controller
             'emergency_relation' => ['required', 'string', 'max:50'],
             'emergency_residence' => ['nullable', 'string', 'max:255'],
 
-            // Documents — each capped at 1 MB
+            // Documents
+            // photo is images only, so 1 MB. The two documents also take a
+            // PDF, which puts them in the "other files" bucket at 5 MB — and
+            // they are usually a phone photo of a card, which 1 MB was tight
+            // for. Neither takes an archive: the mimes list decides that.
             'photo' => [$creating ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
-            'cnic_doc' => [$creating ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:1024'],
-            'degree_doc' => [$creating ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:1024'],
+            'cnic_doc' => [$creating ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+            'degree_doc' => [$creating ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
 
             // Office use only
             'date_of_joining' => ['required', 'date'],
@@ -462,8 +466,8 @@ class StudentController extends Controller
         ], [
             'terms.accepted' => 'The student must accept the terms and conditions.',
             'photo.max' => 'The profile picture must not be larger than 1 MB.',
-            'cnic_doc.max' => 'The CNIC document must not be larger than 1 MB.',
-            'degree_doc.max' => 'The degree document must not be larger than 1 MB.',
+            'cnic_doc.max' => 'The CNIC document must not be larger than 5 MB.',
+            'degree_doc.max' => 'The degree document must not be larger than 5 MB.',
         ]);
     }
 

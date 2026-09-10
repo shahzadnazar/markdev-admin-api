@@ -19,7 +19,10 @@ class SubmitAssignmentRequest extends FormRequest
             'content' => ['nullable', 'string', 'max:65000'],
             // Student's question to the instructor.
             'query' => ['nullable', 'string', 'max:65000'],
-            'file' => ['required', 'file', 'max:10240'],
+            // Attachment-style: 5 MB, and STILL required (9bed5dd). No mimes
+            // list, so a student can submit a zip of their project — which was
+            // already true and is now tested.
+            'file' => ['required', 'file', 'max:5120'],
         ];
     }
 

@@ -92,17 +92,17 @@
 
                 {{-- File --}}
                 <div>
-                    {{-- StoreNoteRequest: file|max:20480|mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,txt.
-                         The "Maximum size: 20 MB" this replaced was the rule read
-                         straight off the validator; the chip is the rule AND
-                         php.ini, whichever is smaller, so it cannot promise a
-                         size the server will drop on the floor. --}}
+                    {{-- file|max:5120|mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,txt.
+                         The chip is the rule AND php.ini, whichever is smaller,
+                         so it cannot promise a size the server will drop on the
+                         floor. No archive here: a note is one readable document
+                         and the download route names it by extension. --}}
                     <x-form.dropzone
                         name="file"
                         :label="$note ? 'Replace file' : 'File'"
                         accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
                         accept-label="PDF, DOC, PPT, XLS, TXT"
-                        :max-kb="20480"
+                        :max-kb="5120"
                         :required="! $note"
                     />
 

@@ -62,15 +62,15 @@
                 <p class="eyebrow">Media &amp; fee</p>
                 <div class="grid items-start gap-5 sm:grid-cols-2">
                     <div>
-                        {{-- nullable|image|max:4096. The old hint said "up to 4 MB"
-                             off the rule alone; the chip is the rule capped by
-                             php.ini, so it says what will actually be accepted. --}}
+                        {{-- nullable|image|max:1024 — an image field, so 1 MB.
+                             The chip is the rule capped by php.ini, so it says
+                             what will actually be accepted. --}}
                         <x-form.dropzone
                             name="thumbnail"
                             label="Thumbnail"
                             accept="image/*"
                             accept-label="PNG, JPG, WEBP"
-                            :max-kb="4096"
+                            :max-kb="1024"
                             preview
                             :existing="$course?->thumbnail_path ? $course->thumbnail_url : null"
                             existing-is-image

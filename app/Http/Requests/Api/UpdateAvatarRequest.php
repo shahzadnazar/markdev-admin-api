@@ -15,7 +15,8 @@ class UpdateAvatarRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'avatar' => ['required', 'image', 'max:2048'],
+            // An image field: 1 MB. `image` already refuses an archive.
+            'avatar' => ['required', 'image', 'max:1024'],
         ];
     }
 }

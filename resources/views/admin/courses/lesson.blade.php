@@ -51,13 +51,13 @@
                                 class="h-16 w-28 shrink-0 rounded-lg border border-outline-variant/40 object-cover">
                         @endif
                         <div class="min-w-0 flex-1">
-                            {{-- nullable|image|max:2048. --}}
+                            {{-- nullable|image|max:1024 — an image field. --}}
                             <x-form.dropzone
                                 name="thumbnail"
                                 label="Thumbnail"
                                 accept="image/*"
                                 accept-label="PNG, JPG, WEBP"
-                                :max-kb="2048"
+                                :max-kb="1024"
                                 preview
                                 hint="Shown on the lesson card in the student portal."
                             />
@@ -111,8 +111,10 @@
                 <div class="border-t border-surface-ice px-6 py-4">
                     <form method="POST" action="{{ route('admin.lessons.resources.store', $lesson) }}" enctype="multipart/form-data" class="space-y-3">
                         @csrf
-                        {{-- required|file|max:20480, no mimes. --}}
-                        <x-form.dropzone name="file" :max-kb="20480" required />
+                        {{-- required|file|max:5120, no mimes — so an archive of
+                             course material is accepted, as it already was. --}}
+                        <x-form.dropzone name="file" :max-kb="5120" required
+                            hint="Slides, starter code or a .zip of materials." />
                         <x-btn size="sm" variant="secondary">
                             <x-icon name="upload" class="size-4" /> Upload resource
                         </x-btn>

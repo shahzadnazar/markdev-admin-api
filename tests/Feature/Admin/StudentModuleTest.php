@@ -84,17 +84,29 @@ class StudentModuleTest extends TestCase
         $this->assertSame($profile->photo_path, $student->fresh()->avatar_path);
     }
 
-    public function test_documents_over_one_megabyte_are_rejected(): void
+    public function test_oversized_documents_are_rejected_at_each_field_own_limit(): void
     {
-        $response = $this->actingAs($this->admin)
+        // The three fields stopped sharing one number. `photo` takes images
+        // only, so it keeps the 1 MB image limit; the two documents also take
+        // a PDF, which puts them in the 5 MB bucket — they are usually a phone
+        // photo of a card, and 1 MB refused plenty of real ones.
+        $this->actingAs($this->admin)
             ->from('/admin/students/register')
             ->post('/admin/students', $this->payload([
                 'photo' => UploadedFile::fake()->image('big.jpg')->size(1500),
-                'cnic_doc' => UploadedFile::fake()->create('big.pdf', 2048, 'application/pdf'),
-            ]));
+                'cnic_doc' => UploadedFile::fake()->create('big.pdf', 6144, 'application/pdf'),
+            ]))
+            ->assertSessionHasErrors(['photo', 'cnic_doc']);
 
-        $response->assertSessionHasErrors(['photo', 'cnic_doc']);
         $this->assertNull(User::where('email', 'hamza@student.test')->first());
+
+        // And the size that used to be refused on a document now is not.
+        $this->actingAs($this->admin)
+            ->from('/admin/students/register')
+            ->post('/admin/students', $this->payload([
+                'cnic_doc' => UploadedFile::fake()->create('scan.pdf', 2048, 'application/pdf'),
+            ]))
+            ->assertSessionDoesntHaveErrors('cnic_doc');
     }
 
     public function test_documents_are_required_on_registration(): void

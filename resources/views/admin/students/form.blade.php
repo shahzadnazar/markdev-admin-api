@@ -223,12 +223,17 @@
                          thing that goes stale when either changes. --}}
 
                     <div class="space-y-4">
+                        {{-- The photo takes images only, so it gets the image
+                             limit; the two documents also take a PDF, so they
+                             get the other-files limit. Each chip is its own
+                             field's rule, which is why they are passed
+                             separately rather than shared. --}}
                         <x-students.doc-field name="photo" label="Profile picture" accept="image/jpeg,image/png,image/webp"
-                            :required="! $student" :existing="$profile?->photo_path" kind="image" />
+                            :max-kb="1024" :required="! $student" :existing="$profile?->photo_path" kind="image" />
                         <x-students.doc-field name="cnic_doc" label="CNIC / B-Form copy" accept="image/jpeg,image/png,image/webp,application/pdf"
-                            :required="! $student" :existing="$profile?->cnic_doc_path" kind="any" />
+                            :max-kb="5120" :required="! $student" :existing="$profile?->cnic_doc_path" kind="any" />
                         <x-students.doc-field name="degree_doc" label="Last degree / certificate" accept="image/jpeg,image/png,image/webp,application/pdf"
-                            :required="! $student" :existing="$profile?->degree_doc_path" kind="any" />
+                            :max-kb="5120" :required="! $student" :existing="$profile?->degree_doc_path" kind="any" />
                     </div>
                 </x-card>
 
