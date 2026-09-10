@@ -43,15 +43,22 @@ class EnrollmentController extends Controller
             ->paginate(12)
             ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
 
-        $plans = FeePlan::query()
-            ->whereIn('user_id', $enrollments->pluck('user_id')->filter())
-            ->whereIn('course_id', $enrollments->pluck('course_id')->filter())
-            ->withCount([
-                'invoices as total_invoices',
-                'invoices as paid_invoices' => fn ($query) => $query->where('status', 'paid'),
-            ])
-            ->get()
-            ->keyBy(fn ($plan) => $plan->user_id.'-'.$plan->course_id);
+        // Money is loaded only for someone allowed to see money. Gating the
+        // Blade alone would leave the amounts in the response for anyone who
+        // opened devtools — a hidden column that still ships the numbers is
+        // not hidden, it is obscured. An empty collection keeps the view's
+        // contract identical, and the Fee column is not rendered at all.
+        $plans = $request->user()?->can('billing.view')
+            ? FeePlan::query()
+                ->whereIn('user_id', $enrollments->pluck('user_id')->filter())
+                ->whereIn('course_id', $enrollments->pluck('course_id')->filter())
+                ->withCount([
+                    'invoices as total_invoices',
+                    'invoices as paid_invoices' => fn ($query) => $query->where('status', 'paid'),
+                ])
+                ->get()
+                ->keyBy(fn ($plan) => $plan->user_id.'-'.$plan->course_id)
+            : collect();
 
         // Live search re-renders only the results, so typing never reloads the
         // page and the cursor stays in the search box. The Filter button still

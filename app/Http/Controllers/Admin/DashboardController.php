@@ -45,29 +45,45 @@ class DashboardController extends Controller
 
         $activeStudents = (int) ($byRole->get('student')->active ?? 0);
 
+        // Gated on the billing permission, never on a role name: a role added
+        // later inherits the rule instead of quietly seeing the money.
+        $canSeeBilling = (bool) $request->user()?->can('billing.view');
+
         $stats = [
             'students' => (int) ($byRole->get('student')->total ?? 0),
             'instructors' => (int) ($byRole->get('instructor')->total ?? 0),
             'courses' => Course::count(),
             'lessons' => Lesson::count(),
             'pending_submissions' => AssignmentSubmission::whereNull('graded_at')->count(),
-            'pending_fees' => \App\Models\Transaction::where('submitted_by_student', true)->where('status', 'pending')->count(),
+            // null, not 0, for a viewer without billing.view — the widget is
+            // not rendered at all, and the query does not run either. Zero
+            // would be a number they are not entitled to, and it happens to
+            // be the interesting one.
+            'pending_fees' => $canSeeBilling
+                ? \App\Models\Transaction::where('submitted_by_student', true)->where('status', 'pending')->count()
+                : null,
             'attempts_today' => QuizAttempt::whereDate('started_at', today())->count(),
             'attendance_rate' => $this->attendanceRate(),
         ];
 
         // What needs an admin's action right now — each row links to the fix.
+        // The two billing rows are dropped for anyone without billing.view:
+        // both are counts of money, and both linked to screens that would have
+        // answered 403 anyway, so an instructor was being shown a figure and a
+        // door that was never theirs.
         $attention = collect([
-            [
-                'label' => 'Fee submissions awaiting review',
-                'count' => $stats['pending_fees'],
-                'url' => route('admin.billing.submissions'),
-            ],
-            [
-                'label' => 'Installments past due (defaulters)',
-                'count' => \App\Models\Invoice::where('status', 'past_due')->count(),
-                'url' => route('admin.billing.plans.index', ['tab' => 'defaulters']),
-            ],
+            ...($canSeeBilling ? [
+                [
+                    'label' => 'Fee submissions awaiting review',
+                    'count' => $stats['pending_fees'],
+                    'url' => route('admin.billing.submissions'),
+                ],
+                [
+                    'label' => 'Installments past due (defaulters)',
+                    'count' => \App\Models\Invoice::where('status', 'past_due')->count(),
+                    'url' => route('admin.billing.plans.index', ['tab' => 'defaulters']),
+                ],
+            ] : []),
             [
                 'label' => 'Assignment submissions to grade',
                 'count' => $stats['pending_submissions'],
