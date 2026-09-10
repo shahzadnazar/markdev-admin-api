@@ -19,6 +19,18 @@ use Illuminate\Support\Facades\Gate;
 
 class BillingController extends ApiController
 {
+    use Concerns\FiltersByValues;
+
+    /** What the payment-history filter will accept. */
+    public const TRANSACTION_STATUSES = ['pending', 'success', 'rejected', 'failed', 'refunded'];
+
+    /**
+     * And what the invoice filter will. A different set, which is the point of
+     * naming both: the first pass bounded invoices by the transaction list and
+     * `?status=open` — the one the portal actually sends — stopped matching.
+     */
+    public const INVOICE_STATUSES = ['upcoming', 'open', 'pending', 'past_due', 'paid', 'void'];
+
     public function overview(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -149,8 +161,10 @@ class BillingController extends ApiController
     {
         $query = Transaction::where('user_id', $request->user()->id);
 
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
+        // Several statuses at once, bounded by the list the portal offers.
+        // An older app build still sends ?status=pending, which normalises.
+        if ($statuses = $this->filterValues($request, 'status', self::TRANSACTION_STATUSES)) {
+            $query->whereIn('status', $statuses);
         }
 
         if ($from = $request->query('from')) {
@@ -178,8 +192,10 @@ class BillingController extends ApiController
     {
         $query = Invoice::with('latestSubmission')->where('user_id', $request->user()->id);
 
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
+        // Several statuses at once, bounded by the list the portal offers.
+        // An older app build still sends ?status=open, which normalises.
+        if ($statuses = $this->filterValues($request, 'status', self::INVOICE_STATUSES)) {
+            $query->whereIn('status', $statuses);
         }
 
         if ($search = trim((string) $request->query('search'))) {

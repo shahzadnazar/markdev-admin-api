@@ -10,6 +10,14 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class AttendanceController extends ApiController
 {
+    use Concerns\FiltersByValues;
+
+    /** Everything a day can be, and everything the status filter will accept. */
+    protected function listableStatuses(): array
+    {
+        return [...DailyAttendance::STATUSES, DailyAttendance::HOLIDAY];
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = DailyAttendance::where('user_id', $request->user()->id)->decided()->with('course');
@@ -18,8 +26,10 @@ class AttendanceController extends ApiController
             $query->where('course_id', $courseId);
         }
 
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
+        // Several statuses at once. An empty selection is no filter, and an
+        // older app build still sends ?status=absent, which normalises to one.
+        if ($statuses = $this->filterValues($request, 'status', $this->listableStatuses())) {
+            $query->whereIn('status', $statuses);
         }
 
         // Half-open on the upper bound rather than a `<=` against a date-cast
@@ -216,7 +226,7 @@ class AttendanceController extends ApiController
             $query->where('date', '<', \Illuminate\Support\Carbon::parse($to)->addDay()->toDateString());
         }
 
-        $status = $applyStatus ? $request->query('status') : null;
+        $statuses = $applyStatus ? $this->filterValues($request, 'status', $this->listableStatuses()) : [];
 
         return $query->get()
             ->map(fn (DailyAttendance $day) => [
@@ -235,7 +245,7 @@ class AttendanceController extends ApiController
                 'marked_at' => $day->marked_at?->toIso8601String(),
                 'corrected' => $day->last_updated_at !== null,
             ])
-            ->when($status, fn ($days) => $days->where('status', $status))
+            ->when($statuses, fn ($days) => $days->whereIn('status', $statuses))
             ->sortByDesc('date')
             ->values();
     }
