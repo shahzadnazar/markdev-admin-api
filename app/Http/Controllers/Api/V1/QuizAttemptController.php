@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Requests\Api\RecordAttemptActivityRequest;
 use App\Http\Requests\Api\SubmitQuizAttemptRequest;
 use App\Http\Resources\QuizAttemptResource;
 use App\Http\Resources\QuizResultResource;
@@ -9,9 +10,11 @@ use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Services\QuizService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class QuizAttemptController extends ApiController
 {
@@ -38,6 +41,35 @@ class QuizAttemptController extends ApiController
         $attempt = $quizzes->submitAttempt($quiz, $attempt, $request->validated('answers', []));
 
         return new QuizResultResource($this->loadResult($attempt));
+    }
+
+    /**
+     * Records that the student left the quiz tab, and for how long.
+     *
+     * Telemetry, and nothing depends on it: the attempt submits and scores
+     * identically whether this ever arrives or not. It answers 204 with no
+     * body, because the student is never shown any of it and there is nothing
+     * for the page to do with a reply.
+     */
+    public function activity(RecordAttemptActivityRequest $request, Quiz $quiz, QuizAttempt $attempt): Response
+    {
+        abort_unless($attempt->quiz_id === $quiz->id, 404);
+        Gate::authorize('record', $attempt);
+
+        // A finished attempt is a finished record. Allowing a late write would
+        // make it editable after the fact by the person it describes.
+        if ($attempt->submitted_at !== null) {
+            throw ValidationException::withMessages([
+                'attempt' => ['This attempt has already been submitted.'],
+            ]);
+        }
+
+        $attempt->recordAwayTotals(
+            (int) $request->validated('away_count'),
+            (int) $request->validated('away_seconds'),
+        );
+
+        return response()->noContent();
     }
 
     /** The student's finished attempts for this quiz, newest first. */

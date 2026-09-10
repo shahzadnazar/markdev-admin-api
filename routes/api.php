@@ -91,6 +91,10 @@ Route::prefix('v1')->group(function () {
         Route::post('quizzes/{quiz}/attempts', [QuizAttemptController::class, 'store']);
         Route::get('quizzes/{quiz}/attempts/{attempt}', [QuizAttemptController::class, 'show']);
         Route::post('quizzes/{quiz}/attempts/{attempt}/submit', [QuizAttemptController::class, 'submit']);
+        // Tab-activity telemetry. Separate from submit on purpose: it is
+        // written repeatedly during an attempt and must never be able to
+        // affect, delay or fail the submission that carries the score.
+        Route::post('quizzes/{quiz}/attempts/{attempt}/activity', [QuizAttemptController::class, 'activity']);
 
         /* Engagement */
         Route::get('dashboard', DashboardController::class);

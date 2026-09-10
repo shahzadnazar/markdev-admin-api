@@ -11,6 +11,17 @@
         </x-slot:actions>
     </x-page-header>
 
+    {{-- Said once, above the table, rather than beside any one attempt: the
+         signal is weak and the note has to travel with it. Without this an
+         instructor could read a count as evidence of something it cannot
+         evidence. --}}
+    <p class="mb-4 max-w-3xl text-xs text-outline">
+        Where an attempt records tab switches, they are shown under the student's name for context only.
+        A notification, a clock check and a second monitor all look the same from here, and nothing outside
+        the browser tab — a phone, a printed page, another device — is visible at all. One switch is
+        ordinary; a pattern is a reason to look at the attempt, not a conclusion about it.
+    </p>
+
     <x-table>
         <thead class="bg-surface-ice/60">
             <tr>
@@ -27,9 +38,18 @@
                     <td class="td">
                         <p class="font-medium text-on-surface">{{ $attempt->user?->name ?? 'Deleted user' }}</p>
                         <p class="text-xs text-outline">{{ $attempt->user?->email }}</p>
+                        {{-- Nothing at all when the count is zero. An empty row
+                             invites reading meaning into silence, and every
+                             attempt taken before this was measured reads zero.
+                             Same colour as the email above it: this is context,
+                             not a verdict, and a red one would be the system
+                             deciding something it is in no position to decide. --}}
+                        @if ($summary = $attempt->awaySummary())
+                            <p class="mt-1 font-mono text-[11px] text-outline">{{ $summary }}</p>
+                        @endif
                     </td>
-                    <td class="td font-mono text-xs text-outline">{{ $attempt->started_at?->format('j M Y · H:i') }}</td>
-                    <td class="td font-mono text-xs text-outline">{{ $attempt->submitted_at?->format('j M Y · H:i') ?? '—' }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $attempt->started_at?->format('j M Y, g:i A') }}</td>
+                    <td class="td font-mono text-xs text-outline">{{ $attempt->submitted_at?->format('j M Y, g:i A') ?? '—' }}</td>
                     <td class="td">
                         @if ($attempt->submitted_at)
                             <span class="font-mono text-sm text-on-surface">{{ $attempt->score }} / {{ $attempt->max_score }}</span>
