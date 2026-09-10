@@ -6,7 +6,14 @@
         <x-brand-mark class="size-10 shrink-0" gradient-id="sidebar" />
         <div class="sidebar-brand-text min-w-0 leading-tight">
             <p class="font-display text-lg font-bold tracking-[-0.01em] text-on-surface">MarkDev</p>
-            <p class="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-primary">Admin Portal</p>
+            {{-- Follows the viewer's role: an instructor is not an admin, and
+                 was being told otherwise. App\Support\PortalLabel decides,
+                 including which label wins when someone holds two roles. --}}
+            {{-- Tighter tracking than the 0.2em this line used to carry: it
+                 only ever said "Admin Portal", and "Super Admin Portal" at
+                 that spacing wraps onto a second line and pushes the collapse
+                 control out of line with the logo. --}}
+            <p class="truncate font-mono text-[10px] font-medium uppercase tracking-[0.12em] whitespace-nowrap text-primary">{{ auth()->user()->portalLabel() }}</p>
         </div>
 
         <button type="button"

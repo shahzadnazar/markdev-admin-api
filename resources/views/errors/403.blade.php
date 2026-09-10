@@ -20,7 +20,15 @@
         <p class="mt-6 font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-error">Error 403</p>
         <h1 class="mt-2 font-display text-2xl font-bold tracking-[-0.01em] text-on-surface">Access restricted</h1>
         <p class="mt-2 text-sm leading-6 text-on-surface-variant">
-            {{ $exception?->getMessage() ?: "Your account doesn't have permission to view this area of the MarkDev admin portal." }}
+            {{-- Only the fallback follows the role. Most 403s here carry their
+                 own sentence — "Absent is final. Ask an admin to correct it.",
+                 "This course belongs to another instructor." — and those say
+                 what actually happened, which is more use than the panel's
+                 name. A signed-out visitor gets the generic wording, since
+                 there is no role to read. --}}
+            {{ $exception?->getMessage()
+                ?: "Your account doesn't have permission to view this area of the MarkDev "
+                    .strtolower(\App\Support\PortalLabel::for(auth()->user())).'.' }}
         </p>
 
         <div class="mt-8 flex flex-col items-center gap-3">

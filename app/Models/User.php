@@ -120,6 +120,17 @@ class User extends Authenticatable
         return $this->hasOne(StudentProfile::class);
     }
 
+    /**
+     * What the admin panel calls itself for this user — "Instructor Portal".
+     *
+     * Delegates: the mapping and its precedence live in PortalLabel, so there
+     * is one place to add a role and one place that decides which of two wins.
+     */
+    public function portalLabel(): string
+    {
+        return \App\Support\PortalLabel::for($this);
+    }
+
     public function dailyAttendance(): HasMany
     {
         return $this->hasMany(DailyAttendance::class);
