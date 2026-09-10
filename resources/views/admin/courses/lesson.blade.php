@@ -51,8 +51,16 @@
                                 class="h-16 w-28 shrink-0 rounded-lg border border-outline-variant/40 object-cover">
                         @endif
                         <div class="min-w-0 flex-1">
-                            <x-form.input type="file" label="Thumbnail" name="thumbnail" accept="image/*"
-                                :hint="($lesson->video?->thumbnail_path ? 'Uploading a new image replaces the current thumbnail.' : 'JPG/PNG up to 2 MB — shown on the lesson card in the student portal.')" />
+                            {{-- nullable|image|max:2048. --}}
+                            <x-form.dropzone
+                                name="thumbnail"
+                                label="Thumbnail"
+                                accept="image/*"
+                                accept-label="PNG, JPG, WEBP"
+                                :max-kb="2048"
+                                preview
+                                hint="Shown on the lesson card in the student portal."
+                            />
                         </div>
                     </div>
                 </div>
@@ -103,9 +111,8 @@
                 <div class="border-t border-surface-ice px-6 py-4">
                     <form method="POST" action="{{ route('admin.lessons.resources.store', $lesson) }}" enctype="multipart/form-data" class="space-y-3">
                         @csrf
-                        <input type="file" name="file" required
-                            class="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/15">
-                        <x-form.error name="file" />
+                        {{-- required|file|max:20480, no mimes. --}}
+                        <x-form.dropzone name="file" :max-kb="20480" required />
                         <x-btn size="sm" variant="secondary">
                             <x-icon name="upload" class="size-4" /> Upload resource
                         </x-btn>

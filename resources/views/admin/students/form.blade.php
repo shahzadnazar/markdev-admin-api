@@ -217,7 +217,10 @@
                         <x-icon name="document" class="size-4 text-primary" />
                         <h2 class="font-mono text-label-md uppercase text-on-surface">Documents</h2>
                     </div>
-                    <p class="mb-4 text-xs text-outline">JPG, PNG, WEBP{{ '' }} or PDF · max 1 MB each</p>
+                    {{-- No size line here any more: each field carries its own
+                         chips, and those are worked out from the rule AND
+                         php.ini. A summary typed once at the top is exactly the
+                         thing that goes stale when either changes. --}}
 
                     <div class="space-y-4">
                         <x-students.doc-field name="photo" label="Profile picture" accept="image/jpeg,image/png,image/webp"

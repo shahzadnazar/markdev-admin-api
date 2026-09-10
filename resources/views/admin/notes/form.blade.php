@@ -92,23 +92,19 @@
 
                 {{-- File --}}
                 <div>
-                    <x-form.label
-                        for="file"
-                        :value="$note ? 'Replace file' : 'File'"
-                    />
-
-                    <input
-                        type="file"
+                    {{-- StoreNoteRequest: file|max:20480|mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,txt.
+                         The "Maximum size: 20 MB" this replaced was the rule read
+                         straight off the validator; the chip is the rule AND
+                         php.ini, whichever is smaller, so it cannot promise a
+                         size the server will drop on the floor. --}}
+                    <x-form.dropzone
                         name="file"
-                        id="file"
-                        class="field mt-1 w-full"
+                        :label="$note ? 'Replace file' : 'File'"
                         accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
-                        @required(!$note)
-                    >
-
-                    <p class="mt-1 text-xs text-outline">
-                        PDF, Word, PowerPoint, Excel or TXT. Maximum size: 20 MB.
-                    </p>
+                        accept-label="PDF, DOC, PPT, XLS, TXT"
+                        :max-kb="20480"
+                        :required="! $note"
+                    />
 
                     @if ($note?->file_path)
                         <div class="mt-3 flex items-center gap-3 rounded-lg bg-surface-ice px-4 py-3">
@@ -138,9 +134,6 @@
                         </div>
                     @endif
 
-                    @error('file')
-                        <p class="mt-1 text-xs text-error">{{ $message }}</p>
-                    @enderror
                 </div>
 
                 {{-- Actions --}}

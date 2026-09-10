@@ -62,14 +62,21 @@
                 <p class="eyebrow">Media &amp; fee</p>
                 <div class="grid items-start gap-5 sm:grid-cols-2">
                     <div>
-                        <x-form.label for="thumbnail" value="Thumbnail" />
-                        @if ($course?->thumbnail_path)
-                            <img src="{{ $course->thumbnail_url }}" alt="Current thumbnail" class="mb-3 h-28 w-full rounded-xl object-cover">
-                        @endif
-                        <input type="file" name="thumbnail" id="thumbnail" accept="image/*"
-                            class="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/15">
-                        <p class="mt-1.5 text-xs text-outline">PNG or JPG, up to 4 MB. Stored on the public disk under courses/.</p>
-                        <x-form.error name="thumbnail" />
+                        {{-- nullable|image|max:4096. The old hint said "up to 4 MB"
+                             off the rule alone; the chip is the rule capped by
+                             php.ini, so it says what will actually be accepted. --}}
+                        <x-form.dropzone
+                            name="thumbnail"
+                            label="Thumbnail"
+                            accept="image/*"
+                            accept-label="PNG, JPG, WEBP"
+                            :max-kb="4096"
+                            preview
+                            :existing="$course?->thumbnail_path ? $course->thumbnail_url : null"
+                            existing-is-image
+                            existing-label="Current thumbnail"
+                            hint="Stored on the public disk under courses/."
+                        />
                     </div>
                     <div class="space-y-5">
                         <x-form.toggle label="Free course" name="is_free" :checked="(bool) ($course?->is_free ?? false)" hint="Free courses skip billing entirely." x-model="free" />

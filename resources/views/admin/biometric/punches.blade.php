@@ -99,13 +99,22 @@
                             <option value="{{ $device->id }}" @selected(old('device_id') == $device->id)>{{ $device->name }}</option>
                         @endforeach
                     </x-form.select>
-                    <div>
-                        <x-form.label for="file" value="CSV file" />
-                        <input type="file" name="file" id="file" accept=".csv,.txt" required
-                            class="field file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary">
-                        <p class="mt-1.5 text-xs text-outline">Columns: <span class="font-mono">biometric_id, punched_at[, direction]</span> — a header row is fine.</p>
-                        <x-form.error name="file" />
-                    </div>
+                    {{-- It fits: one required file, mimes:csv,txt, max:5120 — the
+                         same shape as every other single-file field, and the
+                         column list is just this field's hint. The IMPORT is a
+                         different shape (it parses rows and reports counts),
+                         but that is the controller's business and nothing here
+                         changed about it. --}}
+                    <x-form.dropzone
+                        name="file"
+                        label="CSV file"
+                        accept=".csv,.txt"
+                        accept-label="CSV, TXT"
+                        :max-kb="5120"
+                        required
+                    >
+                        Columns: <span class="font-mono">biometric_id, punched_at[, direction]</span> — a header row is fine.
+                    </x-form.dropzone>
                     <x-btn class="w-full"><x-icon name="upload" class="size-4" /> Import</x-btn>
                 </form>
             </x-card>

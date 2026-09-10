@@ -73,12 +73,16 @@
                     @endforeach
                 </div>
             @endif
-            <div>
-                <input type="file" name="attachments[]" multiple
-                    class="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/15">
-                <p class="mt-1.5 text-xs text-outline">Attach briefs, starter files or rubrics (max 20 MB each).</p>
-                <x-form.error name="attachments.*" />
-            </div>
+            {{-- attachments.* is file|max:20480 — no mimes, so the chip says
+                 "Any file" rather than inventing a list the server does not
+                 enforce. Several files at once, each removable before submit. --}}
+            <x-form.dropzone
+                name="attachments[]"
+                label="Add attachments"
+                multiple
+                :max-kb="20480"
+                hint="Attach briefs, starter files or rubrics."
+            />
         </x-card>
 
         <div class="mt-6 flex items-center gap-3">

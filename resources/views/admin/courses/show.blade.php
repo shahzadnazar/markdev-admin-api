@@ -223,8 +223,24 @@
                                     <x-form.input label="Watch URL" name="url" placeholder="https://…" :value="$reopen ? old('url') : null" />
                                 </div>
                                 <x-form.input label="Embed URL" name="embed_url" placeholder="https://…/embed/…" :value="$reopen ? old('embed_url') : null" />
-                                <x-form.input type="file" label="Thumbnail (optional)" name="thumbnail" accept="image/*"
-                                    hint="JPG/PNG up to 2 MB — shown on the lesson card in the student portal." />
+                                {{-- nullable|image|max:2048.
+
+                                     The id is per module because this modal is
+                                     rendered once per module. A plain input
+                                     with a repeated id is merely sloppy; a
+                                     drop zone is a <label for>, so duplicates
+                                     would make every zone on the page open the
+                                     FIRST module's picker. --}}
+                                <x-form.dropzone
+                                    name="thumbnail"
+                                    :id="'thumbnail-'.$module->id"
+                                    label="Thumbnail (optional)"
+                                    accept="image/*"
+                                    accept-label="PNG, JPG, WEBP"
+                                    :max-kb="2048"
+                                    preview
+                                    hint="Shown on the lesson card in the student portal."
+                                />
                             </div>
 
                             <div x-show="type === 'article'" x-cloak>
