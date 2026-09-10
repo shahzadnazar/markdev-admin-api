@@ -13,8 +13,15 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    use \App\Http\Controllers\Admin\Concerns\FiltersTrashed;
+
     public function index(Request $request): View
     {
+        // Managers hold users.view but neither users.delete nor users.restore,
+        // so the trashed list showed them rows whose every action refuses.
+        $mayViewTrash = $this->mayViewTrash($request, 'users.delete', 'users.restore');
+        $trashed = $this->showingTrashed($request, 'users.delete', 'users.restore');
+
         $users = User::query()
             ->with('roles')
             // Students are managed in the dedicated Students module.
@@ -28,7 +35,7 @@ class UserController extends Controller
             })
             ->when($request->filled('role'), fn ($query) => $query->role($request->string('role')->toString()))
             ->when($request->filled('status'), fn ($query) => $query->where('is_active', $request->string('status')->toString() === 'active'))
-            ->when($request->string('trashed')->toString() === '1', fn ($query) => $query->onlyTrashed())
+            ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->latest()
             ->paginate(12)
             ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
@@ -42,6 +49,8 @@ class UserController extends Controller
 
         return view('admin.users.index', [
             'users' => $users,
+            'mayViewTrash' => $mayViewTrash,
+            'trashed' => $trashed,
             'roles' => Role::where('name', '!=', 'student')->orderBy('name')->pluck('name'),
         ]);
     }

@@ -24,6 +24,8 @@ use Illuminate\View\View;
  */
 class StudentController extends Controller
 {
+    use \App\Http\Controllers\Admin\Concerns\FiltersTrashed;
+
     /** Validated keys that do not map to student_profiles columns. */
     protected const NON_PROFILE_FIELDS = [
         'name', 'email', 'password', 'contact_number', 'is_active',
@@ -33,7 +35,12 @@ class StudentController extends Controller
 
     public function index(Request $request): View
     {
-        $trashed = $request->string('trashed')->toString() === '1';
+        // The checkbox was already gated on students.delete, but the query
+        // string was not: a manager holds students.view and not students.delete,
+        // so /admin/students?trashed=1 still handed them a trash box whose
+        // Restore and Delete permanently both refuse. Ignored now, not refused.
+        $mayViewTrash = $this->mayViewTrash($request, 'students.delete');
+        $trashed = $this->showingTrashed($request, 'students.delete');
 
         // The status filter is meaningless inside the trash box.
         $status = ! $trashed && in_array($request->query('status'), ['active', 'inactive'], true)
@@ -136,6 +143,7 @@ class StudentController extends Controller
             'students' => $students,
             'status' => $status,
             'trashed' => $trashed,
+            'mayViewTrash' => $mayViewTrash,
             'filters' => $filters,
             'courses' => Course::orderBy('title')->get(['id', 'title']),
             'totals' => $this->cohortTotals(),

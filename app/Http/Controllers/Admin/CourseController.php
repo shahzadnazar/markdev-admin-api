@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\FiltersTrashed;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
@@ -16,10 +17,17 @@ use Illuminate\View\View;
 
 class CourseController extends Controller
 {
-    use RestrictsToInstructor;
+    use FiltersTrashed, RestrictsToInstructor;
 
     public function index(Request $request): View
     {
+        // Only for someone who could act on what it shows. Instructors and
+        // managers hold courses.view but neither delete nor restore, so the
+        // trashed list was a room with nothing in it they could touch — and a
+        // stray ?trashed=1 in the URL is ignored rather than refused.
+        $mayViewTrash = $this->mayViewTrash($request, 'courses.delete', 'courses.restore');
+        $trashed = $this->showingTrashed($request, 'courses.delete', 'courses.restore');
+
         $courses = Course::query()
             ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('id', $mine))
             ->with(['category', 'instructor'])
@@ -28,7 +36,7 @@ class CourseController extends Controller
             ->when($request->filled('category'), fn ($query) => $query->where('category_id', $request->integer('category')))
             ->when($request->filled('level'), fn ($query) => $query->where('level', $request->string('level')->toString()))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
-            ->when($request->string('trashed')->toString() === '1', fn ($query) => $query->onlyTrashed())
+            ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->latest()
             ->paginate(10)
             ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
@@ -42,6 +50,8 @@ class CourseController extends Controller
 
         return view('admin.courses.index', [
             'courses' => $courses,
+            'mayViewTrash' => $mayViewTrash,
+            'trashed' => $trashed,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
         ]);
     }

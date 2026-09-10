@@ -44,10 +44,14 @@
                 @endforeach
             </select>
         </div>
-        <label class="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-white px-3">
-            <input type="checkbox" name="trashed" value="1" @checked(request('trashed') === '1') class="check">
-            <span class="text-sm text-on-surface-variant">Trashed</span>
-        </label>
+        {{-- Only for someone who could restore or empty it. The controller
+             decides, so the checkbox and the query string cannot disagree. --}}
+        @if ($mayViewTrash)
+            <label class="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-white px-3">
+                <input type="checkbox" name="trashed" value="1" @checked($trashed) class="check">
+                <span class="text-sm text-on-surface-variant">Trashed</span>
+            </label>
+        @endif
     </x-filter-bar>
 
     <div id="courses-results" class="transition-opacity duration-150">

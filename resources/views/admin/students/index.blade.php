@@ -83,12 +83,16 @@
                     @endforeach
                 </select>
 
-                @can('students.delete')
+                {{-- Was @can('students.delete') here, which was right — but the
+                     controller had no matching check, so ?trashed=1 in the URL
+                     still opened a trash box whose actions all refuse. Both
+                     read the same value now. --}}
+                @if ($mayViewTrash)
                     <label class="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-outline-variant px-3">
                         <input type="checkbox" name="trashed" value="1" @checked($trashed) class="check" data-live>
                         <span class="text-sm text-on-surface-variant">Trash box</span>
                     </label>
-                @endcan
+                @endif
 
                 <a href="{{ route('admin.students.index') }}" data-clear
                     class="flex h-[42px] items-center rounded-lg px-3 text-sm font-medium text-on-surface-variant transition hover:bg-surface-ice hover:text-on-surface {{ $hasFilters ? '' : 'pointer-events-none opacity-40' }}">
