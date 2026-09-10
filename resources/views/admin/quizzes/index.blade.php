@@ -14,15 +14,8 @@
             <x-form.label for="search" value="Search" />
             <input type="search" name="search" id="search" value="{{ request('search') }}" placeholder="Quiz title…" class="field">
         </div>
-        <div class="w-64">
-            <x-form.label for="course" value="Course" />
-            <select name="course" id="course" class="field">
-                <option value="">All courses</option>
-                @foreach ($courses as $course)
-                    <option value="{{ $course->id }}" @selected(request('course') == $course->id)>{{ $course->title }}</option>
-                @endforeach
-            </select>
-        </div>
+        <x-form.multiselect name="course" label="Course" placeholder="All courses" width="w-64"
+            :options="$courses->pluck('title', 'id')->all()" :selected="$selected['course']" />
     </x-filter-bar>
 
     <div id="quizzes-results" class="transition-opacity duration-150">

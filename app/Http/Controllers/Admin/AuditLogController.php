@@ -14,6 +14,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class AuditLogController extends Controller
 {
+    use \App\Http\Controllers\Admin\Concerns\FiltersByValues;
+
     public function index(Request $request): View
     {
         $logs = AuditLogsExport::filteredQuery($this->filters($request))
@@ -29,11 +31,18 @@ class AuditLogController extends Controller
             return view('admin.audit-logs._results', ['logs' => $logs]);
         }
 
+        $filters = $this->filters($request);
+
         return view('admin.audit-logs.index', [
             'logs' => $logs,
-            'users' => User::withTrashed()->whereIn('id', AuditLog::query()->select('user_id')->distinct())->orderBy('name')->get(['id', 'name']),
-            'actions' => AuditLog::query()->select('action')->distinct()->orderBy('action')->pluck('action'),
-            'modules' => AuditLog::query()->select('module')->distinct()->orderBy('module')->pluck('module'),
+            'users' => $this->loggedUsers(),
+            'actions' => $this->loggedValues('action'),
+            'modules' => $this->loggedValues('module'),
+            'selected' => [
+                'user' => $filters['user'],
+                'action' => $filters['action'],
+                'module' => $filters['module'],
+            ],
         ]);
     }
 
@@ -53,9 +62,37 @@ class AuditLogController extends Controller
         );
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * The filters this request describes, shared with the CSV export so the
+     * file always matches the screen it was taken from.
+     *
+     * user, action and module take several values now. Each is bounded by the
+     * same list that fills its dropdown — the distinct values the log actually
+     * holds — so nothing invented in the URL reaches the query.
+     *
+     * @return array<string, mixed>
+     */
     protected function filters(Request $request): array
     {
-        return $request->only(['search', 'user', 'action', 'module', 'from', 'to']);
+        return $request->only(['search', 'from', 'to']) + [
+            'user' => $this->filterIds($request, 'user', $this->loggedUsers()->pluck('id')->all()),
+            'action' => $this->filterValues($request, 'action', $this->loggedValues('action')->all()),
+            'module' => $this->filterValues($request, 'module', $this->loggedValues('module')->all()),
+        ];
+    }
+
+    /** Everyone the log has an entry for — deleted accounts included. */
+    protected function loggedUsers()
+    {
+        return User::withTrashed()
+            ->whereIn('id', AuditLog::query()->select('user_id')->distinct())
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    /** The distinct values one log column actually holds. */
+    protected function loggedValues(string $column)
+    {
+        return AuditLog::query()->select($column)->distinct()->orderBy($column)->pluck($column);
     }
 }

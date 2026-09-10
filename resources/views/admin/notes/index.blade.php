@@ -29,22 +29,8 @@
             >
         </div>
 
-        <div class="w-full sm:w-60">
-            <x-form.label for="course" value="Course" />
-
-            <select name="course" id="course" class="field">
-                <option value="">All courses</option>
-
-                @foreach ($courses as $course)
-                    <option
-                        value="{{ $course->id }}"
-                        @selected(request('course') == $course->id)
-                    >
-                        {{ $course->title }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+        <x-form.multiselect name="course" label="Course" placeholder="All courses" width="w-60"
+            :options="$courses->pluck('title', 'id')->all()" :selected="$selected['course']" />
 
     </x-filter-bar>
 

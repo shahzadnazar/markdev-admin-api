@@ -14,33 +14,12 @@
             <x-form.label for="search" value="Search" />
             <input type="search" name="search" id="search" value="{{ request('search') }}" placeholder="User, action, URL, IP…" class="field">
         </div>
-        <div class="w-48">
-            <x-form.label for="user" value="User" />
-            <select name="user" id="user" class="field">
-                <option value="">Everyone</option>
-                @foreach ($users as $user)
-                    <option value="{{ $user->id }}" @selected(request('user') == $user->id)>{{ $user->name }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="w-44">
-            <x-form.label for="action" value="Action" />
-            <select name="action" id="action" class="field">
-                <option value="">All actions</option>
-                @foreach ($actions as $action)
-                    <option value="{{ $action }}" @selected(request('action') === $action)>{{ str_replace('_', ' ', $action) }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="w-44">
-            <x-form.label for="module" value="Module" />
-            <select name="module" id="module" class="field">
-                <option value="">All modules</option>
-                @foreach ($modules as $module)
-                    <option value="{{ $module }}" @selected(request('module') === $module)>{{ str_replace('_', ' ', $module) }}</option>
-                @endforeach
-            </select>
-        </div>
+        <x-form.multiselect name="user" label="User" placeholder="Everyone" width="w-48"
+            :options="$users->pluck('name', 'id')->all()" :selected="$selected['user']" />
+        <x-form.multiselect name="action" label="Action" placeholder="All actions" width="w-44"
+            :options="$actions->mapWithKeys(fn ($a) => [$a => $a])->all()" :selected="$selected['action']" />
+        <x-form.multiselect name="module" label="Module" placeholder="All modules" width="w-44"
+            :options="$modules->mapWithKeys(fn ($m) => [$m => $m])->all()" :selected="$selected['module']" />
         <div class="w-40">
             <x-form.label for="from" value="From" />
             <input type="date" name="from" id="from" value="{{ request('from') }}" class="field">

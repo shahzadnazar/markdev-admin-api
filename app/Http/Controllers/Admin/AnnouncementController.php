@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
+use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Course;
@@ -15,16 +16,22 @@ use Illuminate\View\View;
 
 class AnnouncementController extends Controller
 {
-    use RestrictsToInstructor;
+    use FiltersByValues, RestrictsToInstructor;
 
     public function index(Request $request): View
     {
+        // The options are the allowed values, and selectableCourses() is
+        // already narrowed to an instructor's own courses — so a course they
+        // cannot see drops out of the filter rather than widening the list.
+        $courses = $this->selectableCourses($request)->get(['id', 'title']);
+        $courseIds = $this->filterIds($request, 'course', $courses->pluck('id')->all());
+
         $announcements = Announcement::query()
             ->with(['author', 'course'])
             ->withCount('reads')
             ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('course_id', $mine))
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
-            ->when($request->filled('course'), fn ($query) => $query->where('course_id', $request->integer('course')))
+            ->when($courseIds, fn ($query) => $query->whereIn('course_id', $courseIds))
             ->orderByDesc('is_pinned')
             ->latest('published_at')
             ->paginate(10)
@@ -39,7 +46,8 @@ class AnnouncementController extends Controller
 
         return view('admin.announcements.index', [
             'announcements' => $announcements,
-            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
+            'courses' => $courses,
+            'selected' => ['course' => $courseIds],
         ]);
     }
 

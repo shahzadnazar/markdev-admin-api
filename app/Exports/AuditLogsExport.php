@@ -31,11 +31,31 @@ class AuditLogsExport implements FromQuery, WithHeadings, WithMapping
     {
         return AuditLog::query()
             ->when(filled($filters['search'] ?? null), fn ($query) => $query->search((string) $filters['search']))
-            ->when(filled($filters['user'] ?? null), fn ($query) => $query->where('user_id', (int) $filters['user']))
-            ->when(filled($filters['action'] ?? null), fn ($query) => $query->where('action', (string) $filters['action']))
-            ->when(filled($filters['module'] ?? null), fn ($query) => $query->where('module', (string) $filters['module']))
+            // Arrays since the filters became multi-select. A scalar from an
+            // older caller still works, and an empty array is no filter at all
+            // rather than whereIn(..., []), which would match nothing.
+            ->when(static::values($filters, 'user'), fn ($query, $ids) => $query->whereIn('user_id', $ids))
+            ->when(static::values($filters, 'action'), fn ($query, $values) => $query->whereIn('action', $values))
+            ->when(static::values($filters, 'module'), fn ($query, $values) => $query->whereIn('module', $values))
             ->when(filled($filters['from'] ?? null), fn ($query) => $query->where('created_at', '>=', Carbon::parse($filters['from'])->startOfDay()))
             ->when(filled($filters['to'] ?? null), fn ($query) => $query->where('created_at', '<=', Carbon::parse($filters['to'])->endOfDay()));
+    }
+
+    /**
+     * One filter's values, however it arrived.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<int, mixed>
+     */
+    protected static function values(array $filters, string $key): array
+    {
+        $value = $filters[$key] ?? null;
+
+        if ($value === null || $value === '' || $value === []) {
+            return [];
+        }
+
+        return is_array($value) ? array_values($value) : [$value];
     }
 
     public function headings(): array

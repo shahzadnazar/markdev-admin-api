@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
+use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Controller;
 use App\Models\Assignment;
 use App\Models\AssignmentAttachment;
@@ -17,15 +18,21 @@ use Illuminate\View\View;
 
 class AssignmentController extends Controller
 {
-    use RestrictsToInstructor;
+    use FiltersByValues, RestrictsToInstructor;
 
     public function index(Request $request): View
     {
+        // The options are the allowed values, and selectableCourses() is
+        // already narrowed to an instructor's own courses — so a course they
+        // cannot see drops out of the filter rather than widening the list.
+        $courses = $this->selectableCourses($request)->get(['id', 'title']);
+        $courseIds = $this->filterIds($request, 'course', $courses->pluck('id')->all());
+
         $assignments = Assignment::query()
             ->with(['course', 'lesson'])
             ->withCount(['submissions', 'submissions as ungraded_count' => fn ($query) => $query->whereNull('graded_at')])
             ->when(($mine = $this->managedCourseIds($request)) !== null, fn ($query) => $query->whereIn('course_id', $mine))
-            ->when($request->filled('course'), fn ($query) => $query->where('course_id', $request->integer('course')))
+            ->when($courseIds, fn ($query) => $query->whereIn('course_id', $courseIds))
             ->when($request->filled('search'), fn ($query) => $query->where('title', 'like', '%'.trim($request->string('search')).'%'))
             ->latest()
             ->paginate(10)
@@ -40,7 +47,8 @@ class AssignmentController extends Controller
 
         return view('admin.assignments.index', [
             'assignments' => $assignments,
-            'courses' => $this->selectableCourses($request)->get(['id', 'title']),
+            'courses' => $courses,
+            'selected' => ['course' => $courseIds],
         ]);
     }
 

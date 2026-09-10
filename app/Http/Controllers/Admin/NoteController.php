@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
+use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Note;
@@ -13,20 +14,25 @@ use Illuminate\View\View;
 
 class NoteController extends Controller
 {
-    use RestrictsToInstructor;
+    use FiltersByValues, RestrictsToInstructor;
 
     public function index(Request $request): View
     {
+        $mine = $this->managedCourseIds($request);
+
+        // Built before the list, because the options are also the values the
+        // filter will accept — and this list is already narrowed to an
+        // instructor's own courses.
+        $courses = Course::query()
+            ->when($mine !== null, fn ($query) => $query->whereIn('id', $mine))
+            ->orderBy('title')
+            ->get(['id', 'title']);
+        $courseIds = $this->filterIds($request, 'course', $courses->pluck('id')->all());
+
         $notes = Note::query()
             ->with(['course', 'instructor'])
-            ->when(
-                ($mine = $this->managedCourseIds($request)) !== null,
-                fn ($query) => $query->whereIn('course_id', $mine)
-            )
-            ->when(
-                $request->filled('course'),
-                fn ($query) => $query->where('course_id', $request->integer('course'))
-            )
+            ->when($mine !== null, fn ($query) => $query->whereIn('course_id', $mine))
+            ->when($courseIds, fn ($query) => $query->whereIn('course_id', $courseIds))
             ->when(
                 $request->filled('search'),
                 fn ($query) => $query->where('title', 'like', '%' . trim($request->string('search')) . '%')
@@ -34,14 +40,6 @@ class NoteController extends Controller
             ->latest()
             ->paginate(10)
             ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
-
-        $courses = Course::query()
-            ->when(
-                $mine !== null,
-                fn ($query) => $query->whereIn('id', $mine)
-            )
-            ->orderBy('title')
-            ->get(['id', 'title']);
 
         // Live search re-renders only the results, so typing never reloads the
         // page and the cursor stays in the search box. The Filter button still
@@ -53,6 +51,7 @@ class NoteController extends Controller
         return view('admin.notes.index', [
             'notes' => $notes,
             'courses' => $courses,
+            'selected' => ['course' => $courseIds],
         ]);
     }
 
