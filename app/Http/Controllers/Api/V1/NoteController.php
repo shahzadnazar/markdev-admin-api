@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Models\Lesson;
 use App\Models\LessonResource;
 use App\Models\Note;
 use Illuminate\Http\JsonResponse;
@@ -10,12 +11,21 @@ use Illuminate\Http\Request;
 class NoteController extends ApiController
 {
     /**
-     * Notes and course resources, for courses the student is enrolled in.
+     * Notes and resources, for courses the student is enrolled in.
      *
-     * Two shapes in one list because they are one thing to a student: material
-     * an instructor put there for them. A note is always an uploaded file; a
-     * course resource may be a file or a link, so each row says which via
+     * Several shapes in one list because they are one thing to a student:
+     * material an instructor put there for them. A note is always an uploaded
+     * file; a resource may be a file or a link, so each row says which via
      * `kind` and the portal renders download-or-open from that.
+     *
+     * BOTH levels of resource. Course-level rows hang off the course;
+     * lesson-level rows hang off a lesson and reach their course through it.
+     * Lesson-level rows used to be reachable only from a Resources tab on the
+     * lesson player; that tab is gone, and if this query had stayed
+     * course-level the data behind it would have been orphaned — still in the
+     * table, no longer on any page a student can open. A lesson-level row
+     * carries its lesson's title in `description` so it is clear where it came
+     * from once it is out of that lesson's context.
      *
      * NOT private notes. Those are the student's own writing on the lesson
      * player, live in lesson_private_notes, and have no business on a page
@@ -23,16 +33,24 @@ class NoteController extends ApiController
      *
      * Enrollment is enforced here, on the query: enrolledCourseIds() is the
      * same scoping the rest of this controller uses, so a course the student
-     * left stops appearing without anything else having to remember.
+     * left stops appearing without anything else having to remember. A
+     * lesson-level row is scoped through its lesson's course_id, which is the
+     * same course — nothing reaches the student by hanging off a lesson.
      */
     public function index(Request $request): JsonResponse
     {
         $courseIds = $this->enrolledCourseIds($request);
 
         $resources = LessonResource::query()
-            ->courseLevel()
-            ->whereIn('course_id', $courseIds)
-            ->with('course:id,title')
+            ->where(function ($query) use ($courseIds) {
+                $query
+                    ->where(fn ($owned) => $owned->courseLevel()->whereIn('course_id', $courseIds))
+                    ->orWhereIn(
+                        'lesson_id',
+                        Lesson::query()->whereIn('course_id', $courseIds)->select('id'),
+                    );
+            })
+            ->with(['course:id,title', 'lesson:id,title,course_id', 'lesson.course:id,title'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();
@@ -78,7 +96,10 @@ class NoteController extends ApiController
             'source' => 'resource',
             'kind' => $resource->kind,
             'title' => $resource->name,
-            'description' => null,
+            // Out of its lesson's context a lesson-level row needs to say
+            // where it came from; a course-level one already has the course
+            // badge and nothing more specific to add.
+            'description' => $resource->lesson?->title !== null ? 'From lesson: '.$resource->lesson->title : null,
             // One field the portal follows whatever the kind, so nothing
             // downstream has to know which column a resource lives in.
             'url' => $resource->target_url,
@@ -88,9 +109,11 @@ class NoteController extends ApiController
             'is_youtube' => $resource->is_youtube,
             'uploaded_at' => $resource->created_at?->toISOString(),
 
+            // Either level, one answer: a course-level row holds the course
+            // directly, a lesson-level one reaches it through its lesson.
             'course' => [
-                'id' => $resource->course?->id,
-                'title' => $resource->course?->title,
+                'id' => $resource->course?->id ?? $resource->lesson?->course?->id,
+                'title' => $resource->course?->title ?? $resource->lesson?->course?->title,
             ],
 
             // A course resource is not attributed to one instructor: it hangs

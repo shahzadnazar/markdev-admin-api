@@ -270,10 +270,11 @@ class CourseResourceTest extends TestCase
         $this->getJson('/api/v1/notes')->assertOk()->assertJsonCount(0, 'data');
     }
 
-    public function test_lesson_level_resources_stay_off_the_notes_endpoint(): void
+    public function test_lesson_level_resources_reach_the_student_here_too(): void
     {
-        // They belong to the lesson player's Resources tab. Putting them here
-        // too would list the same file twice in two places.
+        // They used to live on the lesson player's Resources tab. That tab is
+        // gone, so this endpoint is the only route from an instructor adding a
+        // lesson resource to a student seeing it.
         $lesson = $this->lessonIn($this->course);
         $lesson->resources()->create(['name' => 'Lesson handout', 'kind' => 'link', 'url' => 'https://a.test']);
 
@@ -285,7 +286,11 @@ class CourseResourceTest extends TestCase
         ]);
         Sanctum::actingAs($student);
 
-        $this->getJson('/api/v1/notes')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/v1/notes')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Lesson handout')
+            ->assertJsonPath('data.0.description', 'From lesson: '.$lesson->title);
     }
 
     public function test_private_notes_never_appear_on_the_notes_endpoint(): void

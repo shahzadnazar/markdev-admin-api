@@ -137,7 +137,12 @@ class NotesFeedTest extends ApiTestCase
         $this->assertNotContains('Their slides', $titles);
     }
 
-    public function test_a_lesson_level_resource_stays_on_the_lesson_player(): void
+    /**
+     * The lesson player's Resources tab is gone, so this page is the only way
+     * a student reaches a lesson-level resource. If this stops listing them
+     * the rows are orphaned: still in the table, on no page anyone can open.
+     */
+    public function test_a_lesson_level_resource_is_listed_and_names_its_lesson(): void
     {
         [$course, , $lessons] = $this->makeCourse();
         $student = $this->actingAsStudent();
@@ -152,22 +157,54 @@ class NotesFeedTest extends ApiTestCase
             'size_bytes' => 512,
         ]);
 
+        $row = collect($this->getJson('/api/v1/notes')->assertOk()->json('data'))
+            ->firstWhere('title', 'Lesson worksheet');
+
+        $this->assertNotNull($row, 'a lesson-level resource has nowhere else to appear');
+        $this->assertSame('resource', $row['source']);
+        // Out of the lesson's context the row has to say where it came from.
+        $this->assertSame('From lesson: '.$lessons->first()->title, $row['description']);
+        // And it still belongs to the course, reached through the lesson.
+        $this->assertSame($course->id, $row['course']['id']);
+    }
+
+    public function test_a_lesson_level_resource_on_an_unenrolled_course_is_not_listed(): void
+    {
+        [$mine] = $this->makeCourse();
+        [$theirs, , $theirLessons] = $this->makeCourse();
+
+        $student = $this->actingAsStudent();
+        $this->enroll($student, $mine);
+
+        LessonResource::create([
+            'lesson_id' => $theirLessons->first()->id,
+            'name' => 'Their worksheet',
+            'kind' => LessonResource::KIND_FILE,
+            'file_path' => 'resources/theirs.pdf',
+            'file_type' => 'pdf',
+            'size_bytes' => 512,
+        ]);
+
         $titles = collect($this->getJson('/api/v1/notes')->assertOk()->json('data'))->pluck('title');
 
         $this->assertNotContains(
-            'Lesson worksheet',
+            'Their worksheet',
             $titles,
-            'the Resources tab on the lesson player keeps lesson-level rows',
+            'hanging off a lesson is not a way around enrollment',
         );
     }
 
     /**
+     * Both levels are listed now, and a resource is one row whichever level it
+     * hangs off — so it must appear once.
+     *
      * The model refuses a two-owner row, but the model is not in the path of a
-     * raw insert or of a row that predates the guard. courseLevel() is what
-     * keeps such a row off this page, so it is broken here on purpose to show
-     * the scope is load-bearing and not decoration over the course_id filter.
+     * raw insert or of a row that predates the guard, and such a row matches
+     * both arms of the query. One query with an OR returns it once; two
+     * queries concatenated would list it twice, which is the mistake this
+     * pins.
      */
-    public function test_a_row_carrying_both_owners_is_still_kept_off_the_page(): void
+    public function test_a_row_carrying_both_owners_is_listed_once_not_twice(): void
     {
         [$course, , $lessons] = $this->makeCourse();
         $student = $this->actingAsStudent();
@@ -187,7 +224,7 @@ class NotesFeedTest extends ApiTestCase
 
         $titles = collect($this->getJson('/api/v1/notes')->assertOk()->json('data'))->pluck('title');
 
-        $this->assertNotContains('Smuggled worksheet', $titles);
+        $this->assertSame(1, $titles->filter(fn (string $t) => $t === 'Smuggled worksheet')->count());
     }
 
     public function test_private_notes_never_appear_on_the_notes_page(): void
