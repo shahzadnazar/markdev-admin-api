@@ -1,6 +1,6 @@
 <x-admin.layout :title="$course->title">
     <x-page-header eyebrow="Course builder" :title="$course->title"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Courses' => route('admin.courses.index'), $course->title => null]">
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Course Content' => route('admin.courses.index'), $course->title => null]">
         <x-slot:actions>
             @can('courses.update')
                 <x-confirm-form :action="route('admin.courses.publish', $course)" method="POST"

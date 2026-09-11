@@ -3,7 +3,7 @@
         eyebrow="Course builder"
         :title="$lesson->title"
         :description="'Module “'.$lesson->module?->title.'” · '.$lesson->course?->title"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Courses' => route('admin.courses.index'), ($lesson->course?->title ?? 'Course') => route('admin.courses.show', $lesson->course_id), $lesson->title => null]"
+        :crumbs="['Dashboard' => route('admin.dashboard'), 'Course Content' => route('admin.courses.index'), ($lesson->course?->title ?? 'Course') => route('admin.courses.show', $lesson->course_id), $lesson->title => null]"
     >
         <x-slot:actions>
             <x-btn variant="ghost" :href="route('admin.courses.show', $lesson->course_id)">
@@ -35,7 +35,10 @@
                 </div>
 
                 <div x-show="type === 'video'" x-cloak class="space-y-5 rounded-xl bg-surface-ice/70 p-4">
-                    <p class="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-on-surface-variant">Video source</p>
+                    {{-- "Premium Video" is the section's name to a student. The provider
+                         list underneath is unchanged and still includes YouTube —
+                         it is how a lesson plays video at all, not a brand on show. --}}
+                    <p class="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-on-surface-variant">Premium Video source</p>
                     <div class="grid gap-5 sm:grid-cols-2">
                         <x-form.select label="Provider" name="provider">
                             @foreach (['youtube' => 'YouTube', 'vimeo' => 'Vimeo', 'self_hosted' => 'Self-hosted'] as $value => $label)

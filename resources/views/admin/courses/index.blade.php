@@ -1,5 +1,8 @@
-<x-admin.layout title="Courses">
-    <x-page-header eyebrow="Learning" title="Courses"
+{{-- Label only. Routes, tables and models stay `courses`: renaming those
+     would touch every route name, policy string and permission in the
+     matrix for a word on a screen. --}}
+<x-admin.layout title="Course Content">
+    <x-page-header eyebrow="Learning" title="Course Content"
         :description="auth()->user()->hasAnyRole(['super-admin', 'admin', 'manager'])
             ? 'The full catalog — draft, published and archived courses.'
             : 'Your courses — draft, published and archived.'">

@@ -56,7 +56,7 @@
             <x-admin.nav-item :href="route('admin.categories.index')" icon="tag" :active="request()->routeIs('admin.categories.*')">Categories</x-admin.nav-item>
             @endcan
             @can('courses.view')
-            <x-admin.nav-item :href="route('admin.courses.index')" icon="academic-cap" :active="request()->routeIs('admin.courses.*') || request()->routeIs('admin.lessons.*')">Courses</x-admin.nav-item>
+            <x-admin.nav-item :href="route('admin.courses.index')" icon="academic-cap" :active="request()->routeIs('admin.courses.*') || request()->routeIs('admin.lessons.*')">Course Content</x-admin.nav-item>
             @endcan
             <x-admin.nav-item
                 :href="route('admin.notes.index')"
