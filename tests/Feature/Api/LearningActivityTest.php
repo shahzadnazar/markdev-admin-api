@@ -241,6 +241,170 @@ class LearningActivityTest extends ApiTestCase
         );
     }
 
+    /* ------------------------- the second writer ------------------------- */
+
+    /**
+     * Completing a lesson still records its minutes.
+     *
+     * LessonProgressService used to write this table itself, with a
+     * read-modify-write. It goes through recordMinutes now, so the same numbers
+     * have to come out the other end.
+     */
+    public function test_completing_a_lesson_still_records_its_minutes(): void
+    {
+        [$course, , $lessons] = $this->makeCourse(2, [], ['duration_minutes' => 12]);
+        $student = $this->actingAsStudent();
+        $this->enroll($student, $course);
+
+        $this->postJson("/api/v1/courses/{$course->id}/lessons/{$lessons->first()->id}/complete")
+            ->assertOk()
+            ->assertJsonPath('data.progress_percent', 50);
+
+        $this->assertSame(1, LearningActivity::count());
+        $this->assertSame(12, LearningActivity::firstOrFail()->minutes);
+    }
+
+    /**
+     * A ping and a completion, one after the other, both land.
+     *
+     * Sequential, so it does NOT demonstrate the race — the old code passed it
+     * too. It is here as the plain regression check that routing completion
+     * through recordMinutes did not change the arithmetic. The interleaving is
+     * the test below.
+     */
+    public function test_a_ping_and_a_completion_are_both_counted(): void
+    {
+        [$course, , $lessons] = $this->makeCourse(2, [], ['duration_minutes' => 12]);
+        $lesson = $lessons->first();
+        $student = $this->actingAsStudent();
+        $this->enroll($student, $course);
+
+        $this->ping($course->id, $lesson->id, 5)->assertOk();
+        $this->postJson("/api/v1/courses/{$course->id}/lessons/{$lesson->id}/complete")->assertOk();
+
+        $this->assertSame(1, LearningActivity::count(), 'still one row for the day');
+        $this->assertSame(17, LearningActivity::firstOrFail()->minutes, '5 from the ping, 12 from the completion');
+    }
+
+    /**
+     * A writer that lands between the read and the write is not clobbered.
+     *
+     * This is the race, and the only test here that fails on the old code.
+     * Read-modify-write only loses data when another write arrives AFTER your
+     * select and BEFORE your save, which no sequence of ordinary requests can
+     * produce in a single-threaded test — so the interleaving is injected: a
+     * query listener fires on the writer's own select and slips a competing
+     * +5 in behind it.
+     *
+     * Old code: reads 100, the 5 lands making it 105, then saves 100 + 12 =
+     * 112 and the 5 is gone. New code: reads 100, the 5 lands, then
+     * `minutes = minutes + 12` against whatever the row now holds = 117.
+     */
+    public function test_a_write_landing_between_the_read_and_the_save_is_not_lost(): void
+    {
+        [$course, , $lessons] = $this->makeCourse(2, [], ['duration_minutes' => 12]);
+        $student = $this->actingAsStudent();
+        $this->enroll($student, $course);
+
+        // The day already has a row, so both implementations take the update
+        // branch and the only difference measured is the read-modify-write.
+        DB::table('learning_activities')->insert([
+            'user_id' => $student->id,
+            'date' => now()->toDateString(),
+            'minutes' => 100,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $injected = false;
+        DB::listen(function ($query) use (&$injected, $student) {
+            if ($injected || ! str_contains($query->sql, 'learning_activities')) {
+                return;
+            }
+            if (! str_starts_with(strtolower(trim($query->sql)), 'select')) {
+                return;
+            }
+
+            // Set before the write so the listener does not re-enter on it.
+            $injected = true;
+            DB::table('learning_activities')
+                ->where('user_id', $student->id)
+                ->update(['minutes' => DB::raw('minutes + 5')]);
+        });
+
+        $this->postJson("/api/v1/courses/{$course->id}/lessons/{$lessons->first()->id}/complete")->assertOk();
+
+        $this->assertTrue($injected, 'the competing write never fired — the test proves nothing');
+        $this->assertSame(
+            117,
+            (int) DB::table('learning_activities')->where('user_id', $student->id)->value('minutes'),
+            '100 + 5 + 12; a read-modify-write would report 112 and drop the 5',
+        );
+    }
+
+    /**
+     * The same pair the other way round, and with the stale read made explicit.
+     *
+     * Holding a model fetched BEFORE another write is what read-modify-write
+     * does, so the test holds one too. increment() issues `minutes = minutes +
+     * n` against the row as it now stands, so the stale in-memory total never
+     * reaches the database.
+     */
+    public function test_a_write_through_a_stale_model_does_not_clobber_the_other_writer(): void
+    {
+        $student = $this->actingAsStudent();
+
+        LearningActivity::recordMinutes($student->id, 10);
+        $stale = LearningActivity::firstOrFail();          // minutes = 10, read now
+        LearningActivity::recordMinutes($student->id, 5);   // someone else adds 5
+
+        $stale->increment('minutes', 3);                    // the slow writer finishes
+
+        $this->assertSame(18, LearningActivity::firstOrFail()->minutes, '10 + 5 + 3, nothing dropped');
+    }
+
+    /**
+     * Completion is still idempotent and progress still adds up.
+     *
+     * recordMinutes creates the day's row before incrementing, so it is worth
+     * pinning that a second completion neither adds minutes again nor moves the
+     * percent.
+     */
+    public function test_completing_twice_changes_neither_minutes_nor_progress(): void
+    {
+        [$course, , $lessons] = $this->makeCourse(2, [], ['duration_minutes' => 12]);
+        $lesson = $lessons->first();
+        $student = $this->actingAsStudent();
+        $enrollment = $this->enroll($student, $course);
+
+        $this->postJson("/api/v1/courses/{$course->id}/lessons/{$lesson->id}/complete")->assertOk();
+        $this->postJson("/api/v1/courses/{$course->id}/lessons/{$lesson->id}/complete")
+            ->assertOk()
+            ->assertJsonPath('data.progress_percent', 50);
+
+        $this->assertSame(12, LearningActivity::firstOrFail()->minutes);
+        $this->assertEquals(50.0, (float) $enrollment->fresh()->progress_percent);
+        $this->assertSame(1, \App\Models\LessonCompletion::count());
+    }
+
+    /**
+     * A zero-duration lesson does not invent a streak day.
+     *
+     * Streaks count days with minutes > 0. The old code saved a row with 0 and
+     * so does this; a lesson with no duration on it must not start a streak.
+     */
+    public function test_a_zero_duration_lesson_leaves_the_day_inactive(): void
+    {
+        [$course, , $lessons] = $this->makeCourse(2, [], ['duration_minutes' => 0]);
+        $student = $this->actingAsStudent();
+        $this->enroll($student, $course);
+
+        $this->postJson("/api/v1/courses/{$course->id}/lessons/{$lessons->first()->id}/complete")->assertOk();
+
+        $this->assertSame(0, LearningActivity::firstOrFail()->minutes);
+        $this->assertSame(0, LearningActivity::where('minutes', '>', 0)->count(), 'not a streak day');
+    }
+
     /**
      * The same statements, compiled by MySQL's grammar.
      *

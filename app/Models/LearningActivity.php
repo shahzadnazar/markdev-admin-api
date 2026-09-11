@@ -50,6 +50,13 @@ class LearningActivity extends Model
     /**
      * Add minutes to a user's tally for a day, atomically.
      *
+     * The only way this table is written. There were two writers — the lesson
+     * player's activity ping and LessonProgressService on completion — and the
+     * second read the row, added in PHP and saved it back. Once the first
+     * became a real increment the two could interleave and drop a write: the
+     * slow one saves a total it computed before the fast one's increment
+     * landed. One path, one statement, no interleaving to reason about.
+     *
      * The accumulate is an `UPDATE ... SET minutes = minutes + n` — one
      * statement, so two pings arriving together both land. Reading the row,
      * adding in PHP and saving it back would lose one of them.

@@ -33,7 +33,7 @@ class LessonProgressService
         );
 
         if ($completion->wasRecentlyCreated) {
-            $this->recordLearningMinutes($user, (int) $lesson->duration_minutes);
+            LearningActivity::recordMinutes($user->id, (int) $lesson->duration_minutes);
             $this->awardPoints($user, self::POINTS_LESSON_COMPLETED, "Completed lesson: {$lesson->title}");
         }
 
@@ -64,10 +64,7 @@ class LessonProgressService
         return;
     }
 
-    $this->recordLearningMinutes(
-        $user,
-        self::MINUTES_MATERIAL_READ
-    );
+    LearningActivity::recordMinutes($user->id, self::MINUTES_MATERIAL_READ);
 
     $lesson = $resource->lesson()->with('course')->first();
 
@@ -161,21 +158,6 @@ class LessonProgressService
         } while (Certificate::withTrashed()->where('certificate_number', $number)->exists());
 
         return $number;
-    }
-
-    protected function recordLearningMinutes(User $user, int $minutes): void
-    {
-        $activity = LearningActivity::where('user_id', $user->id)
-            ->whereDate('date', now()->toDateString())
-            ->first();
-
-        $activity ??= new LearningActivity([
-            'user_id' => $user->id,
-            'date' => now()->toDateString(),
-        ]);
-
-        $activity->minutes = (int) $activity->minutes + $minutes;
-        $activity->save();
     }
 
     protected function awardPoints(User $user, int $points, string $reason): void
