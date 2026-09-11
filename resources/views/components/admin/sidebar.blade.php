@@ -116,6 +116,11 @@
         @canany(['audit-logs.view', 'reports.view', 'settings.view'])
         <x-admin.nav-section label="System">
             @can('audit-logs.view')
+            {{-- Super-admin only. The gate is a role check, so this item is
+                 invisible to every other role rather than merely unclickable. --}}
+            @can('private-notes.read')
+                <x-admin.nav-item :href="route('admin.private-notes.index')" icon="document" :active="request()->routeIs('admin.private-notes.*')">Private notes</x-admin.nav-item>
+            @endcan
             <x-admin.nav-item :href="route('admin.audit-logs.index')" icon="audit" :active="request()->routeIs('admin.audit-logs.*')">Audit Logs</x-admin.nav-item>
             @endcan
             @can('reports.view')

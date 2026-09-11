@@ -18,7 +18,7 @@
                     x-on:click="detail = {{ $log->id }}"
                     x-on:keydown.enter.prevent="detail = {{ $log->id }}"
                     x-on:keydown.space.prevent="detail = {{ $log->id }}">
-                    <td class="td whitespace-nowrap font-mono text-xs text-outline">{{ $log->created_at->format('j M · H:i:s') }}</td>
+                    <td class="td whitespace-nowrap font-mono text-xs text-outline">{{ $log->created_at->format('j M · g:i:s A') }}</td>
                     <td class="td">
                         <p class="font-medium text-on-surface">{{ $log->user_name }}</p>
                         @if ($log->user_role)
@@ -57,7 +57,7 @@
                                         {{ str_replace('_', ' ', ucfirst($log->action)) }} · {{ str_replace('_', ' ', $log->module) }}{{ $log->record_id ? ' #'.$log->record_id : '' }}
                                     </h3>
                                     <p class="mt-1 text-sm text-on-surface-variant">
-                                        {{ $log->user_name }}{{ $log->user_role ? ' ('.$log->user_role.')' : '' }} · {{ $log->created_at->format('j M Y · H:i:s') }}
+                                        {{ $log->user_name }}{{ $log->user_role ? ' ('.$log->user_role.')' : '' }} · {{ $log->created_at->format('j M Y, g:i:s A') }}
                                     </p>
                                 </div>
                                 <button type="button" x-on:click="detail = null" class="rounded-lg p-2 text-on-surface-variant transition hover:bg-surface-ice" aria-label="Close">

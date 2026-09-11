@@ -18,8 +18,13 @@ use Illuminate\Http\Response;
  * below is scoped by user_id in the WHERE clause instead, so another student's
  * note is not denied, it is not found: there is no code path that loads one.
  *
- * No index-across-students, no admin endpoint, no resource that embeds these
- * in a lesson payload. Deliberate absences, all of them.
+ * No index-across-students on THIS controller, and no resource that embeds a
+ * note in a lesson payload — deliberate absences, both of them.
+ *
+ * A super-admin does have a read-only oversight path elsewhere
+ * (Admin\PrivateNoteController), which audits every note it opens. Nothing in
+ * this controller serves it: a student's endpoints stay scoped to the student,
+ * so widening oversight later cannot be done by loosening a WHERE clause here.
  */
 class LessonPrivateNoteController extends ApiController
 {

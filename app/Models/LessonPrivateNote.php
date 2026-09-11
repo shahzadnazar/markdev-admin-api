@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One student's private notes on one lesson.
  *
  * Distinct from Note, which is an instructor's uploaded handout. See the
- * migration for who can read this and why nothing in the admin panel does.
+ * migration for who can read this: the student, and a super-admin through a
+ * read-only, audited oversight page.
  */
 class LessonPrivateNote extends Model
 {

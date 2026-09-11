@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\NoteController;
+use App\Http\Controllers\Admin\PrivateNoteController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -304,6 +305,20 @@ Route::prefix('admin')
         })->name('notifications.read-all');
 
         /* ------------------------------ System ------------------------------- */
+
+        /*
+         * Student private notes, read-only, super-admin only.
+         *
+         * Two GET routes and nothing else: no store, no update, no destroy.
+         * A super-admin may look at a note and may not change it, and that is
+         * enforced by the verbs not existing rather than by a policy someone
+         * could later widen. The gate is a role check — see AppServiceProvider
+         * for why it is not a grantable permission.
+         */
+        Route::middleware('can:private-notes.read')->group(function () {
+            Route::get('private-notes', [PrivateNoteController::class, 'index'])->name('private-notes.index');
+            Route::get('private-notes/{note}', [PrivateNoteController::class, 'show'])->name('private-notes.show');
+        });
 
         Route::middleware('can:audit-logs.view')->group(function () {
             Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');

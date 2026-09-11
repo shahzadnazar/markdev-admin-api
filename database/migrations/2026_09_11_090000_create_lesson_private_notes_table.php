@@ -13,11 +13,16 @@ use Illuminate\Support\Facades\Schema;
  * table an instructor's published material is served from, one bad query away
  * from being handed to the wrong person.
  *
- * WHO CAN SEE THESE: the student who wrote them, and nobody else — not other
- * students, not the lesson's instructor, not an admin. That is enforced by
- * every query being scoped to the authenticated user and by there being no
- * admin route, resource or view that reads this table at all. It is a
- * deliberate absence, not an oversight.
+ * WHO CAN SEE THESE: the student who wrote them, and a super-admin. Not other
+ * students, not the lesson's instructor, not an admin, not a manager — every
+ * student-facing query is scoped to the authenticated user, so another
+ * person's note is never loaded rather than merely denied.
+ *
+ * The super-admin path is read-only, gated on a ROLE rather than a grantable
+ * permission, and every opened note writes an audit row naming the reader, the
+ * student and the lesson. See Admin\PrivateNoteController. This paragraph used
+ * to end "not an admin" and no oversight path existed at all; when that
+ * changed, the portal's on-screen promise changed with it.
  *
  * What it is NOT: encryption. Anyone with database access can read this table,
  * exactly as they can read any other. The guarantee is about the application,
