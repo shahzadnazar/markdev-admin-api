@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
+use App\Http\Controllers\Admin\Concerns\StoresResources;
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use App\Models\LessonResource;
@@ -15,7 +16,7 @@ use Illuminate\View\View;
 
 class LessonController extends Controller
 {
-    use RestrictsToInstructor;
+    use RestrictsToInstructor, StoresResources;
 
     public function store(Request $request, Module $module): RedirectResponse
     {
@@ -97,54 +98,12 @@ class LessonController extends Controller
      */
     public function storeResource(Request $request, Lesson $lesson): RedirectResponse
     {
-        $kind = $request->input('kind') === LessonResource::KIND_LINK
-            ? LessonResource::KIND_LINK
-            : LessonResource::KIND_FILE;
+        $kind = $this->resourceKind($request);
+        $this->validateResource($request, $kind);
 
-        $request->validate([
-            'kind' => ['nullable', Rule::in([LessonResource::KIND_FILE, LessonResource::KIND_LINK])],
-            // Attachment-style: 5 MB, no mimes list, so a zip of course
-            // material is accepted — as it already was.
-            'file' => [Rule::requiredIf($kind === LessonResource::KIND_FILE), 'file', 'max:5120'],
-            // http/https only. A resource list that can carry javascript: or
-            // data: is a stored-XSS delivery mechanism dressed as a reading
-            // list, and the link is rendered as an anchor students click.
-            // link_url, not url: the lesson edit form on the same page already
-            // has a `url` field for the video's watch URL. Two forms can post
-            // the same name safely, but old() cannot tell them apart, so a
-            // failed video save would repopulate the resource link box with a
-            // YouTube watch URL and vice versa.
-            'link_url' => [
-                Rule::requiredIf($kind === LessonResource::KIND_LINK),
-                'nullable', 'url', 'max:2000', 'starts_with:http://,https://',
-            ],
-            'link_name' => [Rule::requiredIf($kind === LessonResource::KIND_LINK), 'nullable', 'string', 'max:255'],
-        ], [
-            'link_url.starts_with' => 'Links must start with http:// or https://.',
-        ]);
+        $lesson->resources()->create($this->resourceAttributes($request, $kind));
 
-        if ($kind === LessonResource::KIND_LINK) {
-            $lesson->resources()->create([
-                'name' => $request->string('link_name')->value(),
-                'kind' => LessonResource::KIND_LINK,
-                'url' => $request->string('link_url')->value(),
-            ]);
-
-            return back()->with('success', 'Link added.');
-        }
-
-        $file = $request->file('file');
-        $path = $file->store('resources', 'public');
-
-        $lesson->resources()->create([
-            'name' => $file->getClientOriginalName(),
-            'kind' => LessonResource::KIND_FILE,
-            'file_path' => $path,
-            'file_type' => $file->getClientOriginalExtension() ?: $file->getClientMimeType(),
-            'size_bytes' => $file->getSize(),
-        ]);
-
-        return back()->with('success', 'Resource uploaded.');
+        return back()->with('success', $kind === LessonResource::KIND_LINK ? 'Link added.' : 'Resource uploaded.');
     }
 
     public function destroyResource(Lesson $lesson, LessonResource $resource): RedirectResponse

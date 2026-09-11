@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Admin\Concerns\FiltersTrashed;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
+use App\Http\Controllers\Admin\Concerns\StoresResources;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Course;
+use App\Models\LessonResource;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +20,7 @@ use Illuminate\View\View;
 
 class CourseController extends Controller
 {
-    use FiltersByValues, FiltersTrashed, RestrictsToInstructor;
+    use FiltersByValues, FiltersTrashed, RestrictsToInstructor, StoresResources;
 
     /** What the level and status filters may be asked for. */
     public const LEVELS = ['beginner', 'intermediate', 'advanced'];
@@ -128,6 +130,41 @@ class CourseController extends Controller
     }
 
     /** The course builder. */
+    /**
+     * Add a resource to the COURSE itself, not to one of its lessons.
+     *
+     * Same rules, same trait as the lesson-level form — one set of rules for
+     * one table. The only difference is which thing owns the row.
+     */
+    public function storeResource(Request $request, Course $course): RedirectResponse
+    {
+        // Category scoping (77b6fd1): an instructor may only touch their own.
+        $this->authorizeCourseAccess($request, $course->id);
+
+        $kind = $this->resourceKind($request);
+        $this->validateResource($request, $kind);
+
+        $course->resources()->create($this->resourceAttributes($request, $kind));
+
+        return back()->with('success', $kind === LessonResource::KIND_LINK ? 'Link added.' : 'Resource uploaded.');
+    }
+
+    public function destroyResource(Request $request, Course $course, LessonResource $resource): RedirectResponse
+    {
+        $this->authorizeCourseAccess($request, $course->id);
+        // Belt and braces: the route model binding does not check the pairing,
+        // so a resource id from another course would otherwise be deletable by
+        // anyone who can edit any course.
+        abort_unless($resource->course_id === $course->id, 404);
+
+        if ($resource->file_path) {
+            Storage::disk('public')->delete($resource->file_path);
+        }
+        $resource->delete();
+
+        return back()->with('success', 'Resource removed.');
+    }
+
     public function show(Course $course): View
     {
         $this->authorizeCourseAccess(request(), $course->id);
@@ -136,6 +173,9 @@ class CourseController extends Controller
             'instructor',
             'modules.lessons.video',
             'modules.lessons.resources',
+            // Course-level resources: the relation excludes lesson-level rows,
+            // so the two lists cannot bleed into each other.
+            'resources',
         ])->loadCount('enrollments');
 
         $lessonIds = $course->modules->flatMap->lessons->pluck('id');

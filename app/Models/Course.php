@@ -67,6 +67,17 @@ class Course extends Model
         return $this->hasMany(Lesson::class);
     }
 
+    /**
+     * Resources attached to the course itself.
+     *
+     * Course-level only: a lesson's own resources stay on the lesson, so this
+     * relation never sweeps them up and the two lists cannot bleed together.
+     */
+    public function resources(): HasMany
+    {
+        return $this->hasMany(LessonResource::class)->whereNull('lesson_id');
+    }
+
     public function paymentMethods(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(PaymentMethod::class);

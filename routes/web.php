@@ -138,6 +138,11 @@ Route::prefix('admin')
             Route::put('lessons/{lesson}', [LessonController::class, 'update'])->middleware('can:lessons.update')->name('lessons.update');
             Route::post('lessons/{lesson}/move', [LessonController::class, 'move'])->middleware('can:lessons.update')->name('lessons.move');
             Route::delete('lessons/{lesson}', [LessonController::class, 'destroy'])->middleware('can:lessons.delete')->name('lessons.destroy');
+            // Course-level resources. Gated on courses.update, matching every
+            // other edit to the course itself; no new permission is needed
+            // because "may edit this course" is exactly the question.
+            Route::post('courses/{course}/resources', [CourseController::class, 'storeResource'])->middleware('can:courses.update')->name('courses.resources.store');
+            Route::delete('courses/{course}/resources/{resource}', [CourseController::class, 'destroyResource'])->middleware('can:courses.update')->name('courses.resources.destroy');
             Route::post('lessons/{lesson}/resources', [LessonController::class, 'storeResource'])->middleware('can:lessons.update')->name('lessons.resources.store');
             Route::delete('lessons/{lesson}/resources/{resource}', [LessonController::class, 'destroyResource'])->middleware('can:lessons.update')->name('lessons.resources.destroy');
         });

@@ -266,6 +266,85 @@
             </x-card>
         @endforelse
 
+        {{-- Course-level resources: files and links that belong to the whole
+             course rather than to any one lesson. A lesson's own resources
+             stay on the lesson editor; these never mix. --}}
+        <x-card :padding="false" x-data="{ kind: 'file' }">
+            <div class="px-6 pt-5 pb-2">
+                <p class="eyebrow">Course resources</p>
+                <p class="mt-1 text-xs text-outline">
+                    Files and links for the whole course. Enrolled students see these on their Notes page.
+                </p>
+            </div>
+
+            @forelse ($course->resources as $resource)
+                <div class="flex items-center gap-3 border-t border-surface-ice px-6 py-3">
+                    <x-icon :name="$resource->isLink() ? ($resource->is_youtube ? 'play' : 'external') : 'document'"
+                        class="size-4.5 shrink-0 text-outline" />
+                    <div class="min-w-0 flex-1">
+                        <a href="{{ $resource->target_url }}" target="_blank" rel="noopener noreferrer"
+                            class="block truncate text-sm font-medium text-on-surface hover:text-primary">{{ $resource->name }}</a>
+                        <p class="truncate font-mono text-[11px] text-outline">
+                            @if ($resource->isLink())
+                                {{ $resource->is_youtube ? 'YOUTUBE' : 'LINK' }} · {{ $resource->url }}
+                            @else
+                                {{ strtoupper($resource->file_type ?? 'file') }} · {{ \Illuminate\Support\Number::fileSize($resource->size_bytes ?? 0) }}
+                            @endif
+                        </p>
+                    </div>
+                    @can('courses.update')
+                        <x-confirm-form :action="route('admin.courses.resources.destroy', [$course, $resource])" method="DELETE"
+                            title="Remove resource" :message="'Remove '.$resource->name.'?'" confirm-label="Remove"
+                            class="rounded-lg p-1.5 text-on-surface-variant transition hover:bg-error/10 hover:text-error">
+                            <x-icon name="trash" class="size-3.5" />
+                        </x-confirm-form>
+                    @endcan
+                </div>
+            @empty
+                <p class="border-t border-surface-ice px-6 py-4 text-sm text-outline">No course resources yet.</p>
+            @endforelse
+
+            @can('courses.update')
+                <div class="border-t border-surface-ice px-6 py-4">
+                    <form method="POST" action="{{ route('admin.courses.resources.store', $course) }}" enctype="multipart/form-data" class="space-y-3">
+                        @csrf
+                        {{-- kind is posted explicitly rather than inferred from
+                             which field was filled in, so the validator can
+                             require the right one and say why. --}}
+                        <input type="hidden" name="kind" :value="kind">
+
+                        <div class="flex gap-1 rounded-lg bg-surface-ice p-1">
+                            @foreach (['file' => 'Upload a file', 'link' => 'Add a link'] as $value => $label)
+                                <button type="button" x-on:click="kind = '{{ $value }}'"
+                                    class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition"
+                                    :class="kind === '{{ $value }}' ? 'bg-white text-primary shadow-card' : 'text-on-surface-variant hover:text-on-surface'">
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <div x-show="kind === 'link'" x-cloak class="space-y-3">
+                            <x-form.input label="Title" name="link_name" :value="old('link_name')" placeholder="What is this link?" />
+                            <x-form.input label="URL" name="link_url" type="url" :value="old('link_url')" placeholder="https://…"
+                                hint="A website or a YouTube link. Must start with http:// or https://." />
+                        </div>
+
+                        <div x-show="kind === 'file'" x-cloak>
+                            {{-- Its own id: the add-lesson modals on this page each render a
+                                 thumbnail zone, and a drop zone is a <label for>. --}}
+                            <x-form.dropzone name="file" id="course-resource-file" :max-kb="5120"
+                                hint="Slides, a syllabus or a .zip of materials." />
+                        </div>
+
+                        <x-btn size="sm" variant="secondary">
+                            <x-icon name="upload" class="size-4" />
+                            <span x-text="kind === 'link' ? 'Add link' : 'Upload resource'">Upload resource</span>
+                        </x-btn>
+                    </form>
+                </div>
+            @endcan
+        </x-card>
+
         {{-- Add module --}}
         @can('courses.update')
             <x-card>

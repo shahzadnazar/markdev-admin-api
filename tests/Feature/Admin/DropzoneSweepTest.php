@@ -179,8 +179,16 @@ class DropzoneSweepTest extends TestCase
         preg_match_all('/<input\b[^>]*type="file"[^>]*>/i', $html, $matches);
         preg_match_all('/id="([^"]+)"/', implode(' ', $matches[0]), $ids);
 
-        $this->assertCount(2, $ids[1], 'expected one thumbnail zone per module');
+        // Uniqueness across EVERY zone on the page is the property that
+        // matters: a drop zone is a <label for>, so two sharing an id would
+        // make one of them open the other's picker. The page carries a
+        // course-level resource zone as well as one thumbnail zone per module,
+        // so the count is taken over the thumbnails rather than over the page.
+        $thumbnails = array_values(array_filter($ids[1], fn (string $id) => str_starts_with($id, 'thumbnail-')));
+
+        $this->assertCount(2, $thumbnails, 'expected one thumbnail zone per module');
         $this->assertSame($ids[1], array_unique($ids[1]), 'two zones on one page share an id');
+        $this->assertContains('course-resource-file', $ids[1], 'the course-level zone should be here too');
     }
 
     public function test_the_biometric_csv_import_survived_the_conversion(): void
