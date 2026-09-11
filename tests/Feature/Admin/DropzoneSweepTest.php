@@ -134,10 +134,20 @@ class DropzoneSweepTest extends TestCase
 
         $html = $this->actingAs($this->admin)->get(route('admin.lessons.edit', $lesson))->assertOk()->getContent();
 
-        // Two zones on one page, and they must not collide: the resource file
-        // is required, the video thumbnail is not.
-        $this->assertStringContainsString('required', $this->fileInput($html, 'file', 'admin/lessons/{lesson}/edit'));
+        // Two zones on one page, and they must not collide. Neither carries a
+        // static `required` any more: the resource can be a LINK instead of a
+        // file, so the file is only required when that kind is chosen, and a
+        // hardcoded attribute would block a link from ever being submitted.
+        // The obligation moved to the server, where it is conditional —
+        // Rule::requiredIf on the kind, covered by LessonResourceLinkTest.
+        $this->fileInput($html, 'file', 'admin/lessons/{lesson}/edit');
         $this->assertStringNotContainsString('required', $this->fileInput($html, 'thumbnail', 'admin/lessons/{lesson}/edit'));
+
+        // Still enforced, just not by an HTML attribute.
+        $this->actingAs($this->admin)
+            ->from(route('admin.lessons.edit', $lesson))
+            ->post(route('admin.lessons.resources.store', $lesson), ['kind' => 'file'])
+            ->assertSessionHasErrors('file');
     }
 
     public function test_the_add_lesson_thumbnail_on_the_course_page_survived_the_conversion(): void
