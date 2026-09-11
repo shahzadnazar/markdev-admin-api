@@ -45,4 +45,18 @@
         @include('admin.courses._results')
     </div>
 
+    {{-- Resources, below the courses. Not filtered with the table above: the
+         filters and the page number narrow which COURSES you are looking at,
+         and a resource list that followed them would change under you for
+         reasons that have nothing to do with resources. It is scoped by
+         permission — the same managedCourseIds the table is — and by nothing
+         else. --}}
+    <div class="mt-6">
+        @include('admin.courses._resources', [
+            'resources' => $resources,
+            'courses' => $selectableCourses,
+            'showCourse' => true,
+        ])
+    </div>
+
 </x-admin.layout>

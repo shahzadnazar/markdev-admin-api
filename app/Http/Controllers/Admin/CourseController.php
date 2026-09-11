@@ -95,12 +95,49 @@ class CourseController extends Controller
             'mayViewTrash' => $mayViewTrash,
             'trashed' => $trashed,
             'categories' => $categories,
+            // The SAME $mine the table above is scoped by, not a fresh query.
+            // The last leak on this page was a second, unscoped query feeding
+            // the category dropdown while the list below it was scoped; one
+            // variable for both is what stops that recurring.
+            'resources' => $this->visibleResources($request, $mine),
+            'selectableCourses' => $this->selectableCourses($request)->get(['id', 'title']),
             'selected' => [
                 'category' => $categoryIds,
                 'level' => $levels,
                 'status' => $statuses,
             ],
         ]);
+    }
+
+    /**
+     * Course-level resources this viewer may see.
+     *
+     * Scoped by permission and by nothing else. The table above is additionally
+     * narrowed by the category/level/status filters and by which page you are
+     * on; a resource list that followed those would change under the viewer for
+     * reasons that have nothing to do with resources, and page 2 of the courses
+     * would appear to delete half of them.
+     *
+     * whereHas('course') rather than a join: the relation excludes soft-deleted
+     * courses, so a resource on a trashed course drops out — and it drops out
+     * for an admin exactly as it already does for an instructor, whose
+     * managedCourseIds never contained the trashed course in the first place.
+     *
+     * Paginated under its own page key so the two paginators on this page do
+     * not fight over ?page.
+     *
+     * @param  array<int, int>|null  $managedCourseIds  null when unrestricted
+     */
+    protected function visibleResources(Request $request, ?array $managedCourseIds)
+    {
+        return LessonResource::query()
+            ->courseLevel()
+            ->when($managedCourseIds !== null, fn ($query) => $query->whereIn('course_id', $managedCourseIds))
+            ->whereHas('course')
+            ->with('course:id,title')
+            ->latest()
+            ->paginate(15, ['*'], 'resource_page')
+            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'resource_page']));
     }
 
     public function create(): View

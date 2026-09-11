@@ -63,6 +63,19 @@ class MultiSelectFilterTest extends TestCase
 
     /* -------------------------------- Courses ------------------------------- */
 
+    /*
+     * "Filtered out" means out of the TABLE, so these ask for the table.
+     *
+     * ?partial=1 is the same branch live search uses: the controller renders
+     * _results and nothing else. Asserting over the whole page used to be an
+     * adequate proxy and no longer is — the resources panel below the table
+     * carries a course picker that, by design, offers every course the viewer
+     * may edit whether or not the current filter shows it. Scoping the
+     * assertion to the table makes it say what it always meant, and makes it
+     * stricter rather than looser: chrome elsewhere on the page can no longer
+     * satisfy an assertSee either.
+     */
+
     public function test_two_categories_ticked_shows_both_and_nothing_else(): void
     {
         $web = $this->category('Web');
@@ -73,7 +86,7 @@ class MultiSelectFilterTest extends TestCase
         $this->course('Pandas', $data);
 
         $this->actingAs($this->userWith('admin'))
-            ->get(route('admin.courses.index', ['category' => [$web->id, $design->id]]))
+            ->get(route('admin.courses.index', ['category' => [$web->id, $design->id], 'partial' => 1]))
             ->assertOk()
             ->assertSee('Laravel', false)
             ->assertSee('Figma', false)
@@ -108,7 +121,7 @@ class MultiSelectFilterTest extends TestCase
 
         // The shape a bookmark or a pasted link carries.
         $this->actingAs($this->userWith('admin'))
-            ->get(route('admin.courses.index').'?category='.$web->id)
+            ->get(route('admin.courses.index').'?partial=1&category='.$web->id)
             ->assertOk()
             ->assertSee('Laravel', false)
             ->assertDontSee('Figma', false);
@@ -121,7 +134,7 @@ class MultiSelectFilterTest extends TestCase
         $this->course('Figma', $this->category('Design'));
 
         $this->actingAs($this->userWith('admin'))
-            ->get(route('admin.courses.index', ['category' => [$web->id, 999999]]))
+            ->get(route('admin.courses.index', ['category' => [$web->id, 999999], 'partial' => 1]))
             ->assertOk()
             ->assertSee('Laravel', false)
             ->assertDontSee('Figma', false);
@@ -157,14 +170,14 @@ class MultiSelectFilterTest extends TestCase
         $this->course('Middle course', $web, ['level' => 'intermediate', 'status' => 'archived']);
 
         $this->actingAs($this->userWith('admin'))
-            ->get(route('admin.courses.index', ['level' => ['beginner', 'advanced']]))
+            ->get(route('admin.courses.index', ['level' => ['beginner', 'advanced'], 'partial' => 1]))
             ->assertOk()
             ->assertSee('Beginner course', false)
             ->assertSee('Advanced course', false)
             ->assertDontSee('Middle course', false);
 
         $this->actingAs($this->userWith('admin'))
-            ->get(route('admin.courses.index', ['status' => ['draft', 'archived']]))
+            ->get(route('admin.courses.index', ['status' => ['draft', 'archived'], 'partial' => 1]))
             ->assertOk()
             ->assertSee('Advanced course', false)
             ->assertSee('Middle course', false)
@@ -313,7 +326,7 @@ class MultiSelectFilterTest extends TestCase
         $response->assertSee('category%5B0%5D='.$web->id, false);
 
         $this->actingAs($this->userWith('admin'))
-            ->get(route('admin.courses.index', ['category' => [$web->id], 'page' => 2]))
+            ->get(route('admin.courses.index', ['category' => [$web->id], 'page' => 2, 'partial' => 1]))
             ->assertOk()
             ->assertDontSee('Design course', false);
     }
