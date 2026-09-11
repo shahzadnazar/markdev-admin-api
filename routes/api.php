@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CertificateController;
 use App\Http\Controllers\Api\V1\CommentController;
+use App\Http\Controllers\Api\V1\LessonPrivateNoteController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\HelpController;
@@ -79,6 +80,14 @@ Route::prefix('v1')->group(function () {
 
         Route::get('lessons/{lesson}/comments', [CommentController::class, 'index']);
         Route::post('lessons/{lesson}/comments', [CommentController::class, 'store']);
+        // Own comment only — CommentPolicy decides, not the absence of a button.
+        Route::put('lessons/{lesson}/comments/{comment}', [CommentController::class, 'update']);
+        Route::delete('lessons/{lesson}/comments/{comment}', [CommentController::class, 'destroy']);
+
+        // Private notes: the student's own, scoped by user_id in the query.
+        // There is no index route and no admin equivalent, by design.
+        Route::get('lessons/{lesson}/private-note', [LessonPrivateNoteController::class, 'show']);
+        Route::put('lessons/{lesson}/private-note', [LessonPrivateNoteController::class, 'store']);
 
         /* Assessments */
         Route::get('assignments', [AssignmentController::class, 'index']);

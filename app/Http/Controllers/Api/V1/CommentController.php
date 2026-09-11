@@ -9,7 +9,9 @@ use App\Models\Enrollment;
 use App\Models\Lesson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class CommentController extends ApiController
@@ -54,12 +56,54 @@ class CommentController extends ApiController
         return (new CommentResource($comment))->response($request)->setStatusCode(201);
     }
 
+    /**
+     * Edit one's own comment.
+     *
+     * Two separate questions, both asked: still enrolled (the course-level
+     * check), and the author (the policy). Losing enrollment should not leave
+     * someone able to keep editing a thread they can no longer read.
+     */
+    public function update(StoreCommentRequest $request, Lesson $lesson, Comment $comment): CommentResource
+    {
+        abort_unless($comment->lesson_id === $lesson->id, 404);
+        $this->authorizeLessonAccess($request, $lesson);
+        Gate::authorize('update', $comment);
+
+        $comment->update(['body' => $request->string('body')->value()]);
+
+        return new CommentResource($comment->load('user'));
+    }
+
+    /** Delete one's own comment. Soft delete — the table already has it. */
+    public function destroy(Request $request, Lesson $lesson, Comment $comment): Response
+    {
+        abort_unless($comment->lesson_id === $lesson->id, 404);
+        $this->authorizeLessonAccess($request, $lesson);
+        Gate::authorize('delete', $comment);
+
+        // Replies are kept: cascading a thread away because its opening line
+        // was withdrawn deletes other people's words too.
+        $comment->delete();
+
+        return response()->noContent();
+    }
+
+    /**
+     * Only students enrolled in the lesson's course.
+     *
+     * This used to read `$enrolled || $lesson->is_preview`, which meant the
+     * discussion under any preview lesson was open to every signed-in user on
+     * the platform — readable AND postable by people who had never enrolled.
+     * A preview is a free sample of the teaching, not of the cohort, so the
+     * escape hatch is gone. The lesson itself is still previewable; only its
+     * discussion is now enrollment-only.
+     */
     protected function authorizeLessonAccess(Request $request, Lesson $lesson): void
     {
         $enrolled = Enrollment::where('user_id', $request->user()->id)
             ->where('course_id', $lesson->course_id)
             ->exists();
 
-        abort_unless($enrolled || $lesson->is_preview, 403, 'Enroll in the course to join the discussion.');
+        abort_unless($enrolled, 403, 'Enroll in the course to join the discussion.');
     }
 }
