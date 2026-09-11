@@ -12,7 +12,6 @@ use App\Models\LessonCompletion;
 use App\Models\LessonVideoProgress;
 use App\Services\LessonProgressService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
 class LessonController extends ApiController
@@ -163,17 +162,18 @@ class LessonController extends ApiController
         'Enroll in the course to access this lesson.'
     );
 
-    LearningActivity::updateOrCreate(
-        [
-            'user_id' => $user->id,
-            'date' => now()->toDateString(),
-        ],
-        [
-            'minutes' => DB::raw(
-                'minutes + ' . (int) $request->integer('minutes')
-            ),
-        ]
-    );
+    /*
+     * The expression belongs in a SET clause and nowhere else.
+     *
+     * This was updateOrCreate with DB::raw('minutes + n') as the value. On the
+     * update branch that compiles to `set minutes = minutes + n` and works. On
+     * the INSERT branch the same expression lands in a VALUES list —
+     * `values (7, '2026-09-11', minutes + 5, ...)` — where `minutes` names no
+     * column that exists yet, so every student's FIRST ping of each day 500'd
+     * and its minutes were lost. Every later ping that day took the update
+     * branch and worked, which is why it stayed hidden for a fortnight.
+     */
+    LearningActivity::recordMinutes($user->id, $request->integer('minutes'));
 
     return response()->json([
         'data' => [
