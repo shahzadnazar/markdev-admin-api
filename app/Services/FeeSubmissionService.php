@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\PrivateFiles;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Models\User;
@@ -55,7 +56,7 @@ class FeeSubmissionService
         $channel = $method
             ? ['label' => $method->name, 'method_type' => $method->methodType()]
             : self::CHANNELS[$data['channel']];
-        $receiptPath = $receipt->store('receipts', 'public');
+        $receiptPath = $receipt->store('receipts', PrivateFiles::DISK);
 
         $transaction = DB::transaction(function () use ($student, $invoice, $data, $channel, $receiptPath, $method) {
             $transaction = Transaction::create([

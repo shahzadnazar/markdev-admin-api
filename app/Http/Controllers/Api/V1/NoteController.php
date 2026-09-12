@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\Lesson;
 use App\Models\LessonResource;
 use App\Models\Note;
+use App\Support\PrivateFiles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -75,8 +76,10 @@ class NoteController extends ApiController
             'kind' => 'file',
             'title' => $note->title,
             'description' => $note->description,
-            'url' => $note->file_url,
-            'file_url' => $note->file_url,
+            // Signed: the portal sends a bearer token on its API calls but
+            // cannot send one on the <a> it opens with this URL.
+            'url' => $noteUrl = PrivateFiles::signedUrl('files.note', [$note->id], $request->user()),
+            'file_url' => $noteUrl,
             'file_type' => $note->file_type,
             'size_bytes' => (int) $note->size_bytes,
             'is_youtube' => false,
@@ -102,8 +105,12 @@ class NoteController extends ApiController
             'description' => $resource->lesson?->title !== null ? 'From lesson: '.$resource->lesson->title : null,
             // One field the portal follows whatever the kind, so nothing
             // downstream has to know which column a resource lives in.
-            'url' => $resource->target_url,
-            'file_url' => $resource->file_url,
+            'url' => $resource->isLink()
+                ? $resource->url
+                : PrivateFiles::signedUrl('files.resource', [$resource->id], $request->user()),
+            'file_url' => $resource->file_path
+                ? PrivateFiles::signedUrl('files.resource', [$resource->id], $request->user())
+                : null,
             'file_type' => $resource->file_type,
             'size_bytes' => $resource->size_bytes !== null ? (int) $resource->size_bytes : null,
             'is_youtube' => $resource->is_youtube,

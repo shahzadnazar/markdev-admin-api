@@ -79,30 +79,37 @@ class StudentProfile extends Model
 
     /* ------------------------------ Documents ------------------------------ */
 
-    public function documentUrl(?string $path): ?string
+    /**
+     * Where the panel or the portal fetches one of this student's documents.
+     *
+     * A route now, not a storage URL. These are CNIC scans and degree
+     * certificates; served off the public disk they answered 200 to anyone who
+     * knew the path, and the paths are guessable. FileController checks that
+     * the asker is this student or staff who may view student records.
+     *
+     * $kind names which document rather than the path naming it, so a stored
+     * path never has to round-trip through a URL where it could be swapped.
+     */
+    public function documentUrl(?string $kind): ?string
     {
-        return $path ? Storage::disk('public')->url($path) : null;
+        return $kind ? route('files.student-document', [$this, $kind]) : null;
     }
 
     /**
      * Browser path for a stored document, relative to whatever host is serving.
      *
-     * Storage::url() builds on APP_URL, so an admin panel opened on a different
-     * host or port than APP_URL names gets image URLs pointing at somewhere that
-     * serves nothing — which looks exactly like a document that failed to
-     * upload. The panel is always same-origin, so a root-relative path is both
-     * correct and immune to that drift. The API keeps absolute URLs, since the
-     * portal reads them from another origin.
+     * Root-relative for the same reason it always was: route() builds on
+     * APP_URL, and an admin panel opened on a different host or port than
+     * APP_URL names would get URLs pointing at somewhere that serves nothing —
+     * indistinguishable from a document that failed to upload. The panel is
+     * always same-origin and arrives with a session cookie, so a relative path
+     * is both correct and immune to that drift.
      */
-    public static function documentSrc(?string $path): ?string
+    public function documentSrc(?string $kind): ?string
     {
-        if (! $path) {
-            return null;
-        }
+        $url = $this->documentUrl($kind);
 
-        $url = Storage::disk('public')->url($path);
-
-        return parse_url($url, PHP_URL_PATH) ?: $url;
+        return $url === null ? null : (parse_url($url, PHP_URL_PATH) ?: $url);
     }
 
     public static function isImagePath(?string $path): bool

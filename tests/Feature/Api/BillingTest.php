@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Support\PrivateFiles;
 use App\Models\FeePlan;
 use App\Models\Invoice;
 use App\Models\Transaction;
@@ -145,6 +146,7 @@ class BillingTest extends ApiTestCase
     public function test_submitting_proof_of_payment_marks_everything_pending(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
         Notification::fake();
 
         $admin = User::factory()->create(['email' => 'reviewer@markdev.test']);
@@ -164,7 +166,7 @@ class BillingTest extends ApiTestCase
         $this->assertSame('pending', $open->fresh()->status);
 
         $transaction = Transaction::find($response->json('data.id'));
-        Storage::disk('public')->assertExists($transaction->receipt_path);
+        Storage::disk(PrivateFiles::DISK)->assertExists($transaction->receipt_path);
 
         // Billing reviewers are notified.
         Notification::assertSentTo($admin, FeeSubmissionReceived::class);
@@ -189,6 +191,7 @@ class BillingTest extends ApiTestCase
     public function test_cannot_submit_twice_or_for_settled_invoices(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
         Notification::fake();
 
         $user = $this->actingAsStudent();
@@ -202,6 +205,7 @@ class BillingTest extends ApiTestCase
     public function test_cannot_submit_for_someone_elses_invoice(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
 
         $owner = $this->student();
         [, , $open] = $this->makePlan($owner);
@@ -215,6 +219,7 @@ class BillingTest extends ApiTestCase
     public function test_admin_approval_marks_the_invoice_paid_and_notifies_the_student(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
         Notification::fake();
 
         $reviewer = User::factory()->create();
@@ -237,6 +242,7 @@ class BillingTest extends ApiTestCase
     public function test_admin_rejection_reopens_the_invoice_with_a_reason_and_allows_resubmit(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
         Notification::fake();
 
         $reviewer = User::factory()->create();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Concerns;
 
+use App\Support\PrivateFiles;
 use App\Models\LessonResource;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -79,7 +80,7 @@ trait StoresResources
         return [
             'name' => $file->getClientOriginalName(),
             'kind' => LessonResource::KIND_FILE,
-            'file_path' => $file->store('resources', 'public'),
+            'file_path' => $file->store('resources', PrivateFiles::DISK),
             'file_type' => $file->getClientOriginalExtension() ?: $file->getClientMimeType(),
             'size_bytes' => $file->getSize(),
         ];

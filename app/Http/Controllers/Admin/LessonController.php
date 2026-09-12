@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\PrivateFiles;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Admin\Concerns\StoresResources;
 use App\Http\Controllers\Controller;
@@ -111,7 +112,7 @@ class LessonController extends Controller
         abort_unless($resource->lesson_id === $lesson->id, 404);
 
         if ($resource->file_path) {
-            Storage::disk('public')->delete($resource->file_path);
+            PrivateFiles::forget($resource->file_path);
         }
         $resource->delete();
 

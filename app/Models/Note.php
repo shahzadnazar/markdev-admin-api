@@ -41,8 +41,9 @@ class Note extends Model
 
     public function getFileUrlAttribute(): ?string
     {
-        return $this->file_path
-            ? Storage::disk('public')->url($this->file_path)
-            : null;
+        // A route, not a storage URL: note files are course material for
+        // enrolled students, and off the public disk they answered to anyone
+        // with the path. FileController checks enrollment.
+        return $this->file_path ? route('files.note', $this) : null;
     }
 }

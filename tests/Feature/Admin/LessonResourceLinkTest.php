@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Support\PrivateFiles;
 use App\Models\Category;
 use App\Models\Course;
 use App\Models\Lesson;
@@ -43,6 +44,7 @@ class LessonResourceLinkTest extends TestCase
 
         $this->seed(RolePermissionSeeder::class);
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');
@@ -81,7 +83,7 @@ class LessonResourceLinkTest extends TestCase
         $this->assertSame('file', $resource->kind);
         $this->assertNotNull($resource->file_path);
         $this->assertNull($resource->url);
-        Storage::disk('public')->assertExists($resource->file_path);
+        Storage::disk(PrivateFiles::DISK)->assertExists($resource->file_path);
         // target_url is the one field a caller follows whatever the kind.
         $this->assertSame($resource->file_url, $resource->target_url);
     }

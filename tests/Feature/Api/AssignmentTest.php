@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Support\PrivateFiles;
 use App\Models\Assignment;
 use App\Models\AssignmentSubmission;
 use App\Models\User;
@@ -66,6 +67,7 @@ class AssignmentTest extends ApiTestCase
     public function test_submission_with_content_and_late_flag(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
 
         $user = $this->actingAsStudent();
         [$course, $assignment] = $this->makeAssignment(['due_at' => now()->subHour()]);
@@ -94,6 +96,7 @@ class AssignmentTest extends ApiTestCase
     public function test_submission_with_file_upload(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
 
         $user = $this->actingAsStudent();
         [$course, $assignment] = $this->makeAssignment();
@@ -106,7 +109,7 @@ class AssignmentTest extends ApiTestCase
             ->assertJsonPath('data.is_late', false);
 
         $submission = AssignmentSubmission::first();
-        Storage::disk('public')->assertExists($submission->file_path);
+        Storage::disk(PrivateFiles::DISK)->assertExists($submission->file_path);
     }
 
     public function test_submission_requires_a_file_and_caps_file_size(): void
@@ -161,6 +164,7 @@ class AssignmentTest extends ApiTestCase
     public function test_resubmission_before_grading_updates_in_place(): void
     {
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
 
         $user = $this->actingAsStudent();
         [$course, $assignment] = $this->makeAssignment();

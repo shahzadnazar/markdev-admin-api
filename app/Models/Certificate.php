@@ -43,6 +43,19 @@ class Certificate extends Model
 
     public function getDownloadUrlAttribute(): ?string
     {
-        return $this->file_path ? Storage::disk('public')->url($this->file_path) : null;
+        /*
+         * Always null, and deliberately so.
+         *
+         * Nothing writes invoices.file_path / certificates.file_path — the
+         * column and this accessor predate the signed download routes that
+         * actually serve these documents (api.v1.billing.invoices.receipt and
+         * api.v1.certificates.download). It used to mint a public-disk URL,
+         * which meant the day someone did start writing a PDF here, it would
+         * have been world-readable the moment it landed.
+         *
+         * If a stored PDF is wanted, add a FileController method and an
+         * authorisation rule for it; do not restore a storage URL.
+         */
+        return null;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\PrivateFiles;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -29,7 +30,7 @@ class TransactionResource extends JsonResource
             'currency' => $this->currency,
             'status' => $this->status,
             'created_at' => $this->created_at?->toISOString(),
-            'receipt_url' => $this->receipt_url,
+            'receipt_url' => $this->receipt_path ? PrivateFiles::signedUrl('files.receipt', [$this->id], $request->user()) : null,
             'payer_name' => $this->payer_name,
             'bank_name' => $this->bank_name,
             'reference_no' => $this->reference_no,

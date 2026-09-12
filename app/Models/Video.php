@@ -44,6 +44,16 @@ class Video extends Model
             return $value;
         }
 
+        /*
+         * KNOWN GAP. Nothing in this app uploads a self-hosted video file — the
+         * lesson form takes a watch URL or an embed URL — so this branch is
+         * unreachable today. If self-hosted video is ever added, the file is
+         * course material and belongs on the private disk behind an authorised
+         * route; note that serving video needs HTTP range requests, which
+         * Storage::download does not do, so it is a real piece of work rather
+         * than another FileController one-liner. Left as it is rather than
+         * half-built. The same applies to captions_path below.
+         */
         if ($this->provider === 'self_hosted' && ! str_starts_with($value, 'http')) {
             return Storage::disk('public')->url($value);
         }

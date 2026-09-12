@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Support\PrivateFiles;
 use App\Models\Category;
 use App\Models\Course;
 use App\Models\Enrollment;
@@ -44,6 +45,7 @@ class CourseResourceTest extends TestCase
 
         $this->seed(RolePermissionSeeder::class);
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');
@@ -95,7 +97,7 @@ class CourseResourceTest extends TestCase
         $resource = LessonResource::firstOrFail();
 
         $this->assertSame('file', $resource->kind);
-        Storage::disk('public')->assertExists($resource->file_path);
+        Storage::disk(PrivateFiles::DISK)->assertExists($resource->file_path);
     }
 
     public function test_exactly_one_owner_is_enforced(): void

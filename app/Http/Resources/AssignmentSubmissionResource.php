@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\PrivateFiles;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,7 +17,7 @@ class AssignmentSubmissionResource extends JsonResource
             'assignment_id' => $this->assignment_id,
             'content' => $this->content,
             'query' => $this->query,
-            'file_url' => $this->file_url,
+            'file_url' => PrivateFiles::signedUrl('files.submission', [$this->id], $request->user()),
             'file_name' => $this->file_name,
             'submitted_at' => $this->submitted_at?->toISOString(),
             'is_late' => (bool) $this->is_late,

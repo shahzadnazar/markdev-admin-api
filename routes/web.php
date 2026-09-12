@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\FileController;
 use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AttendanceSlotController;
 use App\Http\Controllers\Admin\HolidayController;
@@ -374,6 +375,32 @@ Route::prefix('admin')
                 Route::post('settings/rules/{rule}/reset', [RuleTemplateController::class, 'reset'])->name('rules.reset');
             });
         });
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Private files
+|--------------------------------------------------------------------------
+|
+| The only way to read an upload on the private disk. Reachable two ways and
+| authorised identically by both: the admin panel arrives with a session
+| cookie, the portal follows a signed link carrying the viewer's id because a
+| bearer token cannot ride on an <img src> or an <a href>. ResolveFileViewer
+| settles which, and FileController asks whether that person may see that file.
+|
+| Outside the admin group on purpose — a student has no business in /admin, and
+| these are as much the portal's routes as the panel's.
+*/
+Route::middleware(\App\Http\Middleware\ResolveFileViewer::class)
+    ->prefix('files')
+    ->name('files.')
+    ->group(function () {
+        Route::get('students/{profile}/{kind}', [FileController::class, 'studentDocument'])->name('student-document');
+        Route::get('submissions/{submission}', [FileController::class, 'submission'])->name('submission');
+        Route::get('attachments/{attachment}', [FileController::class, 'attachment'])->name('attachment');
+        Route::get('receipts/{transaction}', [FileController::class, 'receipt'])->name('receipt');
+        Route::get('notes/{note}', [FileController::class, 'note'])->name('note');
+        Route::get('resources/{resource}', [FileController::class, 'resource'])->name('resource');
     });
 
 require __DIR__ . '/auth.php';

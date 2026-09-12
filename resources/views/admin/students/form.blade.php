@@ -229,11 +229,11 @@
                              field's rule, which is why they are passed
                              separately rather than shared. --}}
                         <x-students.doc-field name="photo" label="Profile picture" accept="image/jpeg,image/png,image/webp"
-                            :max-kb="1024" :required="! $student" :existing="$profile?->photo_path" kind="image" />
+                            :max-kb="1024" :required="! $student" :existing="$profile?->photo_path" :profile="$profile" doc="photo" kind="image" />
                         <x-students.doc-field name="cnic_doc" label="CNIC / B-Form copy" accept="image/jpeg,image/png,image/webp,application/pdf"
-                            :max-kb="5120" :required="! $student" :existing="$profile?->cnic_doc_path" kind="any" />
+                            :max-kb="5120" :required="! $student" :existing="$profile?->cnic_doc_path" :profile="$profile" doc="cnic" kind="any" />
                         <x-students.doc-field name="degree_doc" label="Last degree / certificate" accept="image/jpeg,image/png,image/webp,application/pdf"
-                            :max-kb="5120" :required="! $student" :existing="$profile?->degree_doc_path" kind="any" />
+                            :max-kb="5120" :required="! $student" :existing="$profile?->degree_doc_path" :profile="$profile" doc="degree" kind="any" />
                     </div>
                 </x-card>
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Support\PrivateFiles;
 use App\Models\Course;
 use App\Models\StudentProfile;
 use App\Models\User;
@@ -24,6 +25,7 @@ class StudentModuleTest extends TestCase
 
         $this->seed(RolePermissionSeeder::class);
         Storage::fake('public');
+        Storage::fake(PrivateFiles::DISK);
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');
@@ -76,9 +78,9 @@ class StudentModuleTest extends TestCase
         $this->assertNotNull($profile->terms_accepted_at);
         $this->assertSame($this->admin->id, $profile->registered_by);
 
-        Storage::disk('public')->assertExists($profile->photo_path);
-        Storage::disk('public')->assertExists($profile->cnic_doc_path);
-        Storage::disk('public')->assertExists($profile->degree_doc_path);
+        Storage::disk(PrivateFiles::DISK)->assertExists($profile->photo_path);
+        Storage::disk(PrivateFiles::DISK)->assertExists($profile->cnic_doc_path);
+        Storage::disk(PrivateFiles::DISK)->assertExists($profile->degree_doc_path);
 
         // Photo doubles as the account avatar.
         $this->assertSame($profile->photo_path, $student->fresh()->avatar_path);
@@ -237,8 +239,8 @@ class StudentModuleTest extends TestCase
         $student->refresh();
         $this->assertSame('Hamza T. Updated', $student->name);
         $this->assertNotSame($oldPhoto, $student->studentProfile->photo_path);
-        Storage::disk('public')->assertMissing($oldPhoto);
-        Storage::disk('public')->assertExists($student->studentProfile->photo_path);
+        Storage::disk(PrivateFiles::DISK)->assertMissing($oldPhoto);
+        Storage::disk(PrivateFiles::DISK)->assertExists($student->studentProfile->photo_path);
     }
 
     public function test_trashed_students_appear_only_in_the_trash_box(): void

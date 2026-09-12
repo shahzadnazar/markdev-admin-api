@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\PrivateFiles;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Enrollment;
@@ -495,7 +496,7 @@ class StudentController extends Controller
     {
         if ($request->hasFile('photo')) {
             $this->deleteDocument($profile->photo_path);
-            $profile->photo_path = $request->file('photo')->store('students/photos', 'public');
+            $profile->photo_path = $request->file('photo')->store('students/photos', PrivateFiles::DISK);
 
             // The same photo drives the avatar across the panel and portal.
             $student->update(['avatar_path' => $profile->photo_path]);
@@ -503,19 +504,19 @@ class StudentController extends Controller
 
         if ($request->hasFile('cnic_doc')) {
             $this->deleteDocument($profile->cnic_doc_path);
-            $profile->cnic_doc_path = $request->file('cnic_doc')->store('students/documents', 'public');
+            $profile->cnic_doc_path = $request->file('cnic_doc')->store('students/documents', PrivateFiles::DISK);
         }
 
         if ($request->hasFile('degree_doc')) {
             $this->deleteDocument($profile->degree_doc_path);
-            $profile->degree_doc_path = $request->file('degree_doc')->store('students/documents', 'public');
+            $profile->degree_doc_path = $request->file('degree_doc')->store('students/documents', PrivateFiles::DISK);
         }
     }
 
     protected function deleteDocument(?string $path): void
     {
         if ($path) {
-            Storage::disk('public')->delete($path);
+            PrivateFiles::forget($path);
         }
     }
 }

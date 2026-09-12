@@ -67,7 +67,7 @@ class Transaction extends Model
 
     public function getReceiptUrlAttribute(): ?string
     {
-        return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
+        return $this->receipt_path ? route('files.receipt', $this) : null;
     }
 
     public function reviewer(): \Illuminate\Database\Eloquent\Relations\BelongsTo

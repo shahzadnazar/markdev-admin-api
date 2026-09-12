@@ -1,7 +1,13 @@
-@props(['name', 'label', 'accept', 'maxKb', 'required' => false, 'existing' => null, 'kind' => 'any'])
+@props(['name', 'label', 'accept', 'maxKb', 'required' => false, 'existing' => null, 'kind' => 'any', 'profile' => null, 'doc' => null])
 
 @php
-    $existingUrl = $existing ? \App\Models\StudentProfile::documentSrc($existing) : null;
+    /*
+     * `existing` is still the stored PATH — it says whether a document is
+     * there, and whether it is an image. It is no longer where the browser
+     * fetches it from: that is a route now, because these are identity
+     * documents and the public disk served them to anyone with the path.
+     */
+    $existingUrl = ($existing && $profile && $doc) ? $profile->documentSrc($doc) : null;
     $existingIsImage = \App\Models\StudentProfile::isImagePath($existing);
 @endphp
 

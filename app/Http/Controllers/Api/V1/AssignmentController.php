@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Support\PrivateFiles;
 use App\Http\Requests\Api\SubmitAssignmentRequest;
 use App\Http\Resources\AssignmentResource;
 use App\Http\Resources\AssignmentSubmissionResource;
@@ -86,7 +87,7 @@ class AssignmentController extends ApiController
 
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $submission->file_path = $file->store('submissions', 'public');
+            $submission->file_path = $file->store('submissions', PrivateFiles::DISK);
             $submission->file_name = $file->getClientOriginalName();
         }
 

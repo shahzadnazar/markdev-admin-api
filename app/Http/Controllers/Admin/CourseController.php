@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\PrivateFiles;
 use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Admin\Concerns\FiltersTrashed;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
@@ -195,7 +196,7 @@ class CourseController extends Controller
         abort_unless($resource->course_id === $course->id, 404);
 
         if ($resource->file_path) {
-            Storage::disk('public')->delete($resource->file_path);
+            PrivateFiles::forget($resource->file_path);
         }
         $resource->delete();
 

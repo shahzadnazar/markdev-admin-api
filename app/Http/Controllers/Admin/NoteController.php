@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\PrivateFiles;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Controller;
@@ -80,7 +81,7 @@ class NoteController extends Controller
         $this->authorizeCourseAccess($request, $data['course_id']);
 
         $file = $request->file('file');
-        $data['file_path'] = $file->store('notes', 'public');
+        $data['file_path'] = $file->store('notes', PrivateFiles::DISK);
         $data['file_type'] = $file->getClientMimeType();
         $data['size_bytes'] = $file->getSize();
         $data['instructor_id'] = $request->user()->id;
@@ -122,12 +123,12 @@ class NoteController extends Controller
 
         if ($request->hasFile('file')) {
             if ($note->file_path) {
-                Storage::disk('public')->delete($note->file_path);
+                PrivateFiles::forget($note->file_path);
             }
 
             $file = $request->file('file');
 
-            $data['file_path'] = $file->store('notes', 'public');
+            $data['file_path'] = $file->store('notes', PrivateFiles::DISK);
             $data['file_type'] = $file->getClientMimeType();
             $data['size_bytes'] = $file->getSize();
         }

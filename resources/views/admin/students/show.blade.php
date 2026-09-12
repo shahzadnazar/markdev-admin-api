@@ -230,13 +230,16 @@
             // file or a missing storage link, so it is called out separately
             // from a document that was never uploaded.
             $documents = collect([
-            ['label' => 'Profile picture', 'path' => $profile?->photo_path],
-            ['label' => 'CNIC / B-Form copy', 'path' => $profile?->cnic_doc_path],
-            ['label' => 'Last degree / certificate', 'path' => $profile?->degree_doc_path],
+            ['label' => 'Profile picture', 'kind' => 'photo', 'path' => $profile?->photo_path],
+            ['label' => 'CNIC / B-Form copy', 'kind' => 'cnic', 'path' => $profile?->cnic_doc_path],
+            ['label' => 'Last degree / certificate', 'kind' => 'degree', 'path' => $profile?->degree_doc_path],
             ])->map(fn ($document) => $document + [
+            // The private disk now. These are identity documents; off the
+            // public disk they answered 200 to anyone with the path.
             'stored' => $document['path']
-            ? rescue(fn () => \Illuminate\Support\Facades\Storage::disk('public')->exists($document['path']), false, false)
+            ? rescue(fn () => \Illuminate\Support\Facades\Storage::disk(\App\Support\PrivateFiles::DISK)->exists($document['path']), false, false)
             : false,
+            'src' => $profile?->documentSrc($document['kind']),
             ]);
             @endphp
 
@@ -246,7 +249,7 @@
                     <div class="flex items-center justify-between gap-3 bg-surface-ice/60 px-4 py-2.5">
                         <p class="text-[13px] font-medium text-on-surface">{{ $document['label'] }}</p>
                         @if ($document['stored'])
-                        <a href="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" target="_blank"
+                        <a href="{{ $document['src'] }}" target="_blank"
                             class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                             <x-icon name="external" class="size-3.5" /> Open
                         </a>
@@ -260,13 +263,13 @@
                     {{-- object-contain, not cover: a document is there to be read, and
                          cropping a CNIC to the middle of the box hides the photo and the
                          number — which looks like the image failed to load. --}}
-                    <a href="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" target="_blank"
+                    <a href="{{ $document['src'] }}" target="_blank"
                         class="block bg-surface-ice/50">
-                        <img src="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" alt="{{ $document['label'] }}"
+                        <img src="{{ $document['src'] }}" alt="{{ $document['label'] }}"
                             class="mx-auto max-h-72 w-full object-contain transition hover:opacity-90">
                     </a>
                     @elseif ($document['stored'])
-                    <a href="{{ \App\Models\StudentProfile::documentSrc($document['path']) }}" target="_blank"
+                    <a href="{{ $document['src'] }}" target="_blank"
                         class="flex items-center gap-3 px-4 py-4 transition hover:bg-surface-ice/40">
                         <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-error/10 font-mono text-[11px] font-bold text-error">PDF</span>
                         <span class="text-sm text-on-surface-variant">Open document in a new tab</span>

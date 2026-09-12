@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\PrivateFiles;
 use App\Http\Controllers\Admin\Concerns\RestrictsToInstructor;
 use App\Http\Controllers\Admin\Concerns\FiltersByValues;
 use App\Http\Controllers\Controller;
@@ -108,7 +109,7 @@ class AssignmentController extends Controller
         $this->authorizeCourseAccess($request, $assignment->course_id);
 
         if ($attachment->file_path) {
-            Storage::disk('public')->delete($attachment->file_path);
+            PrivateFiles::forget($attachment->file_path);
         }
         $attachment->delete();
 
@@ -216,7 +217,7 @@ class AssignmentController extends Controller
         foreach ($request->file('attachments', []) as $file) {
             $assignment->attachments()->create([
                 'name' => $file->getClientOriginalName(),
-                'file_path' => $file->store('attachments', 'public'),
+                'file_path' => $file->store('attachments', PrivateFiles::DISK),
                 'file_type' => $file->getClientOriginalExtension() ?: $file->getClientMimeType(),
                 'size_bytes' => $file->getSize(),
             ]);
