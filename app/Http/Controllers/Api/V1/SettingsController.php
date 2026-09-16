@@ -28,10 +28,6 @@ class SettingsController extends ApiController
     {
         $settings = UserSetting::firstOrNew(['user_id' => $request->user()->id]);
 
-        if ($request->has('language')) {
-            $settings->language = $request->string('language')->value();
-        }
-
         if ($request->has('notifications')) {
             $current = array_merge(self::NOTIFICATION_DEFAULTS, $settings->notifications ?? []);
             $incoming = array_intersect_key(
@@ -53,7 +49,6 @@ class SettingsController extends ApiController
     protected function present(?UserSetting $settings): array
     {
         return [
-            'language' => $settings?->language ?? 'en',
             'notifications' => array_merge(self::NOTIFICATION_DEFAULTS, $settings?->notifications ?? []),
         ];
     }

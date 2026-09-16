@@ -132,7 +132,6 @@ class DemoSeeder extends Seeder
 
         UserSetting::create([
             'user_id' => $student->id,
-            'language' => 'en',
             'notifications' => [
                 'email_announcements' => true,
                 'email_assignment_graded' => true,

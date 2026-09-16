@@ -15,7 +15,6 @@ class UpdateSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'language' => ['sometimes', 'string', 'max:10'],
             'notifications' => ['sometimes', 'array'],
             'notifications.email_announcements' => ['sometimes', 'boolean'],
             'notifications.email_assignment_graded' => ['sometimes', 'boolean'],
