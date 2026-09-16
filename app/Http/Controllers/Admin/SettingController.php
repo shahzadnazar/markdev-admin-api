@@ -35,6 +35,9 @@ class SettingController extends Controller
                 'academy_working_days' => \App\Support\AcademyCalendar::workingDays(),
                 'holiday_announce_days_before' => \App\Support\AcademyCalendar::announceDaysBefore(),
                 'attendance_weights' => \App\Support\AttendanceWeights::all(),
+                // Four components, each a checkbox and a percentage. The
+                // checked ones must total 100; nothing redistributes on its own.
+                'progress_weights' => \App\Support\ProgressWeights::all(),
                 'monthly_leave_allowance' => \App\Support\LeaveAllowance::perMonth(),
                 'monthly_absent_allowance' => \App\Support\AbsenceFine::allowance(),
                 'absent_fine_amount' => \App\Support\AbsenceFine::perAbsence(),
@@ -101,6 +104,17 @@ class SettingController extends Controller
             // academy says absences are tracked but never charged for.
             'absent_fine_amount' => ['required', 'numeric', 'min:0', 'max:100000'],
             'attendance_mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
+            // Course progress components. The percentage is required whether
+            // or not the box is ticked, which is what lets an unchecked
+            // component keep its number and get it back when re-checked.
+            'progress_weight_attendance' => ['required', 'integer', 'min:0', 'max:100'],
+            'progress_weight_quiz' => ['required', 'integer', 'min:0', 'max:100'],
+            'progress_weight_assignment' => ['required', 'integer', 'min:0', 'max:100'],
+            'progress_weight_premium' => ['required', 'integer', 'min:0', 'max:100'],
+            'progress_enabled_attendance' => ['nullable', 'boolean'],
+            'progress_enabled_quiz' => ['nullable', 'boolean'],
+            'progress_enabled_assignment' => ['nullable', 'boolean'],
+            'progress_enabled_premium' => ['nullable', 'boolean'],
             // One attempt is the academy default; more is a per-quiz decision.
             // Zero would not be an allowance, it would be a quiz nobody can
             // sit, and unpublishing is the way to say that.
@@ -131,6 +145,39 @@ class SettingController extends Controller
             'quiz_seconds_per_question.min' => 'Give a question at least 5 seconds.',
             'quiz_seconds_per_question.required' => 'Give a question at least 5 seconds.',
         ]);
+
+        /*
+         * The checked components have to total exactly 100.
+         *
+         * Validated here rather than in the rules array because it is a
+         * question about the SET: which boxes are ticked decides which numbers
+         * are added up, and no per-field rule can see both. The message names
+         * the actual total, because "must total 100%" leaves the admin adding
+         * up four boxes by hand to find the one that is wrong.
+         */
+        $checked = [];
+        foreach (array_keys(\App\Support\ProgressWeights::DEFAULTS) as $component) {
+            $data['progress_enabled_'.$component] = $request->boolean('progress_enabled_'.$component);
+
+            if ($data['progress_enabled_'.$component]) {
+                $checked[$component] = (int) $data['progress_weight_'.$component];
+            }
+        }
+
+        if ($checked === []) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'progress_enabled_premium' => 'Tick at least one progress component — progress has to be measured on something.',
+            ]);
+        }
+
+        if (array_sum($checked) !== 100) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'progress_weight_attendance' => sprintf(
+                    'Checked components must total 100%% — they currently total %d%%.',
+                    array_sum($checked),
+                ),
+            ]);
+        }
 
         // Stored as sorted ISO-8601 numbers, the same shape as a slot's days,
         // so the two lists can be compared without translating between them.

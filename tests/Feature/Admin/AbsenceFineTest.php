@@ -13,11 +13,12 @@ use App\Support\AttendanceConfig;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Tests\Concerns\BuildsSettingsPayload;
 use Tests\TestCase;
 
 class AbsenceFineTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsSettingsPayload, RefreshDatabase;
 
     protected User $admin;
 
@@ -400,35 +401,7 @@ class AbsenceFineTest extends TestCase
         $superAdmin = User::factory()->create();
         $superAdmin->assignRole('super-admin');
 
-        return $this->actingAs($superAdmin)->put('/admin/settings', array_merge([
-            'site_name' => 'MarkDev',
-            'registration_fee' => 2000,
-            'defaulter_fine_per_day' => 100,
-            'billing_grace_days' => 5,
-            'billing_activation_days' => 5,
-            'attendance_day_start_hour' => 9,
-            'attendance_day_start_minute' => 0,
-            'attendance_day_start_meridiem' => 'AM',
-            'attendance_late_after_minutes' => 15,
-            // Required since holidays landed: an academy that never
-            // opens marks nobody, so the form insists on a week.
-            'academy_working_days' => [1, 2, 3, 4, 5],
-            // Required since the holiday announcer landed: how far ahead a
-            // closure is announced, minimum 1.
-            'holiday_announce_days_before' => 1,
-            // Required since the weights moved out of the constant.
-            'attendance_weight_present' => 100,
-            'attendance_weight_late' => 70,
-            'attendance_weight_leave' => 50,
-            'attendance_weight_excused' => 50,
-            'attendance_weight_absent' => 0,
-            'monthly_leave_allowance' => 2,
-            'monthly_absent_allowance' => 3,
-            'absent_fine_amount' => 250,
-            'attendance_mode' => AttendanceConfig::MODE_MANUAL,
-            'quiz_default_attempts' => 1,
-            'quiz_seconds_per_question' => 30,
-        ], $overrides));
+        return $this->actingAs($superAdmin)->put('/admin/settings', $this->settingsPayload($overrides));
     }
 
     public function test_a_zero_absent_allowance_is_refused(): void

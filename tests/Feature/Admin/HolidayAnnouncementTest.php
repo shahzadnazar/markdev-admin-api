@@ -11,6 +11,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
+use Tests\Concerns\BuildsSettingsPayload;
 use Tests\TestCase;
 
 /**
@@ -18,7 +19,7 @@ use Tests\TestCase;
  */
 class HolidayAnnouncementTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsSettingsPayload, RefreshDatabase;
 
     protected User $admin;
 
@@ -247,31 +248,7 @@ class HolidayAnnouncementTest extends TestCase
     {
         Notification::fake();
 
-        $payload = [
-            'site_name' => 'MarkDev',
-            'registration_fee' => 2000,
-            'defaulter_fine_per_day' => 100,
-            'billing_grace_days' => 5,
-            'billing_activation_days' => 5,
-            'attendance_day_start_hour' => 9,
-            'attendance_day_start_minute' => 0,
-            'attendance_day_start_meridiem' => 'AM',
-            'attendance_late_after_minutes' => 15,
-            'academy_working_days' => [1, 2, 3, 4, 5],
-            'holiday_announce_days_before' => 5,
-            // Required since the weights moved out of the constant.
-            'attendance_weight_present' => 100,
-            'attendance_weight_late' => 70,
-            'attendance_weight_leave' => 50,
-            'attendance_weight_excused' => 50,
-            'attendance_weight_absent' => 0,
-            'monthly_leave_allowance' => 2,
-            'monthly_absent_allowance' => 2,
-            'absent_fine_amount' => 500,
-            'attendance_mode' => 'manual',
-            'quiz_default_attempts' => 1,
-            'quiz_seconds_per_question' => 30,
-        ];
+        $payload = $this->settingsPayload(['holiday_announce_days_before' => 5]);
 
         $this->actingAs($this->admin)->put(route('admin.settings.update'), $payload)->assertRedirect();
         Setting::forgetCached();

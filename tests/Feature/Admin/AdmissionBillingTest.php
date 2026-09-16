@@ -12,11 +12,12 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Tests\Concerns\BuildsSettingsPayload;
 use Tests\TestCase;
 
 class AdmissionBillingTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsSettingsPayload, RefreshDatabase;
 
     protected User $admin;
 
@@ -252,35 +253,7 @@ class AdmissionBillingTest extends TestCase
         $superAdmin = User::factory()->create();
         $superAdmin->assignRole('super-admin');
 
-        $this->actingAs($superAdmin)->put('/admin/settings', [
-            'site_name' => 'MarkDev',
-            'registration_fee' => 3500,
-            'defaulter_fine_per_day' => 100,
-            'billing_grace_days' => 5,
-            'billing_activation_days' => 5,
-            'attendance_day_start_hour' => 9,
-            'attendance_day_start_minute' => 0,
-            'attendance_day_start_meridiem' => 'AM',
-            'attendance_late_after_minutes' => 15,
-            // Required since holidays landed: an academy that never
-            // opens marks nobody, so the form insists on a week.
-            'academy_working_days' => [1, 2, 3, 4, 5],
-            // Required since the holiday announcer landed: how far ahead a
-            // closure is announced, minimum 1.
-            'holiday_announce_days_before' => 1,
-            // Required since the weights moved out of the constant.
-            'attendance_weight_present' => 100,
-            'attendance_weight_late' => 70,
-            'attendance_weight_leave' => 50,
-            'attendance_weight_excused' => 50,
-            'attendance_weight_absent' => 0,
-            'monthly_leave_allowance' => 2,
-            'monthly_absent_allowance' => 2,
-            'absent_fine_amount' => 150,
-            'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
-            'quiz_default_attempts' => 1,
-            'quiz_seconds_per_question' => 30,
-        ])->assertSessionHas('success');
+        $this->actingAs($superAdmin)->put('/admin/settings', $this->settingsPayload(['registration_fee' => 3500, 'absent_fine_amount' => 150]))->assertSessionHas('success');
 
         // The form no longer posts a timezone; the academy is fixed to
         // Asia/Karachi in config/app.php.

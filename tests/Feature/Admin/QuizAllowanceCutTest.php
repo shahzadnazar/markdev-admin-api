@@ -11,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Concerns\BuildsSettingsPayload;
 use Tests\TestCase;
 
 /**
@@ -27,7 +28,7 @@ use Tests\TestCase;
  */
 class QuizAllowanceCutTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsSettingsPayload, RefreshDatabase;
 
     protected User $student;
 
@@ -175,33 +176,6 @@ class QuizAllowanceCutTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    protected function settingsPayload(array $overrides = []): array
-    {
-        return array_merge([
-            'site_name' => 'MarkDev',
-            'registration_fee' => 2000,
-            'defaulter_fine_per_day' => 100,
-            'billing_grace_days' => 5,
-            'billing_activation_days' => 5,
-            'attendance_day_start_hour' => 9,
-            'attendance_day_start_minute' => 0,
-            'attendance_day_start_meridiem' => 'AM',
-            'attendance_late_after_minutes' => 15,
-            'academy_working_days' => [1, 2, 3, 4, 5],
-            'holiday_announce_days_before' => 1,
-            'attendance_weight_present' => 100,
-            'attendance_weight_late' => 70,
-            'attendance_weight_leave' => 50,
-            'attendance_weight_excused' => 50,
-            'attendance_weight_absent' => 0,
-            'monthly_leave_allowance' => 2,
-            'monthly_absent_allowance' => 2,
-            'absent_fine_amount' => 500,
-            'attendance_mode' => 'manual',
-            'quiz_default_attempts' => 1,
-            'quiz_seconds_per_question' => 30,
-        ], $overrides);
-    }
 
     public function test_the_migration_left_no_quiz_without_a_limit(): void
     {

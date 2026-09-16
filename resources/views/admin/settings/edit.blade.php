@@ -176,6 +176,78 @@
                     </div>
                 </div>
 
+                {{-- What course progress is made of.
+
+                     Alpine only totals the ticked boxes so the admin can see
+                     where they are before submitting; the server validates the
+                     same rule and is the one that decides. --}}
+                <div class="border-t border-surface-ice pt-5"
+                    x-data="{
+                        parts: {{ \Illuminate\Support\Js::from(collect($settings['progress_weights'])->map(fn ($p) => ['enabled' => $p['enabled'], 'percent' => $p['percent']])) }},
+                        get total() {
+                            return Object.values(this.parts).reduce((sum, p) => sum + (p.enabled ? Number(p.percent) || 0 : 0), 0);
+                        },
+                        get checkedCount() {
+                            return Object.values(this.parts).filter((p) => p.enabled).length;
+                        },
+                    }">
+                    <p class="text-sm font-medium text-on-surface">Course progress components</p>
+                    <p class="mt-1 text-xs text-outline">
+                        What a student's course progress is made of. Tick what counts and type what each is worth — the ticked
+                        percentages must total exactly 100, and nothing is redistributed for you. Untick premium content and you
+                        set another component to 40 yourself. An unticked component keeps its number for when you tick it back on.
+                    </p>
+
+                    <div class="mt-3 space-y-2">
+                        @foreach (\App\Support\ProgressWeights::LABELS as $component => $label)
+                            @php
+                                // Hoisted: a bound attribute whose expression
+                                // subscripts with a loop variable trips Blade's
+                                // component attribute parser.
+                                $weightName = 'progress_weight_'.$component;
+                                $weightValue = $settings['progress_weights'][$component]['percent'];
+                                // Bound, not interpolated: an attribute holding
+                                // {{ }} on a COMPONENT is compiled as a PHP
+                                // expression and evaluates to the component
+                                // itself. Plain HTML elements are unaffected,
+                                // which is why the checkbox below can inline it.
+                                $weightModel = 'parts.'.$component.'.percent';
+                            @endphp
+                            <div class="flex items-center gap-4 rounded-xl border border-outline-variant/60 px-4 py-3"
+                                x-bind:class="parts.{{ $component }}.enabled ? '' : 'opacity-60'">
+                                <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                                    <input type="checkbox" name="progress_enabled_{{ $component }}" value="1"
+                                        x-model="parts.{{ $component }}.enabled" class="check">
+                                    <span class="truncate text-sm text-on-surface">{{ $label }}</span>
+                                </label>
+                                <div class="w-28 shrink-0">
+                                    <x-form.input type="number" :name="$weightName" :value="$weightValue"
+                                        :x-model="$weightModel"
+                                        required min="0" max="100" class="no-spinner" />
+                                </div>
+                                <span class="w-4 shrink-0 text-sm text-outline">%</span>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <p class="mt-3 text-xs" x-cloak
+                        x-bind:class="total === 100 && checkedCount > 0 ? 'text-success' : 'text-error'">
+                        <span x-show="checkedCount === 0">Tick at least one component — progress has to be measured on something.</span>
+                        <span x-show="checkedCount > 0" x-text="total === 100
+                            ? 'Ticked components total 100% — good.'
+                            : 'Ticked components total ' + total + '% — they must total 100%.'"></span>
+                    </p>
+
+                    {{-- Attendance is shown in the breakdown but never decides a
+                         certificate: it is the one component a student cannot go
+                         back and fix, and two missed days in week one would put
+                         the certificate permanently out of reach. --}}
+                    <p class="mt-2 text-xs text-outline">
+                        Certificates are judged on coursework only — quizzes, assignments and premium content, renormalised among
+                        themselves. Attendance counts toward the progress figure students see, not toward the certificate.
+                    </p>
+                </div>
+
                 <div class="border-t border-surface-ice pt-5">
                     <x-form.input type="password" label="Attendance correction PIN" name="attendance_edit_pin"
                         autocomplete="new-password" inputmode="numeric"
