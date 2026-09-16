@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -16,6 +17,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class AbsenceFineCharge extends Model
 {
+    use ScopesToDay;
+
+    /** The day column these scopes default to; pass another per call. */
+    public static function dayColumn(): string
+    {
+        return 'month';
+    }
+
     protected $fillable = [
         'user_id',
         'month',
@@ -32,7 +41,7 @@ class AbsenceFineCharge extends Model
     protected function casts(): array
     {
         return [
-            'month' => 'date',
+            'month' => 'date:Y-m-d',
             'absences' => 'integer',
             'chargeable' => 'integer',
             'fine_per_absent' => 'decimal:2',

@@ -44,8 +44,8 @@ class LeaveApplicationController extends ApiController
 
         $overlaps = LeaveApplication::where('user_id', $request->user()->id)
             ->where('status', '!=', 'rejected')
-            ->whereDate('from_date', '<=', $data['to_date'])
-            ->whereDate('to_date', '>=', $data['from_date'])
+            ->untilDate($data['to_date'], 'from_date')
+            ->fromDate($data['from_date'], 'to_date')
             ->exists();
 
         if ($overlaps) {

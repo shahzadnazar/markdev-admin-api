@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FeePlan extends Model
 {
-    use Auditable, SoftDeletes;
+    use ScopesToDay, Auditable, SoftDeletes;
+
+    /** The day column these scopes default to; pass another per call. */
+    public static function dayColumn(): string
+    {
+        return 'starts_at';
+    }
 
     protected $fillable = [
         'user_id',
@@ -33,7 +40,7 @@ class FeePlan extends Model
             'fine_per_day' => 'decimal:2',
             'installment_months' => 'integer',
             'due_day' => 'integer',
-            'starts_at' => 'date',
+            'starts_at' => 'date:Y-m-d',
             'is_active' => 'boolean',
         ];
     }

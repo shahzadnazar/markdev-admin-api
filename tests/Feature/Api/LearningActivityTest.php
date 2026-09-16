@@ -190,9 +190,9 @@ class LearningActivityTest extends ApiTestCase
      * Every SQLite row this table already holds carries a 00:00:00 that a plain
      * `date` cast put there. Equality misses those and the code would insert a
      * second row for the same day, hit the unique index, and — with nothing to
-     * re-read — lose the minutes all over again. whereDate matches both shapes,
-     * which is why the lookup uses it even though the cast now makes today's
-     * rows clean.
+     * re-read — lose the minutes all over again. The onDate range matches both
+     * shapes, which is why the lookup uses it even though the cast now makes
+     * today's rows clean.
      */
     public function test_a_legacy_row_with_a_time_on_it_is_found_not_duplicated(): void
     {
@@ -429,15 +429,20 @@ class LearningActivityTest extends ApiTestCase
 
         $mysql = DB::connection('grammar_check');
 
+        // The sanctioned form: a half-open range. Correct on both drivers AND
+        // index-friendly, where date(`date`) = ? wraps the column in a function
+        // and MySQL cannot use the index on it.
         $lookup = $mysql->table('learning_activities')
             ->where('user_id', 1)
-            ->whereDate('date', '2026-09-11')
+            ->where('date', '>=', '2026-09-11')
+            ->where('date', '<', '2026-09-12')
             ->toSql();
 
         $this->assertSame(
-            'select * from `learning_activities` where `user_id` = ? and date(`date`) = ?',
+            'select * from `learning_activities` where `user_id` = ? and `date` >= ? and `date` < ?',
             $lookup,
         );
+        $this->assertStringNotContainsString('date(', $lookup, 'wrapping the column loses the index');
 
         $update = $mysql->getQueryGrammar()->compileUpdate(
             $mysql->table('learning_activities')->where('id', 1),

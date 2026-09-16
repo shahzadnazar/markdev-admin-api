@@ -28,7 +28,7 @@ class SweepInstallments extends Command
         // 1. upcoming → open when the activation window starts
         Invoice::query()
             ->where('status', 'upcoming')
-            ->whereDate('activates_at', '<=', today())
+            ->untilDate(today(), 'activates_at')
             ->with('user')
             ->each(function (Invoice $invoice) use (&$activated) {
                 $invoice->update(['status' => 'open']);

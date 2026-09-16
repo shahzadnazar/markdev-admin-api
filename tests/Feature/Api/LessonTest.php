@@ -59,7 +59,7 @@ class LessonTest extends ApiTestCase
         $this->assertSame(10, $user->fresh()->points);
         $this->assertTrue(PointEvent::where('user_id', $user->id)->where('points', 10)->exists());
 
-        $activity = LearningActivity::where('user_id', $user->id)->whereDate('date', now())->first();
+        $activity = LearningActivity::where('user_id', $user->id)->onDate(now())->first();
         $this->assertSame(10, $activity->minutes);
 
         // Completing again is idempotent: no double points or minutes.

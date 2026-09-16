@@ -24,7 +24,7 @@ class LearningStatsService
         $start = now()->subDays($days - 1)->startOfDay();
 
         $minutesByDate = LearningActivity::where('user_id', $user->id)
-            ->whereDate('date', '>=', $start->toDateString())
+            ->fromDate($start)
             ->get()
             ->keyBy(fn(LearningActivity $activity) => $activity->date->toDateString());
 

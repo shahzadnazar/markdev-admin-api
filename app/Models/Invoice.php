@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,13 @@ use Illuminate\Support\Facades\Storage;
 
 class Invoice extends Model
 {
-    use Auditable, SoftDeletes;
+    use ScopesToDay, Auditable, SoftDeletes;
+
+    /** The day column these scopes default to; pass another per call. */
+    public static function dayColumn(): string
+    {
+        return 'activates_at';
+    }
 
     protected $fillable = [
         'fee_plan_id',
@@ -44,7 +51,7 @@ class Invoice extends Model
             'absence_fine_amount' => 'decimal:2',
             'absence_fine_credit' => 'decimal:2',
             'sequence_no' => 'integer',
-            'activates_at' => 'date',
+            'activates_at' => 'date:Y-m-d',
             'grace_notified_at' => 'datetime',
             'issued_at' => 'datetime',
             'due_at' => 'datetime',

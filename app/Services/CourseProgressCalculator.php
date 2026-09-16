@@ -288,7 +288,7 @@ class CourseProgressCalculator
             ->counted()
             // whereDate, never an equality or a raw compare on a date-cast
             // column: the same trap has been hit eight times in this codebase.
-            ->when($from, fn ($query) => $query->whereDate('date', '>=', $from->toDateString()))
+            ->when($from, fn ($query) => $query->fromDate($from))
             ->groupBy('status')
             ->selectRaw('status, count(*) as days')
             ->pluck('days', 'status')

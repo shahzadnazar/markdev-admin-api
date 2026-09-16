@@ -108,10 +108,10 @@ class StudentController extends Controller
                 }))
             ->when($joinedFrom !== null, fn ($query) => $query
                 ->whereHas('studentProfile', fn ($profile) => $profile
-                    ->whereDate('date_of_joining', '>=', $joinedFrom)))
+                    ->fromDate($joinedFrom, 'date_of_joining')))
             ->when($joinedTo !== null, fn ($query) => $query
                 ->whereHas('studentProfile', fn ($profile) => $profile
-                    ->whereDate('date_of_joining', '<=', $joinedTo)))
+                    ->untilDate($joinedTo, 'date_of_joining')))
             // Enrolled on any of the ticked courses. Empty is no filter, not
             // whereIn(..., []) — which would match nobody and read as an empty
             // academy rather than an empty selection.

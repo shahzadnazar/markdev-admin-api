@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use App\Support\AcademyCalendar;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +22,14 @@ use Illuminate\Support\Carbon;
  */
 class LeaveApplication extends Model
 {
+    use ScopesToDay;
+
+    /** The day column these scopes default to; pass another per call. */
+    public static function dayColumn(): string
+    {
+        return 'from_date';
+    }
+
     public const STATUSES = ['pending', 'approved', 'partially_approved', 'rejected'];
 
     protected $attributes = [
@@ -44,8 +53,8 @@ class LeaveApplication extends Model
     protected function casts(): array
     {
         return [
-            'from_date' => 'date',
-            'to_date' => 'date',
+            'from_date' => 'date:Y-m-d',
+            'to_date' => 'date:Y-m-d',
             'reviewed_at' => 'datetime',
         ];
     }

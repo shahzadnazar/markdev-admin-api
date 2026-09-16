@@ -332,8 +332,20 @@ class DailyAttendanceController extends Controller
         );
 
         foreach ($markable as $student) {
-            DailyAttendance::updateOrCreate(
-                ['user_id' => $student->id, 'date' => $data['date']],
+            /*
+             * forDay, not updateOrCreate.
+             *
+             * updateOrCreate looks the row up with an equality on every key it
+             * is given, so the date missed the student's own PENDING row on
+             * SQLite and the insert that followed hit the unique index on
+             * (user_id, date). It matched on MySQL, where the DATE column
+             * truncates — the same bug that has cost this project ten
+             * incidents, live here until a survey found it rather than anyone
+             * remembering the rule.
+             */
+            DailyAttendance::forDay(
+                ['user_id' => $student->id],
+                $data['date'],
                 [
                     'status' => 'present',
                     'source' => 'manual',

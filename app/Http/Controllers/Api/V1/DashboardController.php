@@ -90,8 +90,8 @@ class DashboardController extends ApiController
                         : 0,
                     'approved_leave_today' => LeaveApplication::where('user_id', $user->id)
                         ->where('status', 'approved')
-                        ->whereDate('from_date', '<=', today())
-                        ->whereDate('to_date', '>=', today())
+                        ->untilDate(today(), 'from_date')
+                        ->fromDate(today(), 'to_date')
                         ->exists(),
                     'pending_leaves' => LeaveApplication::where('user_id', $user->id)->pending()->count(),
                     'points' => (int) $user->points,

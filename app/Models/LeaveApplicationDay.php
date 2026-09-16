@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -16,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class LeaveApplicationDay extends Model
 {
+    use ScopesToDay;
+
     public const PENDING = 'pending';
     public const APPROVED = 'approved';
     public const DECLINED = 'declined';
@@ -35,7 +38,7 @@ class LeaveApplicationDay extends Model
 
     protected function casts(): array
     {
-        return ['date' => 'date'];
+        return ['date' => 'date:Y-m-d'];
     }
 
     public function leaveApplication(): BelongsTo

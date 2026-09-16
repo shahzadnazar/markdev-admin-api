@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,13 @@ use Illuminate\Support\Facades\Storage;
 /** Admission record captured by the MarkDev registration form. */
 class StudentProfile extends Model
 {
-    use Auditable;
+    use ScopesToDay, Auditable;
+
+    /** The day column these scopes default to; pass another per call. */
+    public static function dayColumn(): string
+    {
+        return 'date_of_joining';
+    }
 
     protected $fillable = [
         'user_id',
@@ -45,8 +52,8 @@ class StudentProfile extends Model
     protected function casts(): array
     {
         return [
-            'date_of_birth' => 'date',
-            'date_of_joining' => 'date',
+            'date_of_birth' => 'date:Y-m-d',
+            'date_of_joining' => 'date:Y-m-d',
             'total_fee' => 'decimal:2',
             'submitted_fee' => 'decimal:2',
             'registration_fee' => 'decimal:2',

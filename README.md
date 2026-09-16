@@ -153,6 +153,57 @@ scanning (Settings → Virus & threat protection → Exclusions).
 Verify with `php -r "var_dump(opcache_get_status(false)['opcache_enabled']);"` — it
 should print `true`.
 
+## Dates: never compare a date-cast column with equality
+
+**The rule.** Any column a model casts to `date` is queried through
+`App\Models\Concerns\ScopesToDay` — never with `where('date', $x)`,
+`whereDate()`, `whereIn()`, or a date key inside
+`firstOrCreate`/`updateOrCreate`/`upsert`.
+
+**Why.** A `date`-cast attribute is written through the connection's datetime
+format. The same row therefore stores `2026-09-11 00:00:00` on SQLite and
+`2026-09-11` on MySQL, whose `DATE` column truncates it. An equality lookup
+matches on one driver and misses on the other — and the test suite runs on
+SQLite, the one where it silently passes.
+
+**What it has cost.** Ten incidents: a wrong absence fine, duplicate register
+rows, a test that passed while the bug it covered was live, a security hole no
+test could reach, a crashed seeding script, and a bulk mark-present that threw a
+unique-constraint violation in production's staging twin.
+
+**The one sanctioned form.**
+
+```php
+Model::onDate($day)                   // one calendar day
+Model::onDates([$a, $b])              // several days — instead of whereIn
+Model::betweenDates($from, $to)       // inclusive at both ends
+Model::fromDate($day)                 // from the start of that day onward
+Model::untilDate($day)                // up to and including that whole day
+Model::beforeDate($day)               // strictly before that day begins
+
+Model::forDay($match, $day, $values)  // instead of firstOrCreate/updateOrCreate
+Model::dayKey($day)                   // the canonical 'Y-m-d' to WRITE
+```
+
+Each scope takes an optional column name, for tables with more than one date
+(`->fromDate($day, 'to_date')`). Days are resolved in the app timezone
+(Asia/Karachi), never UTC.
+
+**Three layers, not one.**
+
+1. The casts are pinned to `date:Y-m-d`, and a migration stripped the phantom
+   time off existing rows, so both drivers now store the same thing.
+2. `ScopesToDay` is the only query form.
+3. `DateColumnGuardTest` fails by name when any other form appears in `app/`,
+   `database/` or `tests/`. It derives the guarded columns from the models' own
+   casts, so a new date-cast column is covered the moment it is added.
+
+Layer 1 alone is **not** enough, and that was measured rather than assumed: even
+with the cast pinned and the data clean, `where('date', today())` still returns
+nothing, because a Carbon binds as `Y-m-d H:i:s` whatever the attribute cast
+says — and `today()` is the most natural thing to reach for. That is why the
+scopes remain mandatory.
+
 ## Architecture
 
 - **`routes/api.php`** — versioned student-facing REST API under `/api/v1`, Sanctum-authenticated. The contract is defined by the portal repo's `docs/API.md` and TypeScript types; API Resources here serialize to exactly those shapes.

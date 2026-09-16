@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,13 @@ use Illuminate\Support\Facades\Storage;
 
 class Transaction extends Model
 {
-    use Auditable;
+    use ScopesToDay, Auditable;
+
+    /** The day column these scopes default to; pass another per call. */
+    public static function dayColumn(): string
+    {
+        return 'payment_date';
+    }
 
     protected $fillable = [
         'invoice_id',
@@ -40,7 +47,7 @@ class Transaction extends Model
     {
         return [
             'amount' => 'decimal:2',
-            'payment_date' => 'date',
+            'payment_date' => 'date:Y-m-d',
             'submitted_by_student' => 'boolean',
             'reviewed_at' => 'datetime',
         ];

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ScopesToDay;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 class LearningActivity extends Model
 {
+    use ScopesToDay;
+
     protected $fillable = [
         'user_id',
         'date',
@@ -87,7 +90,7 @@ class LearningActivity extends Model
 
         $find = fn () => static::query()
             ->where('user_id', $userId)
-            ->whereDate('date', $date)
+            ->onDate($date)
             ->first();
 
         $activity = $find();
