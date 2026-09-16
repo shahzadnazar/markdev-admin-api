@@ -345,7 +345,7 @@ class DemoSeeder extends Seeder
                 'date' => $date->toDateString(),
                 'course_id' => $laravel->id,
                 'session_title' => 'Live session — '.$date->format('M j'),
-                'status' => fake()->randomElement(['present', 'present', 'present', 'present', 'late', 'absent', 'excused']),
+                'status' => fake()->randomElement(['present', 'present', 'present', 'present', 'late', 'absent', 'leave']),
                 'source' => 'manual',
                 'marked_by' => $instructor->id,
                 'marked_at' => $date->copy()->setTime(9, 30),

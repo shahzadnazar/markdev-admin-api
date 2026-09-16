@@ -263,7 +263,7 @@ class CourseProgressCalculator
      * The existing weighted attendance percentage — not a second one.
      *
      * DailyAttendance::weightedPercent is what the register, the rules page and
-     * the absence fine already use, so present/late/leave/excused/absent are
+     * the absence fine already use, so present/late/leave/absent are
      * worth here exactly what an academy configured them to be worth there.
      * Holidays and non-working days never reach it: HOLIDAY and PENDING are
      * absent from WEIGHTS, and `counted` filters to the marked statuses.

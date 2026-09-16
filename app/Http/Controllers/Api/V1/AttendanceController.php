@@ -118,10 +118,8 @@ class AttendanceController extends ApiController
                 'late_count' => (int) ($counts['late'] ?? 0),
                 'leave_count' => (int) ($counts['leave'] ?? 0),
                 // Its own card rather than added to Leave. A day the academy
-                // excused is not a day the student spent from their leave
                 // allowance, and the class sheet's old habit of reporting one
                 // as the other is exactly what this consolidation removes.
-                'excused_count' => (int) ($counts['excused'] ?? 0),
                 // The register's own weighting -- present 100, late 70, leave
                 // 50, absent 0 -- rather than a second definition of the rate
                 // that would disagree with the one the list reports.

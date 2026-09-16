@@ -108,7 +108,7 @@ class ClassAttendanceBackfillTest extends TestCase
         $this->classRow('2026-08-03', 'present');
         $this->classRow('2026-08-04', 'late');
         $this->classRow('2026-08-05', 'absent');
-        $this->classRow('2026-08-06', 'excused');
+        $this->classRow('2026-08-06', 'leave');
         $this->registerRow('2026-08-10', 'present');
 
         $result = ClassAttendanceBackfill::run();
@@ -158,25 +158,38 @@ class ClassAttendanceBackfillTest extends TestCase
         $this->assertSame('2026-08-03', $row->marked_at->toDateString());
     }
 
-    public function test_excused_stays_excused_rather_than_becoming_leave(): void
+    /**
+     * The backfill still copies a class row's status verbatim — including a
+     * word the register no longer knows.
+     *
+     * Two tests used to live here: one asserting excused survived the backfill
+     * as its own word, and one asserting it was worth 50. Both are gone with
+     * the status (2026_09_16_160000). What replaces them is the property that
+     * still matters: the backfill does NOT invent `leave` for a day with no
+     * approved application behind it, because LeaveAllowance would spend the
+     * student's monthly quota on a claim nothing supports. That was the real
+     * reason excused existed, and it outlives the word.
+     *
+     * A row copied with a status the register does not recognise now falls out
+     * of `counted()`, so it reaches no percentage and no fine — which is why
+     * the conversion migration runs after this backfill rather than before it.
+     */
+    public function test_the_backfill_never_invents_leave(): void
     {
-        $this->classRow('2026-08-03', 'excused');
+        $this->classRow('2026-08-03', 'absent');
 
         ClassAttendanceBackfill::run();
 
-        $this->assertSame('excused', DailyAttendance::sole()->status);
+        $this->assertSame('absent', DailyAttendance::sole()->status);
         $this->assertSame(0, DailyAttendance::where('status', 'leave')->count());
     }
 
-    public function test_excused_is_worth_what_it_was_worth_before(): void
+    public function test_the_register_knows_four_statuses(): void
     {
-        // The merged student view relabelled excused as leave on the way out,
-        // so it scored 50. The register's own weight has to agree or every
-        // percentage would move on the day of the migration.
-        $this->assertSame(50, DailyAttendance::WEIGHTS['excused']);
+        $this->assertSame(['present', 'late', 'absent', 'leave'], DailyAttendance::STATUSES);
         $this->assertSame(
-            DailyAttendance::WEIGHTS['leave'],
-            DailyAttendance::WEIGHTS['excused'],
+            ['present', 'late', 'leave', 'absent'],
+            array_keys(DailyAttendance::WEIGHTS),
         );
     }
 
@@ -208,7 +221,7 @@ class ClassAttendanceBackfillTest extends TestCase
     public function test_the_backfill_can_be_undone(): void
     {
         $this->classRow('2026-08-03', 'present');
-        $this->classRow('2026-08-04', 'excused');
+        $this->classRow('2026-08-04', 'leave');
         $this->registerRow('2026-08-10', 'present');
 
         ClassAttendanceBackfill::run();

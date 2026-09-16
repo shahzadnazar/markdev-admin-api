@@ -5,7 +5,6 @@
     'late' => ['label' => 'Late', 'badge' => 'warning'],
     'absent' => ['label' => 'Absent', 'badge' => 'danger'],
     'leave' => ['label' => 'Leave', 'badge' => 'secondary'],
-    'excused' => ['label' => 'Excused', 'badge' => 'neutral'],
     ];
     // Separate from $statusMeta on purpose: $statusMeta is what somebody can
     // mark and filter by, and a holiday is neither — the day close writes it

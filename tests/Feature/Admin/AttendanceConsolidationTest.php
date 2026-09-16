@@ -111,11 +111,13 @@ class AttendanceConsolidationTest extends TestCase
 
     /**
      * The student's percentage as the portal computed it before the merge:
-     * the union of both tables, the register winning any shared day, and an
-     * excused class session scored as leave on the way out.
+     * the union of both tables, with the register winning any shared day.
      *
      * Written out here rather than called, because the code that did it is
-     * gone — which is the whole point of asserting against it.
+     * gone — which is the whole point of asserting against it. It used to map
+     * an excused class session to `leave` on the way out; with `excused`
+     * retired (2026_09_16_160000) there is nothing left to map, and the two
+     * were worth the same 50 anyway, so the figures below are unchanged.
      */
     protected function percentAsThePortalUsedToComputeIt(): float
     {
@@ -123,7 +125,7 @@ class AttendanceConsolidationTest extends TestCase
 
         foreach (DB::table('attendance_records')->where('user_id', $this->student->id)->get() as $row) {
             $day = \Illuminate\Support\Carbon::parse((string) $row->date)->toDateString();
-            $days[$day] ??= $row->status === 'excused' ? 'leave' : $row->status;
+            $days[$day] ??= $row->status;
         }
 
         foreach (DailyAttendance::where('user_id', $this->student->id)->decided()->get() as $row) {
@@ -141,7 +143,7 @@ class AttendanceConsolidationTest extends TestCase
     {
         $this->classRow('2026-06-01', 'present');
         $this->classRow('2026-06-02', 'late');
-        $this->classRow('2026-06-03', 'excused');
+        $this->classRow('2026-06-03', 'leave');
         $this->classRow('2026-06-04', 'absent');
         // A day both tables answer for: the register wins, before and after.
         $this->classRow('2026-06-05', 'present');
@@ -157,7 +159,7 @@ class AttendanceConsolidationTest extends TestCase
                 ->counted()->get()->countBy('status')->all(),
         );
 
-        // present 100 + late 70 + excused 50 + absent 0 + absent 0 + leave 50,
+        // present 100 + late 70 + leave 50 + absent 0 + absent 0 + leave 50,
         // over six days.
         $this->assertSame(45.0, $before);
         $this->assertSame($before, $after);
@@ -207,7 +209,7 @@ class AttendanceConsolidationTest extends TestCase
         // these were ever billable and none may become billable.
         $this->classRow('2026-06-10', 'absent');
         $this->classRow('2026-06-11', 'present');
-        $this->classRow('2026-06-12', 'excused');
+        $this->classRow('2026-06-12', 'leave');
 
         $before = AbsenceFine::balance($this->student->id, $month);
 
@@ -308,12 +310,17 @@ class AttendanceConsolidationTest extends TestCase
     /**
      * A status the day-count list forgot became an unmarked student.
      *
-     * dayCounts() and historyFor() each listed the four statuses by hand, so
-     * `excused` — which arrived with the class sheet — was subtracted from
-     * nothing and fell into `unmarked`, telling the front desk to chase a
-     * student who was already marked. Both derive from STATUSES now.
+     * dayCounts() and historyFor() each listed the statuses by hand, so one
+     * they had not been told about was subtracted from nothing and fell into
+     * `unmarked`, telling the front desk to chase a student who was already
+     * marked. Both derive from STATUSES now.
+     *
+     * Originally written for `excused`, the status that exposed it. That word
+     * is retired, so this uses `leave` — the same shape of case, a status a
+     * hand-written list is most likely to miss. The guard is about lists
+     * drifting from STATUSES, not about any one status.
      */
-    public function test_an_excused_student_is_not_reported_as_unmarked(): void
+    public function test_a_less_common_status_is_not_reported_as_unmarked(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole('admin');
@@ -322,7 +329,7 @@ class AttendanceConsolidationTest extends TestCase
         DailyAttendance::create([
             'user_id' => $this->student->id,
             'date' => today()->toDateString(),
-            'status' => 'excused',
+            'status' => 'leave',
             'source' => 'manual',
             'marked_at' => now(),
         ]);
@@ -333,10 +340,10 @@ class AttendanceConsolidationTest extends TestCase
 
         $counts = $response->viewData('counts');
 
-        $this->assertSame(1, $counts['excused']);
+        $this->assertSame(1, $counts['leave']);
         $this->assertSame(0, $counts['unmarked'], 'A marked student is not waiting on anyone.');
-        // Worth the same half day as approved leave, so a lone excused day is
-        // a 50% register — not a 0% one, and not an undefined one.
+        // Approved leave is worth half a day, so a lone leave day is a 50%
+        // register — not a 0% one, and not an undefined one.
         $this->assertSame(50.0, $counts['weighted_percent']);
     }
 

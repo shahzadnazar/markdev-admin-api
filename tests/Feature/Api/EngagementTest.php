@@ -147,16 +147,16 @@ class EngagementTest extends ApiTestCase
             ->onDate(now()->subDays(4))
             ->update(['course_id' => $course->id, 'session_title' => 'Live session — leave day']);
 
-        // An excused day keeps its own word rather than being reported as
-        // leave. It is worth the same 50 — so the rate does not move — but
-        // leave means an approved application exists and spends the student's
-        // monthly allowance, and this day has neither behind it.
+        // A second leave day, so the summary has more than one of a status
+        // that is not present. This used to be an `excused` day, a fifth
+        // status retired in 2026_09_16_160000; it was worth the same 50, so
+        // every figure below is unchanged.
         \App\Models\DailyAttendance::create([
             'user_id' => $user->id,
             'course_id' => $course->id,
             'date' => now()->subDays(10)->toDateString(),
-            'status' => 'excused',
-            'session_title' => 'Live session — excused',
+            'status' => 'leave',
+            'session_title' => 'Live session — second leave',
             'source' => 'manual',
             'marked_at' => now(),
         ]);
@@ -167,21 +167,19 @@ class EngagementTest extends ApiTestCase
             ->assertJsonPath('data.4.status', 'leave')
             ->assertJsonPath('data.4.session_title', 'Live session — leave day')
             ->assertJsonPath('data.4.course.title', $course->title)
-            ->assertJsonPath('data.5.status', 'excused')
-            ->assertJsonPath('data.5.session_title', 'Live session — excused')
+            ->assertJsonPath('data.5.status', 'leave')
+            ->assertJsonPath('data.5.session_title', 'Live session — second leave')
             ->assertJsonPath('data.5.course.title', $course->title);
 
         $this->getJson('/api/v1/attendance/summary')->assertOk()
             ->assertJsonPath('data.total_sessions', 6)
-            ->assertJsonPath('data.leave_count', 1)
-            ->assertJsonPath('data.excused_count', 1)
-            // (100 + 100 + 70 + 0 + 50 + 50) / 6 — the excused day is worth
-            // exactly what it was worth when it reached the portal as leave.
+            ->assertJsonPath('data.leave_count', 2)
+            // (100 + 100 + 70 + 0 + 50 + 50) / 6 — unchanged by the retirement,
+            // because excused and leave were both worth 50.
             ->assertJsonPath('data.attendance_rate', 61.7);
 
-        $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(1, 'data')
+        $this->getJson('/api/v1/attendance/daily?status=leave')->assertOk()->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.status', 'leave');
-        $this->getJson('/api/v1/attendance/daily?status=excused')->assertOk()->assertJsonCount(1, 'data');
 
         // The upper bound includes its own day, which a plain `<=` against a
         // date-cast column does not on every engine.

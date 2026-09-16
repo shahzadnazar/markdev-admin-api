@@ -43,14 +43,12 @@ class DailyAttendance extends Model
     /**
      * Statuses an instructor can choose. `pending` is never one of them.
      *
-     * `excused` arrived with the retirement of the class-attendance sheet,
-     * which was the only screen that offered it. It is kept as its own word
-     * rather than folded into `leave`: `leave` means an approved application
-     * exists and is what the leave allowance is spent on, and writing it for a
-     * day with no application behind it would make the register say something
-     * that is not true. See the backfill migration for the whole argument.
+     * Four, not five. `excused` was here because the retired class-attendance
+     * sheet had the word, not because this project wanted it; its source table
+     * was dropped in 2026_09_10_090200 and its three rows became `present` in
+     * 2026_09_16_160000. Nothing can create one now.
      */
-    public const STATUSES = ['present', 'late', 'absent', 'leave', 'excused'];
+    public const STATUSES = ['present', 'late', 'absent', 'leave'];
 
     /**
      * A day held open because nobody has marked it yet.
@@ -94,10 +92,6 @@ class DailyAttendance extends Model
         'present' => 100,
         'late' => 70,
         'leave' => 50,
-        // The same 50 the merged student view already scored an excused class
-        // session at, back when it was relabelled `leave` on the way out. The
-        // number is unchanged; only the word on the row is now honest.
-        'excused' => 50,
         'absent' => 0,
     ];
 
