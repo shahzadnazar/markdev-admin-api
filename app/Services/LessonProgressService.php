@@ -55,20 +55,40 @@ class LessonProgressService
         return $enrollment;
     }
 
+    /**
+     * Recompute the cached figure and settle completion.
+     *
+     * enrollments.progress_percent is a CACHE of the live calculation and
+     * nothing more. It exists so an admin list of fifty students is one query
+     * rather than three hundred; no single-student surface reads it.
+     *
+     * Completion and the certificate are judged on COURSEWORK only — quiz,
+     * assignment and premium content, renormalised among themselves. Attendance
+     * is displayed in the breakdown and deliberately kept out of this: it is
+     * the one component a student cannot go back and fix, so two missed days in
+     * week one would put the certificate permanently out of reach however well
+     * they worked afterwards. Absence already has its own consequence in the
+     * fine. The two rules are the same rule so completed_at and the certificate
+     * can never disagree.
+     */
     protected function syncEnrollmentProgress(User $user, Course $course, Enrollment $enrollment): float
     {
-        $totalLessons = Lesson::where('course_id', $course->id)->count();
-        $completedLessons = LessonCompletion::where('user_id', $user->id)->where('course_id', $course->id)->count();
+        $calculator = app(CourseProgressCalculator::class);
 
-        $percent = $totalLessons > 0 ? round($completedLessons / $totalLessons * 100, 2) : 0.0;
+        $percent = $calculator->percent($user, $course);
+        $coursework = $calculator->courseworkPercent($user, $course);
 
         $enrollment->progress_percent = $percent;
         $enrollment->last_activity_at = now();
 
-        if ($percent >= 100) {
+        if ($coursework >= 100) {
             $enrollment->completed_at ??= now();
             $this->issueCertificate($user, $course);
         } else {
+            // Completion is recomputed, but an ISSUED CERTIFICATE IS NEVER
+            // REVOKED. issueCertificate is a firstOrCreate and nothing here
+            // deletes; a student who earned one keeps it even if the weights
+            // later change what the percentage reads.
             $enrollment->completed_at = null;
         }
 
