@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RecacheCourseProgress;
 use App\Models\Setting;
 use App\Support\AuditLogger;
 use Illuminate\Http\RedirectResponse;
@@ -220,6 +221,22 @@ class SettingController extends Controller
 
         // The layout reads these from cache on every render.
         Setting::forgetCached();
+
+        /*
+         * Every cached progress figure is now wrong.
+         *
+         * The live surfaces — a student's own Progress page, one student in the
+         * admin — already reflect the new weights, because they compute on
+         * read. The LIST screens read enrollments.progress_percent, which still
+         * holds figures worked out with the old weights, so without this an
+         * admin who moved attendance from 40 to 30 would see two different
+         * numbers for the same student depending on which page they opened.
+         *
+         * Dispatched rather than run inline: on the sync driver this project
+         * ships with it runs here, and on a real queue driver it goes to a
+         * worker so a large academy's settings save does not block.
+         */
+        RecacheCourseProgress::dispatch();
 
         return redirect()->route('admin.settings.edit')->with('success', 'Settings saved.');
     }

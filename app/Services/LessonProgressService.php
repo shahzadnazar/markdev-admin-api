@@ -73,10 +73,14 @@ class LessonProgressService
      */
     protected function syncEnrollmentProgress(User $user, Course $course, Enrollment $enrollment): float
     {
-        $calculator = app(CourseProgressCalculator::class);
+        // ONE breakdown, not percent() plus courseworkPercent(): those run
+        // every scorer twice, which showed up as 22 queries for a single lesson
+        // completion. breakdown() scores each component once and combines the
+        // same numbers two ways.
+        $breakdown = app(CourseProgressCalculator::class)->breakdown($user, $course);
 
-        $percent = $calculator->percent($user, $course);
-        $coursework = $calculator->courseworkPercent($user, $course);
+        $percent = $breakdown['total'];
+        $coursework = $breakdown['coursework_total'];
 
         $enrollment->progress_percent = $percent;
         $enrollment->last_activity_at = now();

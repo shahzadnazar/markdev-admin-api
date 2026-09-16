@@ -17,6 +17,30 @@ class DailyAttendance extends Model
     use Auditable, LocksAbsences, ScopesToDay;
 
     /**
+     * A marked or corrected day moves attendance for EVERY enrolled course.
+     *
+     * Attendance is a fact about the student at the academy, not about one
+     * course, so a single row changes the figure on all of them. This is the
+     * one component another person moves — an instructor marking the register —
+     * which is why the portal's Progress page refetches on window focus and on
+     * an interval rather than only after the student's own actions.
+     *
+     * booted(), not bootDailyAttendance(): the boot{Name} convention is for
+     * TRAITS, and a method named after the model is simply never called.
+     */
+    protected static function booted(): void
+    {
+        $refresh = function (self $record) {
+            if ($record->user !== null) {
+                app(\App\Services\ProgressCache::class)->refreshForUser($record->user);
+            }
+        };
+
+        static::saved($refresh);
+        static::deleted($refresh);
+    }
+
+    /**
      * Statuses an instructor can choose. `pending` is never one of them.
      *
      * `excused` arrived with the retirement of the class-attendance sheet,

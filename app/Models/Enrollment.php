@@ -16,6 +16,22 @@ class Enrollment extends Model
         'course_id',
         'enrolled_at',
         'completed_at',
+        /*
+         * DERIVED. A CACHE, never the source of truth.
+         *
+         * A copy of CourseProgressCalculator's combined figure, kept only so an
+         * admin list of fifty students is one query instead of about 350. It is
+         * rewritten on the event — a lesson completed, a quiz submitted, an
+         * assignment graded, an attendance day marked, or the weights changed —
+         * so a list is never more than one save behind.
+         *
+         * NOTHING ABOUT ONE STUDENT MAY READ IT. The portal's Progress page,
+         * the admin's single-student view and the API for either all compute
+         * live from the raw records: daily_attendance_records, quiz_attempts,
+         * assignment_submissions and lesson_completions. Those are the truth.
+         * If you are about to read this column on a page about one person, you
+         * want CourseProgressCalculator instead.
+         */
         'progress_percent',
         'last_activity_at',
     ];

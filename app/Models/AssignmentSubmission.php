@@ -10,6 +10,28 @@ use Illuminate\Support\Facades\Storage;
 
 class AssignmentSubmission extends Model
 {
+
+    /**
+     * Grading moves this student's assignment score for the course.
+     *
+     * Fires on every save, not only when graded_at appears: ungrading, a
+     * regrade, or a soft delete all change the average too, and the scorer
+     * decides what an ungraded submission is worth rather than this hook.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn (self $submission) => $submission->refreshCourseProgress());
+        static::deleted(fn (self $submission) => $submission->refreshCourseProgress());
+    }
+
+    protected function refreshCourseProgress(): void
+    {
+        $course = $this->assignment?->course;
+
+        if ($course !== null && $this->user !== null) {
+            app(\App\Services\ProgressCache::class)->refresh($this->user, $course);
+        }
+    }
     use Auditable, SoftDeletes;
 
     protected $fillable = [

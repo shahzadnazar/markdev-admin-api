@@ -8,6 +8,29 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class QuizAttempt extends Model
 {
+
+    /**
+     * A submitted attempt moves this student's quiz score for the course.
+     *
+     * saved rather than created: a score can be written after the fact when an
+     * attempt is marked, and an unsubmitted attempt is worth nothing until it
+     * is. Scoped to the quiz's own course — a quiz belongs to exactly one.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $attempt) {
+            if ($attempt->submitted_at === null) {
+                return;
+            }
+
+            $course = $attempt->quiz?->course;
+            $user = $attempt->user;
+
+            if ($course !== null && $user !== null) {
+                app(\App\Services\ProgressCache::class)->refresh($user, $course);
+            }
+        });
+    }
     protected $fillable = [
         'quiz_id',
         'user_id',

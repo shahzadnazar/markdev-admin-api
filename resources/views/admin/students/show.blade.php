@@ -114,9 +114,18 @@
                             <td class="td">
                                 <div class="flex items-center gap-2.5">
                                     <div class="h-1.5 w-24 overflow-hidden rounded-full bg-surface-ice">
-                                        <div class="h-full rounded-full bg-gradient-to-r from-primary to-secondary" style="width: {{ (int) $enrollment->progress_percent }}%"></div>
+                                        @php
+                                            // Computed, not read from
+                                            // enrollments.progress_percent:
+                                            // that column is a cache for LIST
+                                            // screens, and this is a page about
+                                            // one student.
+                                            $livePercent = app(\App\Services\CourseProgressCalculator::class)
+                                                ->percent($student, $enrollment->course);
+                                        @endphp
+                                        <div class="h-full rounded-full bg-gradient-to-r from-primary to-secondary" style="width: {{ (int) $livePercent }}%"></div>
                                     </div>
-                                    <span class="font-mono text-[11px] text-on-surface-variant">{{ (int) $enrollment->progress_percent }}%</span>
+                                    <span class="font-mono text-[11px] text-on-surface-variant">{{ (int) $livePercent }}%</span>
                                 </div>
                             </td>
                         </tr>
