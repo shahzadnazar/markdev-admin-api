@@ -59,11 +59,15 @@ class ProjectStatus extends Model
     /**
      * How many projects currently sit on this status.
      *
-     * Zero until the phase that builds projects; see TaskStatus::usageCount
-     * for why the seam is here rather than added later.
+     * Live as of phase 2, which is what makes WorkflowStatusController's
+     * refusal to delete an in-use status a real refusal rather than a seam.
+     *
+     * Trashed projects count. They still hold the foreign key, so deleting the
+     * status under them would leave rows pointing at nothing, and restoring one
+     * would bring back a project whose status no longer exists.
      */
     public function usageCount(): int
     {
-        return 0;
+        return Project::withTrashed()->where('project_status_id', $this->getKey())->count();
     }
 }

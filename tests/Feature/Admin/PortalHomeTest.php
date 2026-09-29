@@ -55,7 +55,9 @@ class PortalHomeTest extends TestCase
             'manager' => ['manager', 'admin.dashboard'],
             'instructor' => ['instructor', 'admin.dashboard'],
             'team-lead' => ['team-lead', 'admin.teams.index'],
-            'team' => ['team', PortalHome::NONE],
+            // Phase 2 shipped admin.projects.index, so a team member now
+            // lands on their project list instead of the no-portal page.
+            'team' => ['team', 'admin.projects.index'],
             'client' => ['client', PortalHome::NONE],
             'student' => ['student', PortalHome::NONE],
         ];
@@ -130,16 +132,19 @@ class PortalHomeTest extends TestCase
         $this->assertArrayHasKey('projects.view', PortalHome::DESTINATIONS);
         $this->assertArrayHasKey('tasks.view', PortalHome::DESTINATIONS);
 
-        $seam = 'NOT A REGRESSION: phase 2 has shipped this screen, so move the "team" row in '
-            .'landings() from PortalHome::NONE to that route and drop this assertion.';
+        // Phase 2 shipped this one, and the row in landings() moved with it.
+        $this->assertTrue(Route::has('admin.projects.index'));
 
-        $this->assertFalse(Route::has('admin.projects.index'), $seam);
-        $this->assertFalse(Route::has('admin.tasks.index'), $seam);
+        $this->assertFalse(Route::has('admin.tasks.index'),
+            'NOT A REGRESSION: phase 3 has shipped the task list, so move the "team" row in '
+            .'landings() to admin.tasks.index if that is where a member belongs, and drop this assertion.');
 
         $member = $this->user('team');
 
-        $this->assertTrue($member->can('projects.view'));
-        $this->assertSame(PortalHome::NONE, PortalHome::for($member));
+        $this->assertTrue($member->can('tasks.view'));
+        // projects.view comes first in the map and now has a screen, so that is
+        // where they land; tasks.view is the entry still waiting on its phase.
+        $this->assertSame('admin.projects.index', PortalHome::for($member));
     }
 
     /** The academy wins for the two roles that hold everything. */

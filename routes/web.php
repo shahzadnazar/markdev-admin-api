@@ -24,6 +24,9 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\TaskStatusController;
 use App\Http\Controllers\Admin\ProjectStatusController;
+use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectMilestoneController;
 use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
@@ -472,7 +475,7 @@ Route::prefix('admin')
 */
 Route::prefix('admin')
     ->name('admin.')
-    ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team|teams.view|projects.view|tasks.view'])
+    ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team|teams.view|projects.view|tasks.view|clients.view'])
     ->group(function () {
 
         Route::middleware('can:teams.view')->group(function () {
@@ -483,6 +486,58 @@ Route::prefix('admin')
             Route::put('teams/{team}', [TeamController::class, 'update'])->middleware('can:teams.update')->name('teams.update');
             Route::post('teams/{team}/toggle', [TeamController::class, 'toggle'])->middleware('can:teams.update')->name('teams.toggle');
             Route::delete('teams/{team}', [TeamController::class, 'destroy'])->middleware('can:teams.delete')->name('teams.destroy');
+        });
+
+        /*
+         * Clients. `clients.*` is held by super-admin and admin only, and there
+         * is deliberately no scoped version of any of these: a team person has
+         * no business knowing who a project is for, so the answer is no screen
+         * rather than a narrower one.
+         */
+        Route::middleware('can:clients.view')->group(function () {
+            Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
+            Route::get('clients/create', [ClientController::class, 'create'])->middleware('can:clients.create')->name('clients.create');
+            Route::post('clients', [ClientController::class, 'store'])->middleware('can:clients.create')->name('clients.store');
+            Route::get('clients/{client}', [ClientController::class, 'show'])->name('clients.show');
+            Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->middleware('can:clients.update')->name('clients.edit');
+            Route::put('clients/{client}', [ClientController::class, 'update'])->middleware('can:clients.update')->name('clients.update');
+            Route::post('clients/{client}/toggle', [ClientController::class, 'toggle'])->middleware('can:clients.update')->name('clients.toggle');
+            Route::delete('clients/{client}', [ClientController::class, 'destroy'])->middleware('can:clients.delete')->name('clients.destroy');
+        });
+
+        /*
+         * Projects. The two SHARED screens in this phase are the index and the
+         * project page: a team person reaches both, narrowed to the teams they
+         * are a member of, with the client and the money gated out. Everything
+         * that writes carries `projects.create/update/delete`, which only
+         * super-admin and admin hold — so no team person ever opens a form that
+         * would have to hide half of itself.
+         */
+        Route::middleware('can:projects.view')->group(function () {
+            Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
+            // The forms also require `clients.view`. A project must have a
+            // client, so the form has to offer the client list — there is no
+            // version of this screen that both works and hides it. Rather than
+            // half-render it, the door asks for both: if you may set up a
+            // project you may see who it is for.
+            Route::get('projects/create', [ProjectController::class, 'create'])->middleware(['can:projects.create', 'can:clients.view'])->name('projects.create');
+            Route::post('projects', [ProjectController::class, 'store'])->middleware(['can:projects.create', 'can:clients.view'])->name('projects.store');
+            Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+            Route::get('projects/{project}/edit', [ProjectController::class, 'edit'])->middleware(['can:projects.update', 'can:clients.view'])->name('projects.edit');
+            Route::put('projects/{project}', [ProjectController::class, 'update'])->middleware(['can:projects.update', 'can:clients.view'])->name('projects.update');
+            Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->middleware('can:projects.delete')->name('projects.destroy');
+
+            // Milestones belong to their project and are addressed through it,
+            // so a milestone id from somebody else's project is a 404 rather
+            // than an edit.
+            Route::middleware('can:projects.update')->group(function () {
+                Route::get('projects/{project}/milestones/create', [ProjectMilestoneController::class, 'create'])->name('projects.milestones.create');
+                Route::post('projects/{project}/milestones', [ProjectMilestoneController::class, 'store'])->name('projects.milestones.store');
+                Route::get('projects/{project}/milestones/{milestone}/edit', [ProjectMilestoneController::class, 'edit'])->name('projects.milestones.edit');
+                Route::put('projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'update'])->name('projects.milestones.update');
+                Route::post('projects/{project}/milestones/{milestone}/move', [ProjectMilestoneController::class, 'move'])->name('projects.milestones.move');
+                Route::delete('projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy'])->name('projects.milestones.destroy');
+            });
         });
     });
 

@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Models\Concerns\HasNormalisedKey;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -24,7 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Team extends Model
 {
-    use Auditable, SoftDeletes;
+    use Auditable, HasNormalisedKey, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -39,41 +41,32 @@ class Team extends Model
         ];
     }
 
-    protected static function booted(): void
+    /**
+     * `name_key` is the normalised name the unique index sits on; `name` is
+     * what was typed. The hooks that keep them in step, and that release the
+     * name when a team is soft-deleted, are in HasNormalisedKey — shared with
+     * a project's code, which needs the identical treatment for the identical
+     * reason.
+     */
+    public static function keyColumn(): string
     {
-        // `name_key` is the normalised name the unique index sits on. It is
-        // derived, never posted, so it is kept out of $fillable and written
-        // here instead.
-        static::saving(function (self $team): void {
-            $team->name_key = static::normaliseName($team->name);
-        });
+        return 'name_key';
+    }
 
-        // A soft delete updates the row through the query builder rather than
-        // save(), so the hook above never sees it. Clearing the key releases
-        // the name: dismantling "Web" has to leave "Web" creatable again next
-        // quarter, which an index on `name` alone would forbid for ever.
-        static::deleted(function (self $team): void {
-            if (! $team->trashed()) {
-                return;
-            }
-
-            $team->newQueryWithoutScopes()->whereKey($team->getKey())->toBase()
-                ->update(['name_key' => null]);
-
-            $team->name_key = null;
-            $team->syncOriginalAttribute('name_key');
-        });
+    public static function keySourceColumn(): string
+    {
+        return 'name';
     }
 
     /**
      * The comparable form of a name: case-folded, whitespace removed.
      *
-     * "Web Team", "web team" and "webteam" are one name. Kept identical to
-     * AttendanceSlot::normaliseName so the two rules cannot drift apart.
+     * Kept as its own name because a team's handle IS its name; it delegates,
+     * so there is still only one implementation.
      */
     public static function normaliseName(?string $name): string
     {
-        return mb_strtolower((string) preg_replace('/\s+/u', '', (string) $name));
+        return static::normaliseKey($name);
     }
 
     /* ----------------------------- Relations ------------------------------ */
@@ -94,6 +87,17 @@ class Team extends Model
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'team_members')->withTimestamps();
+    }
+
+    /**
+     * The client work pointed at this team.
+     *
+     * The foreign key restricts on delete, so a team with projects cannot be
+     * erased out from under them.
+     */
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class);
     }
 
     /* ------------------------------- Scopes -------------------------------- */

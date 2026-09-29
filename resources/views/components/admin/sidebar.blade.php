@@ -113,11 +113,20 @@
              before their screens existed, so a `team` user — who holds both and
              neither of which draws anything — was given a heading with nothing
              under it. Each phase adds its item and its permission together. --}}
-        @can('teams.view')
+        @canany(['teams.view', 'projects.view', 'clients.view'])
         <x-admin.nav-section label="Team">
+            @can('teams.view')
             <x-admin.nav-item :href="route('admin.teams.index')" icon="users" :active="request()->routeIs('admin.teams.*')">Teams</x-admin.nav-item>
+            @endcan
+            @can('projects.view')
+            <x-admin.nav-item :href="route('admin.projects.index')" icon="clipboard" :active="request()->routeIs('admin.projects.*')">Projects</x-admin.nav-item>
+            @endcan
+            {{-- Admin only. A team person never sees who a project is for. --}}
+            @can('clients.view')
+            <x-admin.nav-item :href="route('admin.clients.index')" icon="user-circle" :active="request()->routeIs('admin.clients.*')">Clients</x-admin.nav-item>
+            @endcan
         </x-admin.nav-section>
-        @endcan
+        @endcanany
 
         @canany(['announcements.view', 'help.view'])
         <x-admin.nav-section label="Engagement">

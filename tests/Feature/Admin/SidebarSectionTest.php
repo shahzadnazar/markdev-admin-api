@@ -125,7 +125,7 @@ class SidebarSectionTest extends TestCase
                 'Overview' => ['Dashboard'],
                 'People' => ['Students', 'Instructors', 'Staff & Users', 'Roles & Permissions'],
                 'Learning' => $learning,
-                'Team' => ['Teams'],
+                'Team' => ['Teams', 'Projects', 'Clients'],
                 'Engagement' => ['Announcements', 'Help Center'],
                 'Finance' => ['Billing', 'Payment Methods'],
                 'System' => ['Private notes', 'Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
@@ -134,7 +134,7 @@ class SidebarSectionTest extends TestCase
                 'Overview' => ['Dashboard'],
                 'People' => ['Students', 'Instructors', 'Staff & Users'],
                 'Learning' => $learning,
-                'Team' => ['Teams'],
+                'Team' => ['Teams', 'Projects', 'Clients'],
                 'Engagement' => ['Announcements', 'Help Center'],
                 'Finance' => ['Billing', 'Payment Methods'],
                 'System' => ['Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
@@ -153,8 +153,11 @@ class SidebarSectionTest extends TestCase
                 'Learning' => ['Categories', 'Course Content', 'Notes', 'Enrollments', 'Assignments', 'Quizzes', 'Attendance', 'Leave Requests'],
                 'Engagement' => ['Announcements'],
             ]],
-            'team-lead' => ['team-lead', ['Team' => ['Teams']]],
-            'team' => ['team', []],
+            // A lead runs a team and sees its work; no Clients — they never
+            // learn who a project is for.
+            'team-lead' => ['team-lead', ['Team' => ['Teams', 'Projects']]],
+            // A member has no team list of their own yet, only the work.
+            'team' => ['team', ['Team' => ['Projects']]],
             'client' => ['client', []],
             'student' => ['student', []],
         ];
@@ -204,14 +207,17 @@ class SidebarSectionTest extends TestCase
     }
 
     /** The section that was wrong, named, so the fix cannot quietly regress. */
-    public function test_a_team_member_sees_no_team_heading_until_they_have_a_team_screen(): void
+    public function test_a_team_member_sees_only_the_items_they_can_open(): void
     {
         $member = User::factory()->create();
         $member->assignRole('team');
 
         $this->assertTrue($member->can('projects.view'));
         $this->assertFalse($member->can('teams.view'));
-        $this->assertArrayNotHasKey('Team', $this->sections($member));
+
+        // The heading is theirs now, because phase 2 gave it an item they can
+        // open. What must never appear under it is Teams or Clients.
+        $this->assertSame(['Projects'], $this->items($member)['Team']);
     }
 
     public function test_a_team_lead_sees_the_team_section_and_nothing_else(): void

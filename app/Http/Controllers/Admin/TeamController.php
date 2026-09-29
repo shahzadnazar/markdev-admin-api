@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\RefusesDuplicateKeys;
 use App\Http\Controllers\Controller;
 use App\Models\Team;
 use App\Models\User;
@@ -26,6 +27,8 @@ use Illuminate\View\View;
  */
 class TeamController extends Controller
 {
+    use RefusesDuplicateKeys;
+
     public function index(): View
     {
         return view('admin.teams.index', [
@@ -176,40 +179,13 @@ class TeamController extends Controller
      * One team, one name.
      *
      * Case-insensitive and whitespace-trimmed, scoped to teams that are not in
-     * the trash — a deleted team's name is free again. Identical in shape to the
-     * attendance-slot rule, including the second half of the condition.
+     * the trash — a deleted team's name is free again. The query itself is
+     * RefusesDuplicateKeys, shared with a project's code, which needs the same
+     * rule over different columns.
      */
     protected function assertNameIsFree(string $name, ?Team $team): void
     {
-        // Editing a team without touching its name always passes: being unable
-        // to change a team's lead because of its own name helps nobody.
-        if ($team && Team::normaliseName($team->name) === Team::normaliseName($name)) {
-            return;
-        }
-
-        $key = Team::normaliseName($name);
-
-        $taken = Team::query()
-            ->when($team, fn ($query) => $query->whereKeyNot($team->getKey()))
-            ->where(function ($query) use ($key) {
-                // The stored key first: it is what the unique index sits on, so
-                // the form and the database agree on what "the same name" means,
-                // and it is indexed.
-                $query->where('name_key', $key)
-                    // Then the name itself, normalised in SQL. A stored key can
-                    // be stale -- a row written before the key existed, or
-                    // straight through the query builder -- and a check that
-                    // trusted it alone would wave the duplicate through. This
-                    // half cannot go stale.
-                    ->orWhereRaw("lower(replace(name, ' ', '')) = ?", [$key]);
-            })
-            ->exists();
-
-        if ($taken) {
-            throw ValidationException::withMessages([
-                'name' => "A team named \"{$name}\" already exists.",
-            ]);
-        }
+        $this->assertKeyIsFree(Team::class, $name, $team, 'name', "A team named \"{$name}\" already exists.");
     }
 
     /**

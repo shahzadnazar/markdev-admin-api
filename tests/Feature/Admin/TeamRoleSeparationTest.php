@@ -20,6 +20,14 @@ use Tests\TestCase;
  * crossing grant added to the seeder fails here rather than in production, and
  * the screens themselves, so the gate on the way in is doing the same job the
  * matrix describes.
+ *
+ * THIS TEST IS NOW THE ONLY THING KEEPING THE TWO SIDES APART. Both route
+ * groups were widened to admit permissions as well as role names, so that a
+ * custom role holding `teams.view` is not refused at a door it was granted the
+ * key to. The consequence is that the door no longer refuses an academy role
+ * that was given a team permission by mistake — the matrix assertions below
+ * are what catch that now. Weakening them is not a test change; it is removing
+ * the separation.
  */
 class TeamRoleSeparationTest extends TestCase
 {
@@ -179,6 +187,10 @@ class TeamRoleSeparationTest extends TestCase
         return [
             'teams list' => ['admin.teams.index'],
             'new team' => ['admin.teams.create'],
+            'projects list' => ['admin.projects.index'],
+            'new project' => ['admin.projects.create'],
+            'clients list' => ['admin.clients.index'],
+            'new client' => ['admin.clients.create'],
         ];
     }
 
@@ -202,6 +214,34 @@ class TeamRoleSeparationTest extends TestCase
 
         foreach (['admin.dashboard', 'admin.teams.index', 'admin.settings.edit'] as $route) {
             $this->actingAs($client)->get(route($route))->assertForbidden();
+        }
+    }
+
+    /**
+     * The client book is admin-only, on both sides of the wall.
+     *
+     * A team lead runs client work and still never learns whose it is: that is
+     * what the project code is for. Asserted separately from the academy tests
+     * because this refusal is inside the team portal, not across the wall.
+     */
+    public function test_no_team_role_reaches_the_client_book(): void
+    {
+        foreach (['team-lead', 'team'] as $role) {
+            $user = $this->user($role);
+
+            foreach (['admin.clients.index', 'admin.clients.create'] as $route) {
+                $this->actingAs($user)->get(route($route))->assertForbidden();
+            }
+        }
+    }
+
+    /** Nor the project forms, which have to offer the client list to work. */
+    public function test_no_team_role_reaches_a_project_form(): void
+    {
+        foreach (['team-lead', 'team'] as $role) {
+            $this->actingAs($this->user($role))
+                ->get(route('admin.projects.create'))
+                ->assertForbidden();
         }
     }
 
