@@ -7,6 +7,8 @@ use App\Support\PortalHome;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
@@ -117,17 +119,22 @@ class PortalHomeTest extends TestCase
      * A destination whose screen has not shipped is skipped, not returned.
      *
      * This is what makes phases 2 to 7 inherit the fix: the entries are already
-     * in the map, and each lights up on its own the day its route exists. If
-     * this test starts failing because the routes are there, delete it and move
-     * `team` in the landings above to its new screen — that is the whole change.
+     * in the map, and each lights up on its own the day its route exists.
+     *
+     * IT IS MEANT TO GO RED the day phase 2 lands, and its failure message says
+     * so in a line, because a red test that looks like a regression gets
+     * "fixed" by whoever is in a hurry.
      */
     public function test_destinations_whose_screens_do_not_exist_yet_are_skipped(): void
     {
         $this->assertArrayHasKey('projects.view', PortalHome::DESTINATIONS);
         $this->assertArrayHasKey('tasks.view', PortalHome::DESTINATIONS);
 
-        $this->assertFalse(Route::has('admin.projects.index'), 'Phase 2 has shipped — see this test.');
-        $this->assertFalse(Route::has('admin.tasks.index'), 'Phase 2 has shipped — see this test.');
+        $seam = 'NOT A REGRESSION: phase 2 has shipped this screen, so move the "team" row in '
+            .'landings() from PortalHome::NONE to that route and drop this assertion.';
+
+        $this->assertFalse(Route::has('admin.projects.index'), $seam);
+        $this->assertFalse(Route::has('admin.tasks.index'), $seam);
 
         $member = $this->user('team');
 
@@ -148,6 +155,54 @@ class PortalHomeTest extends TestCase
 
         $this->assertTrue($admin->can('teams.view'));
         $this->assertSame('admin.dashboard', PortalHome::for($admin));
+    }
+
+    /* ------------------- Destinations a custom role can open ---------------- */
+
+    /**
+     * Holding a destination's permission is enough to get through its door.
+     *
+     * PortalHome asks Route::has, which says whether a route EXISTS — not
+     * whether this person survives its middleware. The Roles & Permissions
+     * screen lets a super-admin build a role holding, say, `teams.view` and
+     * nothing else; that role is in none of the groups' role lists, so it was
+     * refused at the door and handed exactly the 403 this resolver removed.
+     * The eight seeded roles cannot show it, because every one of them is
+     * named in a group.
+     *
+     * Derived from DESTINATIONS so a phase that adds an entry is covered by
+     * this test without anyone remembering to come back here.
+     *
+     * @dataProvider destinations
+     */
+    public function test_a_custom_role_holding_only_one_destination_permission_can_open_it(string $permission): void
+    {
+        $role = Role::create(['name' => 'only-'.$permission, 'guard_name' => 'web']);
+        $role->givePermissionTo($permission);
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        $landing = PortalHome::for($user);
+
+        $this->actingAs($user)->get(route($landing))->assertOk(sprintf(
+            'A role holding only "%s" was refused at %s. The route exists, so PortalHome sent them '
+            .'there, but the group gate does not admit the permission — only the role names beside '
+            .'it. Add the permission to that group\'s role_or_permission list.',
+            $permission,
+            $landing,
+        ));
+    }
+
+    /** @return array<string, array{string}> */
+    public static function destinations(): array
+    {
+        return collect(PortalHome::DESTINATIONS)
+            ->keys()
+            ->mapWithKeys(fn (string $permission) => [$permission => [$permission]])
+            ->all();
     }
 
     /* -------------------------- The no-portal page -------------------------- */

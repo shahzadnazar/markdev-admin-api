@@ -77,6 +77,116 @@ class SidebarSectionTest extends TestCase
         return collect($matches)->mapWithKeys(fn ($match) => [trim($match[1]) => $match[2]])->all();
     }
 
+    /**
+     * label => the item labels under it.
+     *
+     * @return array<string, array<int, string>>
+     */
+    protected function items(User $user): array
+    {
+        return collect($this->sections($user))
+            ->map(function (string $body) {
+                preg_match_all('/<span class="nav-label truncate">\s*(.*?)\s*<\/span>/s', $body, $labels);
+
+                return array_map(
+                    fn (string $label) => trim(html_entity_decode(strip_tags($label))),
+                    $labels[1],
+                );
+            })
+            ->all();
+    }
+
+    /**
+     * Exactly what each seeded role is offered.
+     *
+     * Written down because the Learning section's gate was rewritten to list
+     * the permissions its items actually use, and "nobody's nav changed" is a
+     * claim that needs checking rather than asserting. Only one thing did
+     * change, and deliberately: a manager no longer sees Notes, because they
+     * hold no notes permission and the screen answered them with a 403.
+     *
+     * @dataProvider navigation
+     */
+    public function test_each_role_is_offered_exactly_these_items(string $role, array $expected): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        $this->assertSame($expected, $this->items($user));
+    }
+
+    /** @return array<string, array{string, array<string, array<int, string>>}> */
+    public static function navigation(): array
+    {
+        $learning = ['Categories', 'Course Content', 'Notes', 'Enrollments', 'Assignments', 'Quizzes', 'Attendance', 'Leave Requests', 'Biometric', 'Certificates'];
+
+        return [
+            'super-admin' => ['super-admin', [
+                'Overview' => ['Dashboard'],
+                'People' => ['Students', 'Instructors', 'Staff & Users', 'Roles & Permissions'],
+                'Learning' => $learning,
+                'Team' => ['Teams'],
+                'Engagement' => ['Announcements', 'Help Center'],
+                'Finance' => ['Billing', 'Payment Methods'],
+                'System' => ['Private notes', 'Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
+            ]],
+            'admin' => ['admin', [
+                'Overview' => ['Dashboard'],
+                'People' => ['Students', 'Instructors', 'Staff & Users'],
+                'Learning' => $learning,
+                'Team' => ['Teams'],
+                'Engagement' => ['Announcements', 'Help Center'],
+                'Finance' => ['Billing', 'Payment Methods'],
+                'System' => ['Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
+            ]],
+            // No Notes: a manager holds no notes permission, and the screen
+            // behind it has always refused them.
+            'manager' => ['manager', [
+                'Overview' => ['Dashboard'],
+                'People' => ['Students', 'Instructors', 'Staff & Users'],
+                'Learning' => ['Categories', 'Course Content', 'Enrollments', 'Assignments', 'Quizzes', 'Attendance', 'Leave Requests', 'Biometric'],
+                'Engagement' => ['Announcements'],
+                'System' => ['Reports'],
+            ]],
+            'instructor' => ['instructor', [
+                'Overview' => ['Dashboard'],
+                'Learning' => ['Categories', 'Course Content', 'Notes', 'Enrollments', 'Assignments', 'Quizzes', 'Attendance', 'Leave Requests'],
+                'Engagement' => ['Announcements'],
+            ]],
+            'team-lead' => ['team-lead', ['Team' => ['Teams']]],
+            'team' => ['team', []],
+            'client' => ['client', []],
+            'student' => ['student', []],
+        ];
+    }
+
+    /**
+     * Nothing in the sidebar opens a screen the viewer would be refused.
+     *
+     * The Notes item was ungated while its route carried can:notes.view, so a
+     * manager was shown a door that answered 403 — the "empty room they were
+     * invited into" the trashed-filter concern is about. Every item is followed
+     * here, for every role, so the next one cannot go unnoticed.
+     *
+     * @dataProvider roles
+     */
+    public function test_every_item_a_role_is_offered_actually_opens(string $role): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        preg_match_all('/<a href="([^"]+)"[^>]*>.*?<span class="nav-label truncate">\s*(.*?)\s*<\/span>/s', $this->sidebarFor($user), $links, PREG_SET_ORDER);
+
+        foreach ($links as [$all, $href, $label]) {
+            $this->actingAs($user)->get(html_entity_decode($href))->assertOk(sprintf(
+                'The sidebar offers a %s the "%s" item, and it answers with a refusal. An item has to '
+                .'be gated on the same permission as the screen behind it.',
+                $role,
+                trim(html_entity_decode(strip_tags($label))),
+            ));
+        }
+    }
+
     /** @dataProvider roles */
     public function test_no_section_is_drawn_empty(string $role): void
     {

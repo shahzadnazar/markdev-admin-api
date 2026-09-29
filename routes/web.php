@@ -83,9 +83,18 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
+/*
+ * `dashboard.view` sits in this list beside the role names, and is not
+ * decoration: role_or_permission takes either, and without it a custom role
+ * built on the Roles & Permissions screen holding only that permission is
+ * refused at this door — PortalHome sends them to the dashboard because the
+ * route exists, and they get the 403 the resolver was written to remove.
+ * Every role that already held `dashboard.view` is named here anyway, so this
+ * admits nobody new but the roles a super-admin deliberately built.
+ */
 Route::prefix('admin')
     ->name('admin.')
-    ->middleware(['auth', 'role_or_permission:super-admin|admin|manager|instructor'])
+    ->middleware(['auth', 'role_or_permission:super-admin|admin|manager|instructor|dashboard.view'])
     ->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])
@@ -451,10 +460,19 @@ Route::prefix('admin')
 | every team screen, whatever permissions get added later.
 |
 | Manager is absent on purpose. Managers run the academy, not client work.
+|
+| The three permissions beside the role names are there for the same reason as
+| `dashboard.view` on the academy group: holding `teams.view` has to be enough
+| to open the team door, because a super-admin who granted it meant it, and a
+| custom role holding it is in none of the role names above. They are every
+| permission PortalHome can send someone here for, listed now so the phase that
+| ships the projects and tasks screens inherits the gate rather than debugging
+| it. No academy role holds any of them — TeamRoleSeparationTest asserts that in
+| both directions — so widening the door does not widen who comes through it.
 */
 Route::prefix('admin')
     ->name('admin.')
-    ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team'])
+    ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team|teams.view|projects.view|tasks.view'])
     ->group(function () {
 
         Route::middleware('can:teams.view')->group(function () {

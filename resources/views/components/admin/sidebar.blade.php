@@ -50,7 +50,15 @@
         </x-admin.nav-section>
         @endcanany
 
-        @canany(['categories.view', 'notes.view', 'courses.view', 'enrollments.view', 'assignments.view', 'quizzes.view', 'attendance.view', 'certificates.view'])
+        {{-- One permission per item below, and nothing else.
+
+             It used to list `attendance.view`, which no item here uses — the
+             register and the leave list are gated on `attendance.daily` and its
+             own-category twin — and it omitted `devices.view`, so a role holding
+             only that would have lost the Biometric item it was entitled to.
+             A heading and the things under it have to be gated on the same
+             answers, or one of them is wrong about who is looking. --}}
+        @canany(['categories.view', 'courses.view', 'notes.view', 'enrollments.view', 'assignments.view', 'quizzes.view', 'attendance.daily', 'attendance.daily.own-category', 'devices.view', 'certificates.view'])
         <x-admin.nav-section label="Learning">
             @can('categories.view')
             <x-admin.nav-item :href="route('admin.categories.index')" icon="tag" :active="request()->routeIs('admin.categories.*')">Categories</x-admin.nav-item>
@@ -58,12 +66,18 @@
             @can('courses.view')
             <x-admin.nav-item :href="route('admin.courses.index')" icon="academic-cap" :active="request()->routeIs('admin.courses.*') || request()->routeIs('admin.lessons.*')">Course Content</x-admin.nav-item>
             @endcan
+            {{-- Gated, at last. admin.notes.index carries can:notes.view and
+                 a manager holds no notes permission at all, so this item was
+                 offering them a screen that answered with a 403 — an empty
+                 room they were invited into. --}}
+            @can('notes.view')
             <x-admin.nav-item
                 :href="route('admin.notes.index')"
                 icon="document"
                 :active="request()->routeIs('admin.notes.*')">
                 Notes
             </x-admin.nav-item>
+            @endcan
             @can('enrollments.view')
             <x-admin.nav-item :href="route('admin.enrollments.index')" icon="user-plus" :active="request()->routeIs('admin.enrollments.*')">Enrollments</x-admin.nav-item>
             @endcan
