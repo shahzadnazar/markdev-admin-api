@@ -30,7 +30,10 @@ use App\Http\Controllers\Admin\ProjectMilestoneController;
 use App\Http\Controllers\Admin\TaskAssignmentController;
 use App\Http\Controllers\Admin\TaskBoardController;
 use App\Http\Controllers\Admin\TaskController;
+use App\Http\Controllers\Admin\TeamAttendanceController;
 use App\Http\Controllers\Admin\TeamController;
+use App\Http\Controllers\Admin\TeamFineController;
+use App\Http\Controllers\Admin\TeamLeaveController;
 use App\Http\Controllers\Admin\TeamScoreController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
@@ -577,6 +580,47 @@ Route::prefix('admin')
 
             Route::get('tasks/{task}/assign', [TaskAssignmentController::class, 'create'])->middleware('can:tasks.create')->name('tasks.assign');
             Route::post('tasks/{task}/assign', [TaskAssignmentController::class, 'store'])->middleware('can:tasks.create')->name('tasks.assign.store');
+        });
+
+        /*
+         * Attendance, leave and fines for staff.
+         *
+         * `tasks.view` is the whole-portal gate — every team role holds it — so
+         * the three "my own" screens sit on it. `teams.view` separates a lead
+         * from a member and gates the marking screen. `clients.view` is the
+         * admin gate, and it is what reviewing leave and seeing anybody's
+         * ledger sit behind.
+         */
+        Route::middleware('can:tasks.view')->group(function () {
+            Route::get('my/attendance', [TeamAttendanceController::class, 'mine'])->name('team-attendance.mine');
+            Route::get('my/leave', [TeamLeaveController::class, 'mine'])->name('team-leave.mine');
+            Route::post('my/leave', [TeamLeaveController::class, 'store'])->name('team-leave.store');
+            Route::get('my/fines', [TeamFineController::class, 'mine'])->name('team-fines.mine');
+
+            // Somebody's ledger by id. Your own always; anybody's only with the
+            // admin gate — and a 404 rather than a 403 otherwise, decided in
+            // the controller so the refusal does not confirm what it refuses.
+            Route::get('team/fines/{user}', [TeamFineController::class, 'show'])->name('team-fines.show');
+        });
+
+        // Marking the register: leads and admins. A member marks nobody.
+        Route::middleware('can:teams.view')->group(function () {
+            Route::get('team/attendance', [TeamAttendanceController::class, 'index'])->name('team-attendance.index');
+            Route::post('team/attendance', [TeamAttendanceController::class, 'store'])->name('team-attendance.store');
+        });
+
+        /*
+         * Reviewing leave and the whole ledger — ADMIN ONLY.
+         *
+         * A team-lead is deliberately absent. Pay and attendance are not a
+         * lead's job here, and a lead who is scored on their team's delivery
+         * should not be the one deciding whether that team gets time off.
+         */
+        Route::middleware('can:clients.view')->group(function () {
+            Route::get('team/leave', [TeamLeaveController::class, 'index'])->name('team-leave.index');
+            Route::post('team/leave/{leave}/review', [TeamLeaveController::class, 'review'])->name('team-leave.review');
+            Route::get('team/fines', [TeamFineController::class, 'index'])->name('team-fines.index');
+            Route::post('team/fines/{fine}/settle', [TeamFineController::class, 'settle'])->name('team-fines.settle');
         });
     });
 

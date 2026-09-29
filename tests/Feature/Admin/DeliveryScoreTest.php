@@ -244,6 +244,13 @@ class DeliveryScoreTest extends TestCase
             $this->stint(2, 'on_time');
         }
 
+        // Leave in the fixture, deliberately: without it the leave source costs
+        // nothing to measure and this assertion would pass while blind to
+        // exactly what it is here to watch. It is a join rather than an eager
+        // load for the same reason — `with` would be a second query the moment
+        // there was any leave to load.
+        $this->approveLeaveFor($this->member, $this->monday(), $this->monday()->copy()->addDays(2));
+
         DB::enableQueryLog();
         $this->calculator->for($this->member);
         $queries = count(DB::getQueryLog());
@@ -252,6 +259,7 @@ class DeliveryScoreTest extends TestCase
         // Eager-loaded, so six stints cost the same as one. A query per stint
         // is what the progress-percent work was written to avoid, and this is
         // the same arrangement.
+        fwrite(STDERR, "\nQUERIES: {$queries}\n");
         $this->assertLessThanOrEqual(8, $queries, 'the live score is running a query per stint');
     }
 

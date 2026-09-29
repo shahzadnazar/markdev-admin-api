@@ -6,6 +6,7 @@ use App\Models\ProjectStatusPeriod;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskStatusPeriod;
+use App\Models\TeamLeaveApplicationDay;
 use App\Support\AcademyCalendar;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -24,6 +25,14 @@ use Illuminate\Support\Collection;
  *   - non-working weekdays and holidays: nobody was asked to work
  *   - days the task sat on a BLOCKED status: waiting on someone else
  *   - days its project sat on a PAUSED status: the client stopped the work
+ *   - days the stint's ASSIGNEE was on APPROVED leave: they were not at work,
+ *     and it was agreed in advance
+ *
+ * ABSENT DAYS KEEP COUNTING. Being away without leave is exactly what the score
+ * should notice, and excluding it would make absence free — which, since an
+ * absence is also what a fine is charged on, would let somebody buy their way
+ * out of a late delivery. Leave is per PERSON, unlike the other two, so it is
+ * taken from the stint's user rather than from its task.
  *
  * Both exclusions are decided on the status BEHAVIOUR. Never on the label —
  * an admin renaming "Blocked" to "Waiting on client", or "On Hold" to anything
@@ -62,6 +71,13 @@ class StintClock
     /** @var array<int, array<int, array{started_on: string, ended_on: ?string}>>|null */
     protected ?array $pausedByProject = null;
 
+    /**
+     * user id => approved leave dates, as Y-m-d.
+     *
+     * @var array<int, array<int, string>>|null
+     */
+    protected ?array $leaveByUser = null;
+
     /** @var Collection<string, string>|null */
     protected ?Collection $holidays = null;
 
@@ -77,6 +93,7 @@ class StintClock
         if ($stints->isEmpty()) {
             $this->blockedByTask = [];
             $this->pausedByProject = [];
+            $this->leaveByUser = [];
 
             return;
         }
@@ -98,6 +115,25 @@ class StintClock
                 'started_on' => Carbon::parse($row->started_on)->toDateString(),
                 'ended_on' => $row->ended_on === null ? null : Carbon::parse($row->ended_on)->toDateString(),
             ])->all())
+            ->all();
+
+        // ONE query for every approved leave day in the window, for everybody
+        // in the set. The query-count test is what keeps this honest: it caught
+        // the last N+1 here, and adding a fourth per-stint query would have
+        // been the same mistake wearing a different hat.
+        $this->leaveByUser = TeamLeaveApplicationDay::query()
+            // JOINED rather than eager-loaded on purpose. `with` would be a
+            // second query the moment there is any leave to load, and the
+            // budget for this source is one.
+            ->join('team_leave_applications', 'team_leave_applications.id', '=', 'team_leave_application_days.team_leave_application_id')
+            ->where('team_leave_application_days.status', TeamLeaveApplicationDay::APPROVED)
+            ->whereIn('team_leave_applications.user_id', $stints->pluck('user_id')->filter()->unique()->values())
+            // Through the sanctioned scope, with the column named explicitly
+            // because the join makes `date` ambiguous.
+            ->betweenDates($from, $to, 'team_leave_application_days.date')
+            ->get(['team_leave_applications.user_id', 'team_leave_application_days.date'])
+            ->groupBy('user_id')
+            ->map(fn ($rows) => $rows->map(fn ($row) => Carbon::parse($row->date)->toDateString())->all())
             ->all();
 
         $this->pausedByProject = ProjectStatusPeriod::query()
@@ -219,6 +255,7 @@ class StintClock
         return array_values(array_unique(array_merge(
             $this->blockedDates($stint->task, $from, $to),
             $this->pausedDates($stint->task, $from, $to),
+            $this->leaveDates($stint, $from, $to),
         )));
     }
 
@@ -241,6 +278,38 @@ class StintClock
             ->get(['started_on', 'ended_on']);
 
         return $this->expand($periods, $from, $to);
+    }
+
+    /**
+     * Days the person holding this stint was on APPROVED leave.
+     *
+     * Per person, not per task: the other two exclusions are facts about the
+     * work, this one is a fact about who was doing it. Pending leave does not
+     * count — it has not been agreed yet — and a declined day certainly does
+     * not.
+     *
+     * @return array<int, string>
+     */
+    protected function leaveDates(TaskAssignment $stint, string $from, string $to): array
+    {
+        if ($stint->user_id === null) {
+            return [];
+        }
+
+        if ($this->leaveByUser !== null) {
+            return array_values(array_filter(
+                $this->leaveByUser[$stint->user_id] ?? [],
+                fn (string $date) => $date >= $from && $date <= $to,
+            ));
+        }
+
+        return TeamLeaveApplicationDay::query()
+            ->where('status', TeamLeaveApplicationDay::APPROVED)
+            ->betweenDates($from, $to)
+            ->whereHas('application', fn ($query) => $query->where('user_id', $stint->user_id))
+            ->pluck('date')
+            ->map(fn ($date) => Carbon::parse($date)->toDateString())
+            ->all();
     }
 
     /** @return array<int, string> */

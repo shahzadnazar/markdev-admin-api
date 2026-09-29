@@ -123,33 +123,23 @@ class DailyAttendance extends Model
     /**
      * Weighted attendance for a set of day counts, as a percentage.
      *
+     * The arithmetic moved to App\Support\AttendanceMath when the team portal
+     * needed the same sum over its own register. It stays callable here because
+     * every academy caller and every academy test already says
+     * DailyAttendance::weightedPercent, and a rename would have been a change
+     * to the thing being reused rather than to the thing reusing it.
+     *
      * @param  array<string, int>  $counts  status => number of days
      */
     public static function weightedPercent(array $counts): ?float
     {
-        $days = 0;
-        $earned = 0;
-
-        foreach (\App\Support\AttendanceWeights::all() as $status => $weight) {
-            $n = (int) ($counts[$status] ?? 0);
-            $days += $n;
-            $earned += $n * $weight;
-        }
-
-        return $days > 0 ? round($earned / $days, 1) : null;
+        return \App\Support\AttendanceMath::weightedPercent($counts);
     }
 
     /** SQL that sums the weights, for computing the percentage in one query. */
     public static function weightedSumSql(string $column = 'status'): string
     {
-        $cases = [];
-        foreach (\App\Support\AttendanceWeights::all() as $status => $weight) {
-            // Interpolated as an int, and the statuses are this class's own
-            // constants — nothing here comes from a request.
-            $cases[] = "when {$column} = '{$status}' then ".(int) $weight;
-        }
-
-        return 'sum(case '.implode(' ', $cases).' else 0 end)';
+        return \App\Support\AttendanceMath::weightedSumSql($column);
     }
 
     protected $table = 'daily_attendance_records';

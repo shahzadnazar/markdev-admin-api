@@ -277,6 +277,32 @@
                     </div>
                 </div>
 
+                {{-- The team portal's attendance. Its own five numbers: staff
+                     are not students, and a change to one population's rules
+                     must never move the other's. --}}
+                <div class="border-t border-surface-ice pt-5">
+                    <h2 class="font-display text-[15px] font-semibold text-on-surface">Team attendance</h2>
+                    <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">
+                        There are no slots here: arriving after office start plus the grace is late, and that is the whole rule.
+                        These numbers are the team's own — the academy's day start, allowances and fine are separate.
+                    </p>
+                    <div class="mt-3 grid gap-5 sm:grid-cols-2">
+                        <x-form.time-12h label="Office starts at" name="team_office_start" :value="$settings['team_office_start_time']" required />
+                        <x-form.input type="number" label="Late after (minutes)" name="team_late_after_minutes"
+                            :value="$settings['team_late_after_minutes']" required min="0" max="240" class="no-spinner"
+                            hint="Grace from office start. The last minute of it still counts as present." />
+                    </div>
+                    <div class="mt-3 grid gap-5 sm:grid-cols-3">
+                        <x-form.input type="number" label="Leave allowance / month" name="team_leave_allowance_per_month"
+                            :value="$settings['team_leave_allowance_per_month']" required min="1" max="31" class="no-spinner" />
+                        <x-form.input type="number" label="Absent allowance / month" name="team_absent_allowance_per_month"
+                            :value="$settings['team_absent_allowance_per_month']" required min="1" max="31" class="no-spinner" />
+                        <x-form.input type="number" step="0.01" label="Fine per absence" name="team_absent_fine_amount"
+                            :value="$settings['team_absent_fine_amount']" required min="0" class="no-spinner"
+                            hint="Zero means absences are tracked but never charged." />
+                    </div>
+                </div>
+
                 {{-- The team portal's delivery score. Two dials, deliberately:
                      the formula is already the thing people argue about, and a
                      third knob would be a third way to disagree about it. --}}

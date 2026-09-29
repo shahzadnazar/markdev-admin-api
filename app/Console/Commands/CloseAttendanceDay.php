@@ -5,8 +5,11 @@ namespace App\Console\Commands;
 use App\Models\BiometricPunch;
 use App\Models\DailyAttendance;
 use App\Models\LeaveApplicationDay;
+use App\Models\TeamAttendance;
+use App\Models\TeamLeaveApplicationDay;
 use App\Models\User;
 use App\Support\AcademyCalendar;
+use App\Support\AttendanceConfig;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -81,25 +84,135 @@ class CloseAttendanceDay extends Command
             ->get();
 
         if ($students->isEmpty()) {
-            $this->info('No active students — nothing to close.');
-
-            return self::SUCCESS;
+            // Not a reason to stop any more: the team register is closed by the
+            // same command, and an academy with no active students may still
+            // have staff to settle.
+            $this->info('No active students.');
         }
 
         $total = 0;
+        $teamTotal = 0;
 
         // Oldest first, so a catch-up run reads in the order the days happened.
         for ($back = $catchUp; $back >= 0; $back--) {
-            $total += $this->closeDay($date->copy()->subDays($back), $students, $dryRun);
+            $day = $date->copy()->subDays($back);
+
+            if ($students->isNotEmpty()) {
+                $total += $this->closeDay($day, $students, $dryRun);
+            }
+
+            $teamTotal += $this->closeTeamDay($day, $dryRun);
         }
 
         if ($dryRun) {
             $this->comment('Dry run — nothing written.');
         } else {
             $this->info("{$total} student-day(s) settled.");
+            $this->info("{$teamTotal} team-day(s) settled.");
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Settle the TEAM register for one day.
+     *
+     * ONE COMMAND, TWO TABLES — not a second command on a second schedule that
+     * somebody forgets to deploy. The team portal keeps its own register, for
+     * the reasons the migration gives, but the nightly close is the same
+     * decision made twice over two sets of rows.
+     *
+     * NO SLOTS here: a team member follows the academy's working week and the
+     * holiday list, which is the whole rule. Only days where NOTHING is already
+     * recorded are touched — a lead who already marked somebody present must
+     * not have it overwritten by a job that ran later.
+     *
+     * Absent is written through the query builder, which fires no model events
+     * and therefore walks past LocksAbsences. That is safe here and only here,
+     * because these rows are filtered to the ones with no record at all: the
+     * close fills blanks and never revisits a settled day. AbsenceLockTest
+     * keeps the list of such sites and fails when a new one appears.
+     */
+    protected function closeTeamDay(Carbon $day, bool $dryRun): int
+    {
+        $date = $day->toDateString();
+        $holiday = AcademyCalendar::holidayName($day);
+
+        // Anybody who holds a team role and is still active. A deactivated
+        // account must not accrue absences, and neither must a student.
+        $members = User::query()
+            ->whereHas('roles', fn ($query) => $query->whereIn('name', ['team-lead', 'team']))
+            ->where('is_active', true)
+            ->pluck('id');
+
+        if ($members->isEmpty()) {
+            return 0;
+        }
+
+        // A weekend the academy is shut produces no row at all — everybody
+        // knows, and a label would only clutter the month. A dated holiday DOES
+        // get a row, because the date is not obvious and the gap would read as
+        // missing data.
+        if ($holiday === null && ! AcademyCalendar::isWorkingWeekday($day)) {
+            return 0;
+        }
+
+        $already = TeamAttendance::query()
+            ->whereIn('user_id', $members)
+            ->onDate($day)
+            ->pluck('user_id');
+
+        $missing = $members->diff($already);
+
+        if ($missing->isEmpty()) {
+            return 0;
+        }
+
+        if ($holiday !== null) {
+            $status = TeamAttendance::HOLIDAY;
+        } else {
+            // Approved leave beats an absence: the day was agreed in advance.
+            $onLeave = $this->approvedTeamLeaveOn($date, $missing);
+            $status = null;
+        }
+
+        if ($dryRun) {
+            return $missing->count();
+        }
+
+        $rows = $missing->map(fn (int $id) => [
+            'user_id' => $id,
+            'date' => $date,
+            'status' => $status ?? (($onLeave ?? collect())->contains($id) ? 'leave' : 'absent'),
+            'source' => 'system',
+            'marked_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ])->all();
+
+        DB::table('team_attendance_records')->insert($rows);
+
+        return count($rows);
+    }
+
+    /**
+     * Team members with an APPROVED leave day on this date.
+     *
+     * Joined rather than matched with an equality on `date`: it is a date-cast
+     * column, and an equality against it matches on one driver and misses on
+     * the other.
+     *
+     * @param  Collection<int, int>  $userIds
+     * @return Collection<int, int>
+     */
+    protected function approvedTeamLeaveOn(string $date, Collection $userIds): Collection
+    {
+        return TeamLeaveApplicationDay::query()
+            ->join('team_leave_applications', 'team_leave_applications.id', '=', 'team_leave_application_days.team_leave_application_id')
+            ->where('team_leave_application_days.status', TeamLeaveApplicationDay::APPROVED)
+            ->whereIn('team_leave_applications.user_id', $userIds)
+            ->onDate($date, 'team_leave_application_days.date')
+            ->pluck('team_leave_applications.user_id');
     }
 
     /**
@@ -196,7 +309,7 @@ class CloseAttendanceDay extends Command
 
                 if ($punch = $punched->get($id)) {
                     $student = $students->firstWhere('id', $id);
-                    $status = \App\Support\AttendanceConfig::statusForArrival($punch, $student);
+                    $status = AttendanceConfig::statusForArrival($punch, $student);
 
                     return [
                         $status,
@@ -263,7 +376,7 @@ class CloseAttendanceDay extends Command
      * datetime, and comparing it to a date would match only midnight.
      *
      * @param  Collection<int, int>  $userIds
-     * @return Collection<int, Carbon>  user id => punch time
+     * @return Collection<int, Carbon> user id => punch time
      */
     protected function punchesOn(Carbon $day, Collection $userIds): Collection
     {

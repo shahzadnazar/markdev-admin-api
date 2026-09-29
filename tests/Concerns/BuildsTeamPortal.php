@@ -11,6 +11,8 @@ use App\Models\TaskAssignment;
 use App\Models\TaskStatus;
 use App\Models\TaskStatusPeriod;
 use App\Models\Team;
+use App\Models\TeamLeaveApplication;
+use App\Models\TeamLeaveApplicationDay;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 
@@ -129,6 +131,23 @@ trait BuildsTeamPortal
             'ended_on' => TaskStatusPeriod::dayKey($to),
             'reason' => $reason,
         ]);
+    }
+
+    /** An approved leave application covering a span of days. */
+    protected function approveLeaveFor(User $user, mixed $from, mixed $to): TeamLeaveApplication
+    {
+        $leave = TeamLeaveApplication::create([
+            'user_id' => $user->id,
+            'from_date' => TeamLeaveApplication::dayKey($from),
+            'to_date' => TeamLeaveApplication::dayKey($to),
+            'reason' => 'Family matter',
+            'status' => 'approved',
+        ]);
+
+        $leave->openDecisions();
+        $leave->decisions()->update(['status' => TeamLeaveApplicationDay::APPROVED]);
+
+        return $leave;
     }
 
     /** Put a project on hold for a stated span. */

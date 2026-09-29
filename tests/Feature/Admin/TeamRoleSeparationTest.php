@@ -194,6 +194,12 @@ class TeamRoleSeparationTest extends TestCase
             'task list' => ['admin.tasks.index'],
             'board' => ['admin.tasks.board'],
             'new task' => ['admin.tasks.create'],
+            'my attendance' => ['admin.team-attendance.mine'],
+            'my leave' => ['admin.team-leave.mine'],
+            'my fines' => ['admin.team-fines.mine'],
+            'team register' => ['admin.team-attendance.index'],
+            'leave review' => ['admin.team-leave.index'],
+            'absence ledger' => ['admin.team-fines.index'],
         ];
     }
 

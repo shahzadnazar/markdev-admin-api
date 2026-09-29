@@ -52,6 +52,14 @@ class SettingController extends Controller
                 // about what the number means.
                 'delivery_minimum_stints' => \App\Support\DeliveryScore::minimumStints(),
                 'delivery_early_mode' => \App\Support\DeliveryScore::earlyMode(),
+                // The team portal's own attendance numbers. Every one of these
+                // is team-specific: changing a student number must never move a
+                // team number, and TeamSettingsIsolationTest asserts both ways.
+                'team_office_start_time' => \App\Support\TeamAttendanceConfig::officeStart(),
+                'team_late_after_minutes' => \App\Support\TeamAttendanceConfig::lateAfterMinutes(),
+                'team_leave_allowance_per_month' => \App\Support\TeamLeaveAllowance::perMonth(),
+                'team_absent_allowance_per_month' => \App\Support\TeamFineRules::allowance(),
+                'team_absent_fine_amount' => \App\Support\TeamFineRules::perAbsence(),
             ],
             // Lateness is judged per slot now; the two keys above are what a
             // student without one falls back to.
@@ -142,6 +150,19 @@ class SettingController extends Controller
             // figure in the portal for good.
             'delivery_minimum_stints' => ['required', 'integer', 'min:1', 'max:50'],
             'delivery_early_mode' => ['required', Rule::in(array_keys(\App\Support\DeliveryScore::EARLY_MODES))],
+            // Office start, entered 12-hour with an AM/PM selector like every
+            // other time here, and stored as the 24-hour string.
+            'team_office_start_hour' => ['required', 'integer', 'min:1', 'max:12'],
+            'team_office_start_minute' => ['required', 'integer', 'min:0', 'max:59'],
+            'team_office_start_meridiem' => ['required', Rule::in(['AM', 'PM'])],
+            'team_late_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
+            // At least one: zero would not be an allowance, it would be a ban,
+            // and there are clearer ways to say that.
+            'team_leave_allowance_per_month' => ['required', 'integer', 'min:1', 'max:31'],
+            'team_absent_allowance_per_month' => ['required', 'integer', 'min:1', 'max:31'],
+            // Zero IS meaningful here: it is how an academy says team absences
+            // are tracked but never charged for.
+            'team_absent_fine_amount' => ['required', 'numeric', 'min:0', 'max:100000'],
         ], [
             'monthly_leave_allowance.min' => 'Monthly leave allowance must be at least 1.',
             'monthly_leave_allowance.required' => 'Monthly leave allowance must be at least 1.',
@@ -159,6 +180,10 @@ class SettingController extends Controller
             'delivery_minimum_stints.required' => 'A delivery score needs at least 1 finished stint to be computed from.',
             'delivery_early_mode.required' => 'Say whether finishing early counts the same as on time or for more.',
             'delivery_early_mode.in' => 'Say whether finishing early counts the same as on time or for more.',
+            'team_leave_allowance_per_month.min' => 'Team leave allowance must be at least 1.',
+            'team_leave_allowance_per_month.required' => 'Team leave allowance must be at least 1.',
+            'team_absent_allowance_per_month.min' => 'Team absent allowance must be at least 1.',
+            'team_absent_allowance_per_month.required' => 'Team absent allowance must be at least 1.',
         ]);
 
         /*
@@ -211,6 +236,22 @@ class SettingController extends Controller
             $data['attendance_day_start_hour'],
             $data['attendance_day_start_minute'],
             $data['attendance_day_start_meridiem'],
+        );
+
+        // Folded into the 24-hour string the setting holds, exactly as the
+        // academy day start is. The AM/PM wording is an input concern only.
+        $data['team_office_start_time'] = \Illuminate\Support\Carbon::createFromFormat(
+            'g:i A',
+            sprintf('%d:%02d %s',
+                $data['team_office_start_hour'],
+                $data['team_office_start_minute'],
+                $data['team_office_start_meridiem'],
+            ),
+        )->format('H:i');
+        unset(
+            $data['team_office_start_hour'],
+            $data['team_office_start_minute'],
+            $data['team_office_start_meridiem'],
         );
 
         $data['maintenance_mode'] = $request->boolean('maintenance_mode');

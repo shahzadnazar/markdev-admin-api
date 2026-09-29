@@ -146,6 +146,96 @@ class StintClockTest extends TestCase
         $this->assertSame(4, $this->clock->daysTaken($stint));
     }
 
+    /* ------------------------------ Exclusion 5 ----------------------------- */
+
+    public function test_approved_leave_days_are_excluded(): void
+    {
+        $team = $this->makeTeam('Web', null, [$this->member]);
+        $task = $this->makeTask($team);
+
+        // Tuesday and Wednesday off, agreed in advance.
+        $this->approveLeaveFor($this->member, $this->monday()->copy()->addDay(), $this->monday()->copy()->addDays(2));
+
+        $stint = $this->makeStint($task, $this->member, 5, $this->monday(), $this->monday()->copy()->addDays(4));
+
+        $this->assertSame(3, $this->clock->daysTaken($stint));
+    }
+
+    public function test_leave_is_per_person_not_per_task(): void
+    {
+        $team = $this->makeTeam('Web', null, [$this->member]);
+        $task = $this->makeTask($team);
+        $somebodyElse = $this->roleUser('team');
+
+        // Somebody else's leave, on the same task. Blocked and paused are facts
+        // about the work; leave is a fact about who was doing it.
+        $this->approveLeaveFor($somebodyElse, $this->monday()->copy()->addDay(), $this->monday()->copy()->addDays(2));
+
+        $stint = $this->makeStint($task, $this->member, 5, $this->monday(), $this->monday()->copy()->addDays(4));
+
+        $this->assertSame(5, $this->clock->daysTaken($stint));
+    }
+
+    public function test_pending_leave_does_not_stop_the_clock(): void
+    {
+        $team = $this->makeTeam('Web', null, [$this->member]);
+        $task = $this->makeTask($team);
+
+        $leave = \App\Models\TeamLeaveApplication::create([
+            'user_id' => $this->member->id,
+            'from_date' => \App\Models\TeamLeaveApplication::dayKey($this->monday()->copy()->addDay()),
+            'to_date' => \App\Models\TeamLeaveApplication::dayKey($this->monday()->copy()->addDays(2)),
+            'reason' => 'Asked, not answered',
+        ]);
+        $leave->openDecisions();
+
+        $stint = $this->makeStint($task, $this->member, 5, $this->monday(), $this->monday()->copy()->addDays(4));
+
+        // Not agreed yet, so it has stopped nothing.
+        $this->assertSame(5, $this->clock->daysTaken($stint));
+    }
+
+    /**
+     * Absence is never free.
+     *
+     * Being away without leave is exactly what the score should notice.
+     * Excluding it would also mean somebody could buy their way out of a late
+     * delivery, since an absence is what a fine is charged on.
+     */
+    public function test_absent_days_are_not_excluded(): void
+    {
+        $team = $this->makeTeam('Web', null, [$this->member]);
+        $task = $this->makeTask($team);
+
+        foreach ([1, 2] as $offset) {
+            \App\Models\TeamAttendance::create([
+                'user_id' => $this->member->id,
+                'date' => \App\Models\TeamAttendance::dayKey($this->monday()->copy()->addDays($offset)),
+                'status' => 'absent',
+            ]);
+        }
+
+        $stint = $this->makeStint($task, $this->member, 5, $this->monday(), $this->monday()->copy()->addDays(4));
+
+        $this->assertSame(5, $this->clock->daysTaken($stint));
+    }
+
+    public function test_a_day_that_is_both_blocked_and_on_leave_costs_one_day(): void
+    {
+        $team = $this->makeTeam('Web', null, [$this->member]);
+        $task = $this->makeTask($team);
+
+        $tuesday = $this->monday()->copy()->addDay();
+        $this->blockTask($task, $tuesday, $tuesday);
+        $this->approveLeaveFor($this->member, $tuesday, $tuesday);
+
+        $stint = $this->makeStint($task, $this->member, 5, $this->monday(), $this->monday()->copy()->addDays(4));
+
+        // Four, not three: the sources are unioned before counting, so one day
+        // costs one day of credit however many reasons it had.
+        $this->assertSame(4, $this->clock->daysTaken($stint));
+    }
+
     /* --------------------------- Behaviour, not label ----------------------- */
 
     /**

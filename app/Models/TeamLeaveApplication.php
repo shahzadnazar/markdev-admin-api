@@ -13,29 +13,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * A student's leave request for a date range.
+ * A team member's leave request for a date range.
  *
- * A reviewer decides each day of the range separately, so `status` here is a
- * rollup for lists and filters and `decisions` is the answer. Nothing is
- * written to the register at review time: the day close reads the approved
- * days when it settles each day, which keeps a future approval from marking a
- * day that has not happened and from overwriting a student who turned up.
+ * The academy's flow over its own table: a reviewer decides each day
+ * separately, so `status` is a rollup for lists and `decisions` is the answer.
+ * The mechanics are DecidesLeavePerDay, extracted from LeaveApplication rather
+ * than copied — the only thing this model says for itself is which days of a
+ * range it expects, and that is the one real difference between the two
+ * populations.
+ *
+ * NO SLOTS, so the expected days are simply the academy's working week minus
+ * the holidays. A weekend inside a Friday-to-Monday request is not leave from
+ * anything and never becomes a row, spends no allowance and is put to nobody.
  */
-class LeaveApplication extends Model
+class TeamLeaveApplication extends Model
 {
     use DecidesLeavePerDay, ScopesToDay;
 
-    /** The day column these scopes default to; pass another per call. */
-    public static function dayColumn(): string
-    {
-        return 'from_date';
-    }
-
     public const STATUSES = ['pending', 'approved', 'partially_approved', 'rejected'];
 
-    protected $attributes = [
-        'status' => 'pending',
-    ];
+    protected $attributes = ['status' => 'pending'];
 
     protected $fillable = [
         'user_id',
@@ -57,6 +54,16 @@ class LeaveApplication extends Model
         ];
     }
 
+    public static function dayColumn(): string
+    {
+        return 'from_date';
+    }
+
+    public static function dayModel(): string
+    {
+        return TeamLeaveApplicationDay::class;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -67,10 +74,9 @@ class LeaveApplication extends Model
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
-    /** The per-day verdicts. Empty while the application is still pending. */
     public function decisions(): HasMany
     {
-        return $this->hasMany(LeaveApplicationDay::class);
+        return $this->hasMany(TeamLeaveApplicationDay::class)->orderBy('date');
     }
 
     public function scopePending(Builder $query): Builder
@@ -78,21 +84,8 @@ class LeaveApplication extends Model
         return $query->where('status', 'pending');
     }
 
-    /** The day model these decisions are rows of, for DecidesLeavePerDay. */
-    public static function dayModel(): string
-    {
-        return LeaveApplicationDay::class;
-    }
-
     /**
-     * The days of this range the student is actually expected on.
-     *
-     * A weekend or a holiday inside a Friday-to-Monday request is not leave
-     * from anything — the academy is shut and the student would not have been
-     * marked either way — so those days never become rows, never spend the
-     * monthly allowance, and are never put to a reviewer. Every caller here
-     * wants that same set: what is reserved, what is decided, and what "all of
-     * it was approved" means.
+     * The working days of this range.
      *
      * Memoised for the life of the instance, not statically: recordDecisions
      * asks three times and each call would otherwise re-read the holidays.
@@ -105,12 +98,12 @@ class LeaveApplication extends Model
             return $this->expectedDays;
         }
 
-        $slot = $this->user?->studentProfile?->attendanceSlot;
         $holidays = AcademyCalendar::holidayMap($this->from_date, $this->to_date);
 
         return $this->expectedDays = collect(CarbonPeriod::create($this->from_date, $this->to_date))
             ->map(fn ($day) => Carbon::instance($day)->startOfDay())
-            ->filter(fn (Carbon $day) => AcademyCalendar::expects($slot, $day, $holidays))
+            ->filter(fn (Carbon $day) => AcademyCalendar::isWorkingWeekday($day)
+                && ! $holidays->has($day->toDateString()))
             ->values()
             ->all();
     }

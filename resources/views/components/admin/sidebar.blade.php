@@ -129,6 +129,22 @@
             @can('clients.view')
             <x-admin.nav-item :href="route('admin.clients.index')" icon="user-circle" :active="request()->routeIs('admin.clients.*')">Clients</x-admin.nav-item>
             @endcan
+            {{-- Everybody in the portal, about themselves. --}}
+            @can('tasks.view')
+            <x-admin.nav-item :href="route('admin.team-attendance.mine')" icon="calendar" :active="request()->routeIs('admin.team-attendance.mine')">My Attendance</x-admin.nav-item>
+            <x-admin.nav-item :href="route('admin.team-leave.mine')" icon="clipboard" :active="request()->routeIs('admin.team-leave.mine')">My Leave</x-admin.nav-item>
+            <x-admin.nav-item :href="route('admin.team-fines.mine')" icon="banknotes" :active="request()->routeIs('admin.team-fines.mine')">My Fines</x-admin.nav-item>
+            @endcan
+            {{-- Leads and admins mark the register; a member marks nobody. --}}
+            @can('teams.view')
+            <x-admin.nav-item :href="route('admin.team-attendance.index')" icon="check" :active="request()->routeIs('admin.team-attendance.index')">Team Attendance</x-admin.nav-item>
+            @endcan
+            {{-- Reviewing leave and the ledger are ADMIN work. A lead is
+                 deliberately absent from both. --}}
+            @can('clients.view')
+            <x-admin.nav-item :href="route('admin.team-leave.index')" icon="inbox" :active="request()->routeIs('admin.team-leave.index')">Team Leave</x-admin.nav-item>
+            <x-admin.nav-item :href="route('admin.team-fines.index')" icon="banknotes" :active="request()->routeIs('admin.team-fines.index')">Absence Ledger</x-admin.nav-item>
+            @endcan
         </x-admin.nav-section>
         @endcanany
 

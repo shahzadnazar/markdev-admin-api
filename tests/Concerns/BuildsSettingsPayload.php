@@ -52,6 +52,15 @@ trait BuildsSettingsPayload
             // whether early beats on time.
             'delivery_minimum_stints' => \App\Support\DeliveryScore::DEFAULT_MINIMUM_STINTS,
             'delivery_early_mode' => \App\Support\DeliveryScore::DEFAULT_EARLY_MODE,
+            // Required since the team portal's attendance landed. All five are
+            // team-specific — none of them moves a student number.
+            'team_office_start_hour' => 9,
+            'team_office_start_minute' => 0,
+            'team_office_start_meridiem' => 'AM',
+            'team_late_after_minutes' => \App\Support\TeamAttendanceConfig::DEFAULT_GRACE,
+            'team_leave_allowance_per_month' => \App\Support\TeamLeaveAllowance::DEFAULT_PER_MONTH,
+            'team_absent_allowance_per_month' => \App\Support\TeamFineRules::DEFAULT_ALLOWANCE,
+            'team_absent_fine_amount' => \App\Support\TeamFineRules::DEFAULT_RATE,
         ];
 
         // The progress components, at their defaults — checked and totalling
