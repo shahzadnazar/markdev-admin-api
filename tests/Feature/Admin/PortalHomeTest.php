@@ -92,6 +92,64 @@ class PortalHomeTest extends TestCase
         $this->assertSame($expected, PortalHome::for($this->user($role)));
     }
 
+    /**
+     * The "Dashboard" breadcrumb, per role.
+     *
+     * Twenty-nine views draw that crumb and all of them now ask PortalHome::url()
+     * instead of naming `admin.dashboard`, so this is where the answer is pinned.
+     *
+     * @dataProvider landings
+     */
+    public function test_the_dashboard_crumb_points_at_that_roles_own_landing(string $role, string $expected): void
+    {
+        $this->assertSame(route($expected), PortalHome::url($this->user($role)));
+    }
+
+    /**
+     * THE CLAIM THE SWEEP RESTS ON, checked rather than assumed.
+     *
+     * Pointing every crumb at PortalHome was only safe if it resolves to exactly
+     * what an academy role has today. It does, and for a structural reason:
+     * `dashboard.view` is first in DESTINATIONS, and every role the academy route
+     * group admits holds it. Written down as a test because "it works out to the
+     * same thing" is the kind of claim that stops being true quietly.
+     */
+    public function test_the_crumb_is_unchanged_for_every_academy_role(): void
+    {
+        foreach (['super-admin', 'admin', 'manager', 'instructor'] as $role) {
+            $this->assertSame(
+                route('admin.dashboard'),
+                PortalHome::url($this->user($role)),
+                "the {$role} crumb moved, and it was not supposed to",
+            );
+        }
+    }
+
+    /** And for a team role it does NOT, which is the whole point of the sweep. */
+    public function test_the_crumb_moves_for_a_team_role(): void
+    {
+        $lead = $this->user('team-lead');
+        $member = $this->user('team');
+
+        $this->assertNotSame(route('admin.dashboard'), PortalHome::url($lead));
+        $this->assertNotSame(route('admin.dashboard'), PortalHome::url($member));
+
+        // And it opens for them, which route('admin.dashboard') did not.
+        $this->actingAs($lead)->get(PortalHome::url($lead))->assertOk();
+        $this->actingAs($member)->get(PortalHome::url($member))->assertOk();
+        $this->actingAs($lead)->get(route('admin.dashboard'))->assertForbidden();
+    }
+
+    /** Called with nothing, it reads the guard — which is how a view calls it. */
+    public function test_url_reads_the_signed_in_user_when_given_nothing(): void
+    {
+        $lead = $this->user('team-lead');
+
+        $this->actingAs($lead);
+
+        $this->assertSame(route('admin.teams.index'), PortalHome::url());
+    }
+
     public function test_a_guest_is_sent_to_the_login_screen(): void
     {
         $this->assertSame(PortalHome::GUEST, PortalHome::for(null));

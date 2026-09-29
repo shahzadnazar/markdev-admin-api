@@ -122,6 +122,37 @@ class PortalHome
     }
 
     /**
+     * WHERE "DASHBOARD" GOES, for the person looking at the page.
+     *
+     * Every breadcrumb in the panel used to open with `route('admin.dashboard')`,
+     * which is an ACADEMY route: its group admits super-admin, admin, manager and
+     * instructor and refuses both team roles. So eleven team-portal screens spent
+     * three phases offering a team-lead and a team member a "Dashboard" crumb
+     * that answered 403 — the same bug as the notifications bell in 41825c6, one
+     * row lower on the page.
+     *
+     * The crumb is not dropped, because a breadcrumb that starts nowhere is
+     * worse than one that starts somewhere: "Dashboard" for a team-lead means
+     * THEIR landing screen. This class already knows which that is, so the crumb
+     * asks it.
+     *
+     * ONE HELPER, used by every view that draws the crumb, so twenty-nine of them
+     * cannot drift apart. For an academy role it resolves to `admin.dashboard` —
+     * exactly what they have today, because `dashboard.view` is first in
+     * DESTINATIONS and every role admitted to the academy group holds it;
+     * BreadcrumbReachabilityTest checks that claim per role rather than taking it
+     * on trust.
+     *
+     * `$user` is resolved from the guard when nothing is passed, so a view calls
+     * it with no arguments. An absolute URL, like the `route()` calls it replaces,
+     * so no crumb changes shape.
+     */
+    public static function url(?User $user = null): string
+    {
+        return route(static::for($user ?? auth()->user()));
+    }
+
+    /**
      * The middleware for things EVERY panel user reaches — the topbar.
      *
      * The bell and the notifications list are not academy screens and not team

@@ -1,7 +1,7 @@
 <x-admin.layout :title="$method ? 'Edit payment method' : 'Add payment method'">
     <x-page-header :title="$method ? 'Edit '.$method->name : 'Add payment method'"
         description="These details are shown to the student when they choose this method while paying."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Payment methods' => route('admin.billing.payment-methods.index'), ($method ? 'Edit' : 'Add') => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Payment methods' => route('admin.billing.payment-methods.index'), ($method ? 'Edit' : 'Add') => null]">
         <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.payment-methods.index')">
                 <x-icon name="arrow-left" class="size-4" /> Payment methods

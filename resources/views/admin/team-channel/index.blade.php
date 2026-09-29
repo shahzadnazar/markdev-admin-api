@@ -4,7 +4,7 @@
 <x-admin.layout title="Channel">
     <x-page-header eyebrow="Team" title="Channel"
         description="One place where every team talks to every other. Announcements from an administrator are pinned at the top."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Channel' => null]" />
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Channel' => null]" />
 
     <x-form.errors-summary />
 

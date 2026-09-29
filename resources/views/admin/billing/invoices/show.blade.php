@@ -3,7 +3,7 @@
         eyebrow="Finance"
         :title="$invoice->number"
         :description="$invoice->title"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Invoices' => route('admin.billing.invoices.index'), $invoice->number => null]"
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Invoices' => route('admin.billing.invoices.index'), $invoice->number => null]"
     >
         <x-slot:actions>
             <x-btn variant="ghost" :href="route('admin.billing.invoices.index')">

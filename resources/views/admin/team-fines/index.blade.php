@@ -2,7 +2,7 @@
 <x-admin.layout title="Team absence ledger">
     <x-page-header eyebrow="Team" title="Absence ledger"
         description="What each member owes for absences beyond their monthly allowance. A ledger, not a bill."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Absence ledger' => null]" />
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Absence ledger' => null]" />
 
     <x-form.errors-summary />
 

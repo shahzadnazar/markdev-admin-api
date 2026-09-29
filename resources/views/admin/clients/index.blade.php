@@ -1,7 +1,7 @@
 <x-admin.layout title="Clients">
     <x-page-header eyebrow="Team" title="Clients"
         description="Everyone MarkDev does work for. Only this screen and the project forms know who a project is for — a team sees a project by its name and code."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Clients' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Clients' => null]">
         <x-slot:actions>
             @can('clients.create')
                 <x-btn :href="route('admin.clients.create')">

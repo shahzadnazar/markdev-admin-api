@@ -10,7 +10,7 @@
 
     <x-page-header title="Leave requests"
         description="Student leave applications. Approve the days you accept and decline the rest; approved days become leave in the register when that day closes."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Leave requests' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Leave requests' => null]">
         <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.attendance.daily')">
                 <x-icon name="check" class="size-4" /> Daily register

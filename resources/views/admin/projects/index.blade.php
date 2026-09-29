@@ -13,7 +13,7 @@
 <x-admin.layout title="Projects">
     <x-page-header eyebrow="Team" title="Projects"
         description="Client work, one team per project. A project is identified by its name and its code."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Projects' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Projects' => null]">
         <x-slot:actions>
             @can('projects.create')
                 <x-btn :href="route('admin.projects.create')">

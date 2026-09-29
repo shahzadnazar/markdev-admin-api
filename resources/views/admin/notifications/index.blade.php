@@ -1,12 +1,8 @@
-{{-- The full list behind the bell, for EVERY panel user.
-
-     No Dashboard crumb. `admin.dashboard` sits inside the academy group and
-     refuses a team-lead and a team member, so linking it here would repeat on
-     this page exactly the bug this page's route was moved to fix. --}}
+{{-- The full list behind the bell, for EVERY panel user. --}}
 <x-admin.layout title="Notifications">
     <x-page-header eyebrow="You" title="Notifications"
         description="Everything the bell has rung for. Unread first."
-        :crumbs="['Notifications' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Notifications' => null]">
         <x-slot:meta>
             @if ($unread > 0)
                 <span class="rounded-full bg-error-container px-2.5 py-0.5 font-mono text-[11px] font-semibold text-error">{{ $unread }} unread</span>

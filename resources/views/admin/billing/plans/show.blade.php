@@ -14,7 +14,7 @@
     @endphp
 
     <x-page-header :title="$plan->user?->name ?? 'Deleted user'" :description="$planDescription"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Fee plans' => route('admin.billing.plans.index'), ($plan->user?->name ?? 'Deleted user') => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Fee plans' => route('admin.billing.plans.index'), ($plan->user?->name ?? 'Deleted user') => null]">
         <x-slot:meta>
             @if ($plan->user?->studentProfile?->reg_no)
                 <x-badge variant="primary">{{ $plan->user->studentProfile->reg_no }}</x-badge>

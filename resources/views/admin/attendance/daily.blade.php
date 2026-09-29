@@ -19,7 +19,7 @@
 
     <x-page-header title="Daily attendance"
         description="One record per active student per day — corrections need the security PIN and a reason."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Attendance' => null, 'Daily register' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Attendance' => null, 'Daily register' => null]">
         <x-slot:meta>
             <span class="font-mono text-xs text-on-surface-variant">{{ $date->format('D, j M Y') }}{{ $date->isToday() ? ' · today' : '' }}</span>
             @if ($counts['weighted_percent'] !== null)

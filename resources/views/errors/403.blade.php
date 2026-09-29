@@ -33,11 +33,18 @@
 
         <div class="mt-8 flex flex-col items-center gap-3">
             @auth
-                @if (auth()->user()->hasAnyRole(['super-admin', 'admin', 'manager', 'instructor']))
-                    <a href="{{ route('admin.dashboard') }}" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-card transition hover:bg-primary-deep">
-                        Back to dashboard
-                    </a>
-                @endif
+                {{-- The same helper the breadcrumbs use, and for the same reason.
+                     This used to be `route('admin.dashboard')` behind a list of
+                     four academy role names — so a team-lead who hit a 403 was
+                     shown no way back at all, only "Log out". PortalHome answers
+                     for everybody: the academy dashboard for an academy role,
+                     their own landing screen for a team one, and the
+                     no-portal page for a client, which they can open. The role
+                     list goes with it, because a list of names here is one more
+                     place a role added later has to be remembered. --}}
+                <a href="{{ \App\Support\PortalHome::url() }}" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-card transition hover:bg-primary-deep">
+                    Back to dashboard
+                </a>
                 <form method="POST" action="{{ route('logout') }}" class="w-full">
                     @csrf
                     <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-white px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-primary hover:text-primary">

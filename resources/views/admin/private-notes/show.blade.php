@@ -3,7 +3,7 @@
         eyebrow="Oversight"
         :title="($note->user?->name ?? 'Deleted user').'’s notes'"
         :description="($note->lesson?->title ?? 'Lesson').' · '.($note->lesson?->course?->title ?? 'Course')"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Private notes' => route('admin.private-notes.index'), ($note->user?->name ?? 'Note') => null]"
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Private notes' => route('admin.private-notes.index'), ($note->user?->name ?? 'Note') => null]"
     >
         <x-slot:actions>
             <x-btn variant="ghost" :href="route('admin.private-notes.index')">

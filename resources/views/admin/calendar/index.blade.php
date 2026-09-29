@@ -1,13 +1,10 @@
 {{-- The month, derived. Nothing on this screen is stored anywhere as a calendar
      row: each entry is a project, a milestone, a task, an approved leave day or
-     an academy holiday, read where it actually lives. See App\Support\TeamCalendar.
-
-     No Dashboard crumb: `admin.dashboard` is an academy route and refuses a
-     team-lead and a team member. --}}
+     an academy holiday, read where it actually lives. See App\Support\TeamCalendar. --}}
 <x-admin.layout title="Calendar">
     <x-page-header eyebrow="Team" :title="$month->format('F Y')"
         description="Project and task dates, milestones, approved leave and academy holidays."
-        :crumbs="['Calendar' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Calendar' => null]">
         <x-slot:actions>
             {{-- The toggle. A link per option rather than a form, so a month and
                  a scope are both in the URL and a view is shareable. --}}

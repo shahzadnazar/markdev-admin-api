@@ -19,6 +19,22 @@ use Tests\TestCase;
  * over empty space. This derives the sections from the rendered sidebar rather
  * than listing them, so a section added in a later phase is covered the day it
  * appears.
+ *
+ * ## Three legs, and the third one is next door
+ *
+ * "Nothing offered to a role refuses that role" is checked in three places, one
+ * per kind of control the panel draws:
+ *
+ *   the sidebar's links    test_every_item_a_role_is_offered_actually_opens
+ *   the topbar's forms     test_every_topbar_control_a_role_is_offered_actually_works
+ *   the breadcrumbs        BreadcrumbReachabilityTest
+ *
+ * The third lives in its own file rather than here because it needs a fixture of
+ * the whole application — the academy's demo content and a team portal — to
+ * render the id-bearing screens whose crumbs it follows, and the cheap tests in
+ * this file should not pay for that eight times over. It is named here because
+ * the bug it catches is the same bug, and somebody adding a fourth kind of
+ * control should find all three from one place.
  */
 class SidebarSectionTest extends TestCase
 {

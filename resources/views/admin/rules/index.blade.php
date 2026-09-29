@@ -1,7 +1,7 @@
 <x-admin.layout title="Rules & Regulations">
     <x-page-header eyebrow="System" :title="'Rules & Regulations'"
         description="The page students read. Numbers are never typed here — they are placeholders filled from Settings when the page is served, so a reworded rule can never carry a stale figure."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Settings' => route('admin.settings.edit'), 'Rules' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Settings' => route('admin.settings.edit'), 'Rules' => null]">
         <x-slot:meta>
             @if ($lastUpdated)
                 <span class="font-mono text-xs text-on-surface-variant">Last updated {{ $lastUpdated->format('j M Y, g:i A') }}</span>

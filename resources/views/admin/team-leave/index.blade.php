@@ -3,7 +3,7 @@
 <x-admin.layout title="Team leave">
     <x-page-header eyebrow="Team" title="Team leave"
         description="Each day is decided separately. A decline needs a written reason, and the member is shown it."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Team leave' => null]" />
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Team leave' => null]" />
 
     <x-form.errors-summary />
 

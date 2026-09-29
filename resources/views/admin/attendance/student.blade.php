@@ -39,7 +39,7 @@
         @endif
         <x-page-header class="min-w-0 flex-1" :title="$student->name"
             :description="'Attendance history — '.$rangeLabel.($statusFilter ? ', '.$statusFilter.' only' : '')"
-            :crumbs="['Dashboard' => route('admin.dashboard'), 'Daily register' => route('admin.attendance.daily'), $student->name => null]">
+            :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Daily register' => route('admin.attendance.daily'), $student->name => null]">
             <x-slot:meta>
                 @if ($student->studentProfile?->reg_no)
                     <x-badge variant="primary">{{ $student->studentProfile->reg_no }}</x-badge>

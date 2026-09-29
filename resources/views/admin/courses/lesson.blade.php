@@ -3,7 +3,7 @@
         eyebrow="Course builder"
         :title="$lesson->title"
         :description="'Module “'.$lesson->module?->title.'” · '.$lesson->course?->title"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Course Content' => route('admin.courses.index'), ($lesson->course?->title ?? 'Course') => route('admin.courses.show', $lesson->course_id), $lesson->title => null]"
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Course Content' => route('admin.courses.index'), ($lesson->course?->title ?? 'Course') => route('admin.courses.show', $lesson->course_id), $lesson->title => null]"
     >
         <x-slot:actions>
             <x-btn variant="ghost" :href="route('admin.courses.show', $lesson->course_id)">

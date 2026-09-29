@@ -1,7 +1,7 @@
 <x-admin.layout title="Enroll students">
     <x-page-header title="Enroll students"
         description="Every active student — pick one, choose the course, and optionally split the fee into monthly installments."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Enrollments' => route('admin.enrollments.index'), 'Enroll students' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Enrollments' => route('admin.enrollments.index'), 'Enroll students' => null]">
         <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.enrollments.index')">
                 <x-icon name="arrow-left" class="size-4" /> Enrollments

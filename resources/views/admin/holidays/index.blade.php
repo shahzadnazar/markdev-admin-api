@@ -1,7 +1,7 @@
 <x-admin.layout title="Holidays">
     <x-page-header eyebrow="System" title="Holidays"
         description="Dates the academy is closed. Nobody is expected on a holiday, so nobody is marked absent and nobody is fined — whatever slot they are on."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Settings' => route('admin.settings.edit'), 'Holidays' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Settings' => route('admin.settings.edit'), 'Holidays' => null]">
         <x-slot:actions>
             @can('settings.update')
                 <x-btn :href="route('admin.holidays.create')">

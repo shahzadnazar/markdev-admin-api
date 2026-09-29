@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
@@ -58,7 +59,12 @@ class SidebarProfileLinkTest extends TestCase
         $this->actingAs($user)->get(route('admin.dashboard'))->assertOk()
             ->assertSee('href="'.route('profile.edit').'"', false)
             ->assertSee('aria-label="Your profile"', false)
-            ->assertSee($user->name, false);
+            // ESCAPED, unlike the two markup assertions above it. The footer
+            // renders the name through {{ }}, so a faker name carrying an
+            // apostrophe -- "Mr. Rolando D'Amore" -- reaches the page as
+            // D&#039;Amore and this failed at random, roughly one run in
+            // twenty. The needle has to be escaped the same way the page is.
+            ->assertSee($user->name);
     }
 
     /** @dataProvider panelRoles */
@@ -132,7 +138,7 @@ class SidebarProfileLinkTest extends TestCase
         $mine = $this->userWith('instructor');
         $other = $this->userWith('admin');
 
-        $this->assertSame([], \Illuminate\Support\Facades\Route::getRoutes()
+        $this->assertSame([], Route::getRoutes()
             ->getByName('profile.edit')->parameterNames());
 
         // Even asked about someone else, the page answers with you.

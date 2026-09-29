@@ -4,7 +4,7 @@
 <x-admin.layout title="Team attendance">
     <x-page-header eyebrow="Team" title="Team attendance"
         :description="'Office starts at '.$lateAfter.'; arriving more than '.$grace.' minutes after that is late. No slots — one rule for everybody.'"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Team attendance' => null]" />
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Team attendance' => null]" />
 
     <x-form.errors-summary />
 

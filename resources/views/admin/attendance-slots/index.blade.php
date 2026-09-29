@@ -1,7 +1,7 @@
 <x-admin.layout title="Attendance slots">
     <x-page-header eyebrow="System" title="Attendance slots"
         description="The parts of the teaching day students are admitted into. Each slot decides when the students on it count as late."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Settings' => route('admin.settings.edit'), 'Attendance slots' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Settings' => route('admin.settings.edit'), 'Attendance slots' => null]">
         <x-slot:actions>
             @can('settings.update')
                 <x-btn :href="route('admin.attendance-slots.create')">

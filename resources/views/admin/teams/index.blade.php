@@ -1,7 +1,7 @@
 <x-admin.layout title="Teams">
     <x-page-header eyebrow="Team" title="Teams"
         description="The groups MarkDev's client work is assigned to. Each team has one lead, who is also a member of it."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Teams' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Teams' => null]">
         <x-slot:actions>
             @can('teams.create')
                 <x-btn :href="route('admin.teams.create')">

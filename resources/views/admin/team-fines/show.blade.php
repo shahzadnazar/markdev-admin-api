@@ -3,7 +3,7 @@
 <x-admin.layout :title="$member->name.' — absence ledger'">
     <x-page-header eyebrow="Team" :title="$member->name"
         :description="'Absences beyond '.$allowance.' a month are charged at '.number_format($rate, 2).' each. This is a ledger, not a bill — there is no invoice behind it.'"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Absence ledger' => null]" />
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Absence ledger' => null]" />
 
     <x-form.errors-summary />
 

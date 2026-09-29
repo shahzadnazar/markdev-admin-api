@@ -1,7 +1,7 @@
 <x-admin.layout title="My attendance">
     <x-page-header eyebrow="Team" title="My attendance"
         :description="'Office starts at '.$officeStart.', with '.$grace.' minutes of grace.'"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'My attendance' => null]" />
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'My attendance' => null]" />
 
     <form method="GET" class="mb-4 flex flex-wrap items-end gap-3">
         <x-form.input type="month" label="Month" name="month" :value="$month->format('Y-m')" class="w-48" />

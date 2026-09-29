@@ -1,7 +1,7 @@
 <x-admin.layout title="Payment methods">
     <x-page-header title="Payment methods"
         description="Accounts students pay into — JazzCash, EasyPaisa, bank and more. Attach methods to courses; a method with no courses is available for every course."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Finance' => null, 'Payment methods' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Finance' => null, 'Payment methods' => null]">
         <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.plans.index')">Fee plans</x-btn>
             @can('billing.manage')

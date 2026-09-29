@@ -4,7 +4,7 @@
 <x-admin.layout title="Tasks">
     <x-page-header eyebrow="Team" title="Tasks"
         description="The work your teams are doing. A task on a project belongs to that project's team; work with no project is internal."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Tasks' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Tasks' => null]">
         <x-slot:actions>
             <x-btn variant="secondary" :href="route('admin.tasks.board')">
                 <x-icon name="dashboard" class="size-4" /> Board

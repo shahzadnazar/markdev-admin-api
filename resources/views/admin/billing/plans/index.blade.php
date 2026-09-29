@@ -1,7 +1,7 @@
 <x-admin.layout title="Fee plans">
     <x-page-header title="Fee plans"
         description="Every installment plan — progress, outstanding balance and defaulters at a glance."
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'Finance' => null, 'Fee plans' => null]">
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'Finance' => null, 'Fee plans' => null]">
         <x-slot:actions>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.invoices.index')">Invoices</x-btn>
             <x-btn variant="ghost" size="sm" :href="route('admin.billing.transactions.index')">Transactions</x-btn>

@@ -1,7 +1,7 @@
 <x-admin.layout title="My leave">
     <x-page-header eyebrow="Team" title="My leave"
         :description="$balance['used'].' of '.$balance['allowance'].' day(s) used in '.$balance['month_label'].'. Pending days are reserved while they wait.'"
-        :crumbs="['Dashboard' => route('admin.dashboard'), 'My leave' => null]" />
+        :crumbs="['Dashboard' => \App\Support\PortalHome::url(), 'My leave' => null]" />
 
     <x-form.errors-summary />
 
