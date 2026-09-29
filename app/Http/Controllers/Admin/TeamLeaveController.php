@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\TeamLeaveApplication;
+use App\Notifications\TeamLeaveReviewed;
 use App\Support\AuditLogger;
+use App\Support\PortalNotifier;
 use App\Support\TeamLeaveAllowance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -171,6 +173,28 @@ class TeamLeaveController extends Controller
 
         $approved = count(array_unique($approvedDates));
         $declined = $rangeDates->count() - $approved;
+
+        /*
+         * Tell the member. The decision is the whole point of the flow and they
+         * are not watching the screen it happened on.
+         *
+         * Through PortalNotifier like everything else, with no work to check
+         * against: the recipient IS the subject of their own leave, so there is
+         * no third party's project or task in the message and nothing for a
+         * scope to narrow. What the check still asks is whether they are in the
+         * team portal at all — which is the one condition that could stop this,
+         * and would, for an account whose team role was removed between
+         * applying and being reviewed.
+         *
+         * The decisions relation is refreshed first: recordDecisions wrote the
+         * per-day rows a moment ago, and the notification counts them to say
+         * "3 approved, 1 declined" — a stale relation would say nothing was.
+         */
+        PortalNotifier::notify(
+            $leave->user,
+            null,
+            new TeamLeaveReviewed($leave->fresh(['decisions', 'user'])),
+        );
 
         AuditLogger::log('leave_reviewed', 'team_leave_applications', $leave->id, null, [
             'member' => $leave->user?->name,

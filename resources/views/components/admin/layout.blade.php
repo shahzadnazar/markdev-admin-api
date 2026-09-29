@@ -168,6 +168,14 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
                                         <p class="px-4 py-8 text-center text-sm text-on-surface-variant">You're all caught up.</p>
                                     @endforelse
                                 </div>
+                                {{-- The full list, including what has already been
+                                     read — the dropdown only ever shows eight
+                                     unread. Reachable by every panel user, which
+                                     the routes behind it now are. --}}
+                                <a href="{{ route('admin.notifications.index') }}"
+                                    class="block border-t border-surface-ice px-4 py-2.5 text-center text-xs font-medium text-primary transition hover:bg-surface-ice">
+                                    See all notifications
+                                </a>
                             </div>
                         </div>
 

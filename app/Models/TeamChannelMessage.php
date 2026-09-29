@@ -48,6 +48,31 @@ class TeamChannelMessage extends Model
             ->get(['id', 'name']);
     }
 
+    /* ---------------------------- Notifications ---------------------------- */
+
+    public function conversationLabel(): string
+    {
+        return 'the team channel';
+    }
+
+    public function conversationUrl(): string
+    {
+        return route('admin.team-channel.index', absolute: false);
+    }
+
+    /**
+     * Nothing — and that is the point.
+     *
+     * The channel is the one surface with no project or task behind it, so
+     * there is no piece of work to check a recipient against. PortalNotifier
+     * still asks whether they are in the team portal at all, which is the whole
+     * of the channel's own gate.
+     */
+    public function notificationWork(): ?Model
+    {
+        return null;
+    }
+
     /**
      * Announcements first, then the ordinary conversation.
      *

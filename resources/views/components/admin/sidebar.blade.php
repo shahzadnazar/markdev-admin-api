@@ -132,6 +132,10 @@
             {{-- The one cross-team space. Every team-portal user; nobody else. --}}
             @can('tasks.view')
             <x-admin.nav-item :href="route('admin.team-channel.index')" icon="megaphone" :active="request()->routeIs('admin.team-channel.*')">Channel</x-admin.nav-item>
+            {{-- Derived from the work, so everybody in the portal has one: what
+                 it shows them is decided by the same Project and Task scopes
+                 their lists use, not by this gate. --}}
+            <x-admin.nav-item :href="route('admin.calendar.index')" icon="calendar" :active="request()->routeIs('admin.calendar.*')">Calendar</x-admin.nav-item>
             @endcan
             {{-- Everybody in the portal, about themselves. --}}
             @can('tasks.view')

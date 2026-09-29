@@ -68,6 +68,22 @@ class PortalHome
         'tasks.view' => 'admin.tasks.index',
     ];
 
+    /**
+     * The roles that have a panel, most senior first.
+     *
+     * Only for `gate()` below. The DESTINATIONS map is resolved by permission
+     * and stays that way; these names are the second half of the door, for the
+     * same reason the academy and team groups name their roles beside their
+     * permissions — a role whose permissions were customised must still get
+     * through a door that is about having a panel at all, not about one screen.
+     *
+     * `client` is deliberately absent, and `student` too: neither has a panel,
+     * so neither has a topbar to offer them anything.
+     *
+     * @var array<int, string>
+     */
+    public const PANEL_ROLES = ['super-admin', 'admin', 'manager', 'instructor', 'team-lead', 'team'];
+
     /** Signed in, with nowhere to be. A page, not a 403 — see its view. */
     public const NONE = 'portal.unavailable';
 
@@ -103,5 +119,32 @@ class PortalHome
         }
 
         return static::NONE;
+    }
+
+    /**
+     * The middleware for things EVERY panel user reaches — the topbar.
+     *
+     * The bell and the notifications list are not academy screens and not team
+     * screens; they belong to whoever has a panel. They used to sit inside the
+     * academy group, whose door refuses a team-lead and a team member, so the
+     * bell was drawn for them by the shared layout and answered their click
+     * with a 403 — a control that is offered and then refuses, the same shape
+     * as the ungated Notes item fixed in b27d246.
+     *
+     * Derived from DESTINATIONS rather than written out a fifth time: the
+     * permissions that entitle somebody to LAND somewhere are exactly the
+     * permissions that mean they have a panel, so the two cannot drift. Adding
+     * a portal in a later phase widens this door the moment its destination is
+     * listed, with nothing to remember here.
+     *
+     * This is the union of the two existing gates and nothing more. It admits
+     * nobody who could not already open a panel screen.
+     */
+    public static function gate(): string
+    {
+        return 'role_or_permission:'.implode('|', [
+            ...static::PANEL_ROLES,
+            ...array_keys(static::DESTINATIONS),
+        ]);
     }
 }

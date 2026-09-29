@@ -45,4 +45,30 @@ class TeamTaskComment extends Model
     {
         return $this->task?->team?->members()->get(['users.id', 'users.name']) ?? collect();
     }
+
+    /* ---------------------------- Notifications ---------------------------- */
+
+    public function conversationLabel(): string
+    {
+        return 'the task "'.($this->task?->title ?? 'a task').'"';
+    }
+
+    public function conversationUrl(): string
+    {
+        return $this->task === null
+            ? route('admin.tasks.index', absolute: false)
+            : route('admin.tasks.show', $this->task, absolute: false);
+    }
+
+    /**
+     * The task, which is a NARROWER question than its team.
+     *
+     * Mentionable here is the whole team; visible is the members who hold or
+     * held a stint on this task. The gap between those two is exactly what
+     * PortalNotifier is checking, and it is the case that bites.
+     */
+    public function notificationWork(): ?Model
+    {
+        return $this->task;
+    }
 }

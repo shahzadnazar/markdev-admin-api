@@ -34,6 +34,17 @@ Schedule::command('attendance:charge-absent-fines', ['--catch-up' => 2])->monthl
 // window is passed — the command only needs one to reach a closure that has
 // already ended, which is not something to send unasked.
 Schedule::command('holidays:announce-upcoming')->dailyAt('07:00');
+// The team portal's two deadline notices: a milestone due tomorrow, and a
+// project that has gone overdue. In the MORNING for the same reason the holiday
+// notice is -- "tomorrow" sent at 23:00 reads as today to anybody opening it
+// after midnight. No catch-up window is passed and none is needed: each notice
+// carries the id and the date of the thing it is about, so a run that happens
+// twice sends nothing the second time. A morning the scheduler was DOWN for is
+// not made up: the overdue notice returns on its own, because a late project
+// stays late, but the milestone notice has a one-day window and that day has
+// gone. Announcing "due tomorrow" about yesterday is worse than silence, and a
+// catch-up option would only be a way to do exactly that.
+Schedule::command('team:notify-deadlines')->dailyAt('07:15');
 Schedule::command('billing:sweep')->dailyAt('00:15');
 Schedule::command('sanctum:prune-expired', ['--hours' => 24])->daily();
 Schedule::command('backup:clean')->dailyAt('01:00');

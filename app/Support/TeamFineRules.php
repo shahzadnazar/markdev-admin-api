@@ -5,6 +5,8 @@ namespace App\Support;
 use App\Models\Setting;
 use App\Models\TeamAbsenceFine;
 use App\Models\TeamAttendance;
+use App\Models\User;
+use App\Notifications\TeamAbsenceFineCharged;
 use Illuminate\Support\Carbon;
 
 /**
@@ -130,8 +132,35 @@ class TeamFineRules
 
         if (! $dryRun) {
             $fine->save();
+            self::announce($fine);
         }
 
         return ['fine' => $fine, 'created' => true];
+    }
+
+    /**
+     * Tell the person, once, and only when something is actually owed.
+     *
+     * HERE rather than in the command, so any future caller notifies too — and
+     * because the row is what makes it idempotent. `charge` leaves an existing
+     * month alone, so a second run of the month-end job creates nothing and
+     * rings nothing; this notification needs no subject of its own the way the
+     * daily deadline notices do.
+     *
+     * A month that came to nothing still gets its row — "settled at zero" and
+     * "never looked at" have to be different — but it is not a charge, and a
+     * bell for a fine of zero is exactly the noise that makes people stop
+     * reading the ones that matter.
+     *
+     * A dry run writes nothing and therefore says nothing; it is called from
+     * the saving branch above for that reason.
+     */
+    protected static function announce(TeamAbsenceFine $fine): void
+    {
+        if ($fine->chargeable < 1) {
+            return;
+        }
+
+        PortalNotifier::notify(User::find($fine->user_id), null, new TeamAbsenceFineCharged($fine));
     }
 }

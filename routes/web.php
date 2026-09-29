@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\LeaveApplicationController;
 use App\Http\Controllers\Admin\LessonController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\NoteController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\PaymentMethodController;
 use App\Http\Controllers\Admin\PrivateNoteController;
 use App\Http\Controllers\Admin\ProjectController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\Admin\TaskBoardController;
 use App\Http\Controllers\Admin\TaskController;
 use App\Http\Controllers\Admin\TaskStatusController;
 use App\Http\Controllers\Admin\TeamAttendanceController;
+use App\Http\Controllers\Admin\TeamCalendarController;
 use App\Http\Controllers\Admin\TeamChannelController;
 use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\TeamFileController;
@@ -357,13 +359,6 @@ Route::prefix('admin')
             Route::get('billing/transactions', [BillingController::class, 'transactions'])->name('billing.transactions.index');
         });
 
-        // Topbar bell — available to every panel user.
-        Route::post('notifications/read-all', function () {
-            auth()->user()->unreadNotifications->markAsRead();
-
-            return back();
-        })->name('notifications.read-all');
-
         /* ------------------------------ System ------------------------------- */
 
         /*
@@ -489,6 +484,40 @@ Route::prefix('admin')
 | it. No academy role holds any of them — TeamRoleSeparationTest asserts that in
 | both directions — so widening the door does not widen who comes through it.
 */
+/*
+|--------------------------------------------------------------------------
+| The topbar — every panel user
+|--------------------------------------------------------------------------
+|
+| A THIRD group, and a small one, because the bell belongs to neither portal.
+| The layout draws it for everybody who has a panel, so the routes behind it
+| have to admit everybody who has a panel.
+|
+| These three used to be one route inside the ACADEMY group, gated on
+| super-admin|admin|manager|instructor|dashboard.view, with a comment claiming
+| it was "available to every panel user". It was not: a team-lead or team member
+| saw the bell, clicked "Mark all read", and got a 403 — the same shape as the
+| ungated Notes item fixed in b27d246, a control that is offered and then
+| refuses.
+|
+| PortalHome::gate() is the union of the two portal doors, derived from the
+| destinations that class already resolves, so this cannot drift from them and
+| a portal added in a later phase widens it on its own. It admits nobody who
+| could not already open a panel screen; a client and a student hold none of it
+| and have no topbar to be offered anything by.
+*/
+Route::prefix('admin')
+    ->name('admin.')
+    ->middleware(['auth', PortalHome::gate()])
+    ->group(function () {
+        Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        // Not a model-bound {notification}: the row is looked up through the
+        // signed-in user's own relationship, so somebody else's uuid is a 404
+        // rather than a refusal that confirms it exists.
+        Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
+        Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    });
+
 Route::prefix('admin')
     ->name('admin.')
     ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team|teams.view|projects.view|tasks.view|clients.view'])
@@ -624,6 +653,18 @@ Route::prefix('admin')
          * Project and Task scopes the screens use. A conversation on work you
          * cannot see is a 404, never a 403.
          */
+        /*
+         * The month view. A READ and nothing else — no store, no destroy: every
+         * date on it is derived from a project, a milestone, a task, a leave day
+         * or a holiday, so there is nothing here to create. `tasks.view`, the
+         * whole-portal gate, because everybody in the portal has dates; what
+         * each of them sees is decided by the existing scopes inside
+         * TeamCalendar and not by this route.
+         */
+        Route::get('calendar', [TeamCalendarController::class, 'index'])
+            ->middleware('can:tasks.view')
+            ->name('calendar.index');
+
         Route::middleware('can:tasks.view')->group(function () {
             Route::get('channel', [TeamChannelController::class, 'index'])->name('team-channel.index');
             Route::post('channel', [TeamChannelController::class, 'store'])->name('team-channel.store');

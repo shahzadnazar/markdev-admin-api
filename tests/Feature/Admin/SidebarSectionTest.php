@@ -3,6 +3,8 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\User;
+use App\Notifications\AttendanceModeChanged;
+use App\Support\PortalHome;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
@@ -125,7 +127,7 @@ class SidebarSectionTest extends TestCase
                 'Overview' => ['Dashboard'],
                 'People' => ['Students', 'Instructors', 'Staff & Users', 'Roles & Permissions'],
                 'Learning' => $learning,
-                'Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Team Leave', 'Absence Ledger'],
+                'Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Team Leave', 'Absence Ledger'],
                 'Engagement' => ['Announcements', 'Help Center'],
                 'Finance' => ['Billing', 'Payment Methods'],
                 'System' => ['Private notes', 'Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
@@ -134,7 +136,7 @@ class SidebarSectionTest extends TestCase
                 'Overview' => ['Dashboard'],
                 'People' => ['Students', 'Instructors', 'Staff & Users'],
                 'Learning' => $learning,
-                'Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Team Leave', 'Absence Ledger'],
+                'Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Team Leave', 'Absence Ledger'],
                 'Engagement' => ['Announcements', 'Help Center'],
                 'Finance' => ['Billing', 'Payment Methods'],
                 'System' => ['Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
@@ -155,9 +157,9 @@ class SidebarSectionTest extends TestCase
             ]],
             // A lead runs a team and sees its work; no Clients — they never
             // learn who a project is for.
-            'team-lead' => ['team-lead', ['Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Channel', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance']]],
+            'team-lead' => ['team-lead', ['Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance']]],
             // A member has no team list of their own yet, only the work.
-            'team' => ['team', ['Team' => ['Projects', 'Tasks', 'Board', 'Channel', 'My Attendance', 'My Leave', 'My Fines']]],
+            'team' => ['team', ['Team' => ['Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines']]],
             'client' => ['client', []],
             'student' => ['student', []],
         ];
@@ -190,6 +192,78 @@ class SidebarSectionTest extends TestCase
         }
     }
 
+    /**
+     * Nothing in the TOPBAR refuses the person it is drawn for either.
+     *
+     * The same rule as the item test above, one row higher up the page. The bell
+     * is drawn by the shared admin layout for every panel user, and
+     * `notifications/read-all` sat inside the ACADEMY route group — whose door
+     * admits super-admin, admin, manager and instructor and refuses both team
+     * roles. So a team-lead and a team member were offered "Mark all read" and
+     * answered with a 403, while the route's own comment claimed it was
+     * "available to every panel user".
+     *
+     * Driven off the rendered layout rather than a list of routes, so a control
+     * added to the topbar later is covered the day it appears. A role with no
+     * panel renders no topbar and is skipped by the loop rather than excused by
+     * name.
+     *
+     * @dataProvider roles
+     */
+    public function test_every_topbar_control_a_role_is_offered_actually_works(string $role): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        // An unread notification, because the bell only draws its controls when
+        // there is something to clear. Without one this test would pass by
+        // finding nothing, which is the failure mode the sidebar test warns
+        // about in sidebarFor().
+        $user->notify(new AttendanceModeChanged('manual'));
+
+        $home = PortalHome::for($user);
+
+        if ($home === PortalHome::NONE) {
+            // No panel, no topbar. `client` and `student` land here.
+            $this->assertSame([], $this->sections($user));
+
+            return;
+        }
+
+        $html = $this->actingAs($user)->get(route($home))->assertOk()->getContent();
+
+        preg_match_all('/<form method="POST" action="([^"]+)"/', $html, $forms);
+
+        $actions = collect($forms[1])
+            ->map(fn (string $url) => html_entity_decode($url))
+            // Logging out ends the session, and every following assertion with
+            // it. It is Breeze's own route and not a panel control.
+            ->reject(fn (string $url) => $url === route('logout'))
+            ->unique()
+            ->values();
+
+        $this->assertContains(route('admin.notifications.read-all'), $actions->all(), sprintf(
+            'The topbar draws the bell for a %s, and its "Mark all read" form is not on the page. '
+            .'If the bell is drawn, its controls have to be.',
+            $role,
+        ));
+
+        foreach ($actions as $action) {
+            $this->actingAs($user)->post($action)->assertRedirect();
+        }
+
+        // And the list the bell links to opens for them too.
+        $this->actingAs($user)->get(route('admin.notifications.index'))->assertOk(sprintf(
+            'A %s is offered "See all notifications" and refused when they follow it.',
+            $role,
+        ));
+
+        $this->assertSame(0, $user->unreadNotifications()->count(), sprintf(
+            'A %s cleared the bell and the notification is still unread.',
+            $role,
+        ));
+    }
+
     /** @dataProvider roles */
     public function test_no_section_is_drawn_empty(string $role): void
     {
@@ -217,7 +291,7 @@ class SidebarSectionTest extends TestCase
 
         // The heading is theirs now, because phase 2 gave it an item they can
         // open. What must never appear under it is Teams or Clients.
-        $this->assertSame(['Projects', 'Tasks', 'Board', 'Channel', 'My Attendance', 'My Leave', 'My Fines'], $this->items($member)['Team']);
+        $this->assertSame(['Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines'], $this->items($member)['Team']);
     }
 
     public function test_a_team_lead_sees_the_team_section_and_nothing_else(): void

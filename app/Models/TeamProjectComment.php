@@ -47,4 +47,25 @@ class TeamProjectComment extends Model
     {
         return ['project_id' => $this->project_id];
     }
+
+    /* ---------------------------- Notifications ---------------------------- */
+
+    /** The project's name, never its client and never its value. */
+    public function conversationLabel(): string
+    {
+        return 'the '.($this->project?->name ?? 'project').' discussion';
+    }
+
+    public function conversationUrl(): string
+    {
+        return $this->project === null
+            ? route('admin.projects.index', absolute: false)
+            : route('admin.projects.show', $this->project, absolute: false);
+    }
+
+    /** What a recipient has to be able to see before they are told anything. */
+    public function notificationWork(): ?Model
+    {
+        return $this->project;
+    }
 }

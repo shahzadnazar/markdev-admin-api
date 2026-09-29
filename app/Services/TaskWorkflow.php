@@ -7,6 +7,9 @@ use App\Models\TaskAssignment;
 use App\Models\TaskStatus;
 use App\Models\TaskStatusPeriod;
 use App\Models\User;
+use App\Notifications\TaskAssigned;
+use App\Notifications\TaskReassignedAway;
+use App\Support\PortalNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -141,8 +144,44 @@ class TaskWorkflow
 
             $this->scores->refreshForTask($task->getKey());
 
+            // Inside the transaction, deliberately, and no afterCommit dance:
+            // the bell is a row on this same connection, so a handover that
+            // rolls back takes its notices with it. A notice about something
+            // that did not happen is the thing to avoid, and this is already
+            // the arrangement that avoids it.
+            $this->announceHandover($task, $previous?->user, $to, $by, $daysAllowed);
+
             return $stint;
         });
+    }
+
+    /**
+     * The two halves of a handover, told to the two people it happened to.
+     *
+     * BOTH, and the one who LOST the task matters more: nothing on their own
+     * screens changes except that the work quietly stops being there, so they
+     * are the person most likely to miss it. The arrival is the obvious half
+     * and the departure is the one a system usually forgets.
+     *
+     * Neither is told when they did it themselves. A lead who reassigns their
+     * own task, or takes one on, does not need the bell to describe their own
+     * click — and a notification nobody needed is how a list becomes something
+     * people scroll past.
+     *
+     * Both go through PortalNotifier, so the recipient's own scope decides. In
+     * practice both pass — each holds a stint on the task, which is exactly what
+     * Task::scopeVisibleTo admits a member on — and the check runs anyway,
+     * because "in practice" is not where this rule is allowed to live.
+     */
+    protected function announceHandover(Task $task, ?User $leaving, User $arriving, ?User $by, int $daysAllowed): void
+    {
+        if ($leaving !== null && $leaving->getKey() !== $by?->getKey()) {
+            PortalNotifier::notify($leaving, $task, new TaskReassignedAway($task, $arriving, $by));
+        }
+
+        if ($arriving->getKey() !== $by?->getKey()) {
+            PortalNotifier::notify($arriving, $task, new TaskAssigned($task, $daysAllowed, $by));
+        }
     }
 
     /**
@@ -179,12 +218,23 @@ class TaskWorkflow
             return null;
         }
 
-        return TaskAssignment::create([
+        $stint = TaskAssignment::create([
             'task_id' => $task->getKey(),
             'user_id' => $last->user_id,
             'days_allowed' => $last->days_allowed,
             'started_on' => TaskAssignment::dayKey(today()),
             'created_by' => $by?->getKey(),
         ]);
+
+        // Still event 2 — "a task was assigned to you" — and not an eighth
+        // event: a reopen puts open work back in somebody's hands with an
+        // allowance attached, which is the same fact as a fresh assignment.
+        // Silent when they reopened it themselves, which is the common case;
+        // the one that needs telling is a lead reopening somebody else's task.
+        if ($last->user !== null && $last->user_id !== $by?->getKey()) {
+            PortalNotifier::notify($last->user, $task, new TaskAssigned($task, (int) $last->days_allowed, $by));
+        }
+
+        return $stint;
     }
 }

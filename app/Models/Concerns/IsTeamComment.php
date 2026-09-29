@@ -4,7 +4,10 @@ namespace App\Models\Concerns;
 
 use App\Models\TeamCommentMention;
 use App\Models\User;
+use App\Notifications\MentionedInComment;
+use App\Support\PortalNotifier;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -49,6 +52,28 @@ trait IsTeamComment
      * @return Collection<int, User>
      */
     abstract public function mentionableUsers();
+
+    /**
+     * How this conversation is named in a notification, e.g. "the Website
+     * Redesign discussion".
+     *
+     * Asked of the comment rather than matched on its class inside the
+     * notification: three surfaces, one notification class, and a fourth
+     * surface added later needs nothing in app/Notifications at all.
+     */
+    abstract public function conversationLabel(): string;
+
+    /** The panel path a mention notification points at — relative, never absolute. */
+    abstract public function conversationUrl(): string;
+
+    /**
+     * The project or task this conversation hangs off, or null for the channel.
+     *
+     * This is what PortalNotifier checks a recipient against before writing a
+     * mention notification. Null is the channel and only the channel: it has no
+     * work behind it, so the whole-portal check is the only one there is.
+     */
+    abstract public function notificationWork(): ?Model;
 
     public static function bootIsTeamComment(): void
     {
@@ -148,36 +173,61 @@ trait IsTeamComment
     }
 
     /**
-     * Write the mention rows for this comment.
+     * Write the mention rows for this comment, and ring the bells for the NEW
+     * ones.
      *
      * Only for users this surface allows: a project discussion reaches that
      * project's team, a task comment reaches the task's team, the channel
      * reaches everybody in the portal. Anything else stays plain text.
      *
-     * Nothing is delivered — notifications are the next phase. These rows exist
-     * so that phase has a fact to read rather than a string to re-parse.
+     * NEW rows only. `firstOrCreate` tells us which it actually inserted, so
+     * editing a comment to fix a typo does not ring the same bell twice — the
+     * mention rows ARE the record of who has been told, which is the reason
+     * phase 5 wrote them instead of leaving the handles in the text.
+     *
+     * Every send goes through PortalNotifier, which asks whether the recipient
+     * can see the work before anything is written. The set above is not that
+     * check and cannot replace it: a task comment's mentionable set is the
+     * task's TEAM, while a member sees a task only while they hold or held a
+     * stint on it — so a teammate who was never on it is mentionable and must
+     * not be told the task exists.
      */
     public function syncMentions(): void
     {
         $handles = static::handlesIn($this->body);
 
-        $ids = $handles === []
-            ? []
+        $users = $handles === []
+            ? collect()
             : $this->mentionableUsers()
                 ->filter(fn (User $user) => in_array($user->mentionHandle(), $handles, true))
                 // Mentioning yourself is a typing habit, not a notification.
                 ->reject(fn (User $user) => $user->getKey() === $this->user_id)
-                ->pluck('id')
-                ->all();
+                ->values();
+
+        $ids = $users->pluck('id')->all();
 
         $this->mentions()->whereNotIn('user_id', $ids ?: [0])->delete();
 
-        foreach ($ids as $id) {
-            TeamCommentMention::firstOrCreate([
+        foreach ($users as $user) {
+            $mention = TeamCommentMention::firstOrCreate([
                 'comment_type' => $this->getMorphClass(),
                 'comment_id' => $this->getKey(),
-                'user_id' => $id,
+                'user_id' => $user->getKey(),
             ]);
+
+            if (! $mention->wasRecentlyCreated) {
+                continue;
+            }
+
+            // The visibility check inside costs a query or two per NEW
+            // mention, which is the right trade: a handful of handles in a
+            // comment, against a notification that could name work the
+            // recipient is not entitled to know exists.
+            PortalNotifier::notify(
+                $user,
+                $this->notificationWork(),
+                new MentionedInComment($this, $this->author),
+            );
         }
     }
 
