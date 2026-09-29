@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -140,6 +141,26 @@ class User extends Authenticatable
 {
     return $this->hasMany(Note::class, 'instructor_id');
 }
+
+    /* ------------------------------ Team portal ---------------------------- */
+
+    /**
+     * The teams this person works on — client work, not the academy.
+     *
+     * Several is normal: someone who designs for two products is on both teams
+     * and has one task list per team. Deactivating the account leaves these
+     * rows alone, because the work they did still belongs to those teams.
+     */
+    public function teams(): BelongsToMany
+    {
+        return $this->belongsToMany(Team::class, 'team_members')->withTimestamps();
+    }
+
+    /** The teams this person leads. A lead is always also a member. */
+    public function ledTeams(): HasMany
+    {
+        return $this->hasMany(Team::class, 'team_lead_id');
+    }
 
     /* ------------------------------ Accessors ------------------------------ */
 

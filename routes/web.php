@@ -22,6 +22,9 @@ use App\Http\Controllers\Admin\QuizController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\TaskStatusController;
+use App\Http\Controllers\Admin\ProjectStatusController;
+use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\NoteController;
@@ -367,6 +370,37 @@ Route::prefix('admin')
                 Route::delete('settings/holidays/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
             });
 
+            /*
+             * The team portal's two configurable status lists.
+             *
+             * Settings screens, but NOT on the settings gate: they carry their
+             * own permission, so an academy manager who may change the day
+             * start does not thereby decide what a client project can be. The
+             * two lists are two permissions for the same reason — two tables,
+             * two behaviour sets, no reason one implies the other.
+             */
+            Route::middleware('can:task-statuses.manage')->group(function () {
+                Route::get('settings/task-statuses', [TaskStatusController::class, 'index'])->name('task-statuses.index');
+                Route::get('settings/task-statuses/create', [TaskStatusController::class, 'create'])->name('task-statuses.create');
+                Route::post('settings/task-statuses', [TaskStatusController::class, 'store'])->name('task-statuses.store');
+                Route::get('settings/task-statuses/{status}/edit', [TaskStatusController::class, 'edit'])->name('task-statuses.edit');
+                Route::put('settings/task-statuses/{status}', [TaskStatusController::class, 'update'])->name('task-statuses.update');
+                Route::post('settings/task-statuses/{status}/toggle', [TaskStatusController::class, 'toggle'])->name('task-statuses.toggle');
+                Route::post('settings/task-statuses/{status}/move', [TaskStatusController::class, 'move'])->name('task-statuses.move');
+                Route::delete('settings/task-statuses/{status}', [TaskStatusController::class, 'destroy'])->name('task-statuses.destroy');
+            });
+
+            Route::middleware('can:project-statuses.manage')->group(function () {
+                Route::get('settings/project-statuses', [ProjectStatusController::class, 'index'])->name('project-statuses.index');
+                Route::get('settings/project-statuses/create', [ProjectStatusController::class, 'create'])->name('project-statuses.create');
+                Route::post('settings/project-statuses', [ProjectStatusController::class, 'store'])->name('project-statuses.store');
+                Route::get('settings/project-statuses/{status}/edit', [ProjectStatusController::class, 'edit'])->name('project-statuses.edit');
+                Route::put('settings/project-statuses/{status}', [ProjectStatusController::class, 'update'])->name('project-statuses.update');
+                Route::post('settings/project-statuses/{status}/toggle', [ProjectStatusController::class, 'toggle'])->name('project-statuses.toggle');
+                Route::post('settings/project-statuses/{status}/move', [ProjectStatusController::class, 'move'])->name('project-statuses.move');
+                Route::delete('settings/project-statuses/{status}', [ProjectStatusController::class, 'destroy'])->name('project-statuses.destroy');
+            });
+
             // The wording of the student Rules page. The numbers on it come
             // from the settings above; only the sentences are edited here.
             Route::get('settings/rules', [RuleTemplateController::class, 'index'])->name('rules.index');
@@ -374,6 +408,40 @@ Route::prefix('admin')
                 Route::put('settings/rules/{rule}', [RuleTemplateController::class, 'update'])->name('rules.update');
                 Route::post('settings/rules/{rule}/reset', [RuleTemplateController::class, 'reset'])->name('rules.reset');
             });
+        });
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Team portal
+|--------------------------------------------------------------------------
+|
+| MarkDev's own project management, for MarkDev's own staff. Same prefix, same
+| `admin.` route names, same layout and sidebar as the panel above — these are
+| staff screens and the staff already sign in here.
+|
+| A SEPARATE GROUP, because the gate is different. The academy group admits
+| super-admin, admin, manager and instructor; this one admits super-admin, admin
+| and the two team roles. That is what makes the separation structural rather
+| than a matter of every future route remembering its `can:`: a team lead is
+| refused at the door of every academy screen, and an instructor at the door of
+| every team screen, whatever permissions get added later.
+|
+| Manager is absent on purpose. Managers run the academy, not client work.
+*/
+Route::prefix('admin')
+    ->name('admin.')
+    ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team'])
+    ->group(function () {
+
+        Route::middleware('can:teams.view')->group(function () {
+            Route::get('teams', [TeamController::class, 'index'])->name('teams.index');
+            Route::get('teams/create', [TeamController::class, 'create'])->middleware('can:teams.create')->name('teams.create');
+            Route::post('teams', [TeamController::class, 'store'])->middleware('can:teams.create')->name('teams.store');
+            Route::get('teams/{team}/edit', [TeamController::class, 'edit'])->middleware('can:teams.update')->name('teams.edit');
+            Route::put('teams/{team}', [TeamController::class, 'update'])->middleware('can:teams.update')->name('teams.update');
+            Route::post('teams/{team}/toggle', [TeamController::class, 'toggle'])->middleware('can:teams.update')->name('teams.toggle');
+            Route::delete('teams/{team}', [TeamController::class, 'destroy'])->middleware('can:teams.delete')->name('teams.destroy');
         });
     });
 

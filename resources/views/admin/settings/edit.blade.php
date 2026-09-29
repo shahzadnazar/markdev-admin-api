@@ -327,6 +327,36 @@
                     @endforelse
                 </div>
             </x-card>
+
+            {{-- The team portal's own configuration. Outside the settings form
+                 on purpose: these are their own tables with their own screens
+                 and their own permissions, not keys in the settings table. --}}
+            @canany(['task-statuses.manage', 'project-statuses.manage'])
+                <x-card class="mt-5">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 class="font-display text-lg font-semibold text-on-surface">Team portal</h2>
+                            <p class="mt-1 text-sm text-on-surface-variant">What tasks and projects can be. Rename them freely — each one carries a fixed behaviour the system acts on.</p>
+                        </div>
+                        <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <x-icon name="tag" class="size-5" />
+                        </div>
+                    </div>
+
+                    <div class="mt-5 space-y-2">
+                        @can('task-statuses.manage')
+                            <x-btn variant="secondary" size="sm" class="w-full" :href="route('admin.task-statuses.index')">
+                                <x-icon name="tag" class="size-4" /> Task statuses
+                            </x-btn>
+                        @endcan
+                        @can('project-statuses.manage')
+                            <x-btn variant="secondary" size="sm" class="w-full" :href="route('admin.project-statuses.index')">
+                                <x-icon name="tag" class="size-4" /> Project statuses
+                            </x-btn>
+                        @endcan
+                    </div>
+                </x-card>
+            @endcanany
         </div>
     </div>
 </x-admin.layout>

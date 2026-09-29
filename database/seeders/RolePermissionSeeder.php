@@ -43,6 +43,30 @@ class RolePermissionSeeder extends Seeder
         'settings' => ['view', 'update'],
         'backups' => ['view', 'run'],
         'notifications' => ['send'],
+
+        /*
+         * THE TEAM PORTAL. Project management for MarkDev's own staff, which
+         * shares this login and nothing else with the academy.
+         *
+         * These modules are deliberately their own names rather than actions
+         * bolted onto an academy module: a team lead is not a junior manager
+         * and an instructor is not a junior team member. The two jobs happen
+         * to be done by people with one account each, and a permission that
+         * spanned both would make every future check ambiguous about which
+         * job it was asking about.
+         *
+         * `task-statuses.manage` and `project-statuses.manage` gate the two
+         * status lists under Settings. Two permissions because there are two
+         * tables with two independent behaviour sets, and one name covering
+         * both would mean an academy that wanted to hand out project statuses
+         * could not do it without handing out task statuses as well.
+         */
+        'teams' => ['view', 'create', 'update', 'delete'],
+        'projects' => ['view', 'create', 'update', 'delete'],
+        'tasks' => ['view', 'create', 'update', 'delete'],
+        'clients' => ['view', 'create', 'update', 'delete'],
+        'task-statuses' => ['manage'],
+        'project-statuses' => ['manage'],
     ];
 
     public function run(): void
@@ -74,6 +98,9 @@ class RolePermissionSeeder extends Seeder
             )->values()->all()
         );
 
+        // Managers run the academy, not client work: no team, project, task or
+        // client permission belongs here. The list is explicit rather than
+        // derived, so a team module added above never lands in it by accident.
         Role::findOrCreate('manager', 'web')->syncPermissions([
             'dashboard.view',
             'users.view',
@@ -105,6 +132,9 @@ class RolePermissionSeeder extends Seeder
             'reports.export',
         ]);
 
+        // Academy only, for the same reason. An instructor who also does client
+        // work is given the `team` role on top of this one; they are never
+        // merged, because then neither list could be changed on its own.
         Role::findOrCreate('instructor', 'web')->syncPermissions([
             'dashboard.view',
             'categories.view',
@@ -143,5 +173,45 @@ class RolePermissionSeeder extends Seeder
 
         // Students act through the API with ownership checks; no admin panel access.
         Role::findOrCreate('student', 'web');
+
+        /*
+         * ------------------------------ Team portal ------------------------
+         *
+         * NOT academy roles. Nothing below grants a single academy permission,
+         * and nothing above grants a single team one. Someone who teaches and
+         * also runs client projects holds two roles and gets the union; that is
+         * the only way the two sets ever meet, and it is a decision made per
+         * person rather than baked into a role.
+         *
+         * Enforced by TeamRoleSeparationTest in both directions.
+         */
+
+        // A team lead runs one team's work: they see the team and the projects
+        // it is on, and own its task list. They do not create projects — that
+        // is an admin decision about what MarkDev has agreed to deliver — and
+        // they cannot see clients.
+        Role::findOrCreate('team-lead', 'web')->syncPermissions([
+            'teams.view',
+            'projects.view',
+            'tasks.view',
+            'tasks.create',
+            'tasks.update',
+            'tasks.delete',
+        ]);
+
+        // A team member works a task list. `tasks.update` is how they move a
+        // task along; the narrowing to their OWN tasks is a query concern in
+        // the phase that builds those screens, not a second permission —
+        // there is no unscoped task screen for this role to be confused with.
+        Role::findOrCreate('team', 'web')->syncPermissions([
+            'projects.view',
+            'tasks.view',
+            'tasks.update',
+        ]);
+
+        // Clients get their own portal, not this one. The role exists so a
+        // client account can be recognised and so nothing has to invent one
+        // later; it holds no admin-panel permission at all, like `student`.
+        Role::findOrCreate('client', 'web');
     }
 }

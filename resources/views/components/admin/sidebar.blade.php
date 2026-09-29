@@ -89,6 +89,19 @@
         </x-admin.nav-section>
         @endcanany
 
+        {{-- THE TEAM PORTAL. MarkDev's own client work, not the academy.
+
+             A team lead or team member sees this section and nothing else: every
+             academy section above is gated on an academy permission they do not
+             hold. An instructor is the mirror image and never sees this one. --}}
+        @canany(['teams.view', 'projects.view', 'tasks.view'])
+        <x-admin.nav-section label="Team">
+            @can('teams.view')
+            <x-admin.nav-item :href="route('admin.teams.index')" icon="users" :active="request()->routeIs('admin.teams.*')">Teams</x-admin.nav-item>
+            @endcan
+        </x-admin.nav-section>
+        @endcanany
+
         @canany(['announcements.view', 'help.view'])
         <x-admin.nav-section label="Engagement">
             @can('announcements.view')
@@ -113,7 +126,7 @@
         </x-admin.nav-section>
         @endcan
 
-        @canany(['audit-logs.view', 'reports.view', 'settings.view'])
+        @canany(['audit-logs.view', 'reports.view', 'settings.view', 'task-statuses.manage', 'project-statuses.manage'])
         <x-admin.nav-section label="System">
             @can('audit-logs.view')
             {{-- Super-admin only. The gate is a role check, so this item is
@@ -129,6 +142,15 @@
             @can('settings.view')
             <x-admin.nav-item :href="route('admin.settings.edit')" icon="cog" :active="request()->routeIs('admin.settings.edit') || request()->routeIs('admin.settings.backups.*')">Settings</x-admin.nav-item>
             <x-admin.nav-item :href="route('admin.attendance-slots.index')" icon="clock" :active="request()->routeIs('admin.attendance-slots.*')">Attendance Slots</x-admin.nav-item>
+            @endcan
+            {{-- Configured under Settings but gated on their own permissions:
+                 deciding what a client project can be is not the same job as
+                 setting the academy's day start. --}}
+            @can('task-statuses.manage')
+            <x-admin.nav-item :href="route('admin.task-statuses.index')" icon="tag" :active="request()->routeIs('admin.task-statuses.*')">Task Statuses</x-admin.nav-item>
+            @endcan
+            @can('project-statuses.manage')
+            <x-admin.nav-item :href="route('admin.project-statuses.index')" icon="tag" :active="request()->routeIs('admin.project-statuses.*')">Project Statuses</x-admin.nav-item>
             @endcan
         </x-admin.nav-section>
         @endcanany
