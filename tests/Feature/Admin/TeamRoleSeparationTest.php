@@ -53,6 +53,10 @@ class TeamRoleSeparationTest extends TestCase
      */
     protected const TEAM_MODULES = [
         'teams', 'projects', 'tasks', 'clients', 'task-statuses', 'project-statuses',
+        // Phase 8. Their OWN modules rather than the academy's `dashboard` and
+        // `reports` with a scope bolted on — reusing those would have handed a
+        // team-lead the academy dashboard and its five exports.
+        'team-dashboard', 'team-reports',
     ];
 
     /** Roles that do client work and nothing else. */

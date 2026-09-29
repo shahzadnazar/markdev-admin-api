@@ -67,6 +67,17 @@ class RolePermissionSeeder extends Seeder
         'clients' => ['view', 'create', 'update', 'delete'],
         'task-statuses' => ['manage'],
         'project-statuses' => ['manage'],
+
+        /*
+         * Phase 8. Their OWN modules, not `dashboard` and `reports` with a
+         * scope bolted on: those two are academy permissions held by manager
+         * and instructor, and reusing them would have handed a team-lead the
+         * academy's dashboard and its five exports the moment it was granted.
+         * TeamRoleSeparationTest asserts every permission belongs to one side
+         * or the other, and these belong to this one.
+         */
+        'team-dashboard' => ['view'],
+        'team-reports' => ['view', 'export'],
     ];
 
     public function run(): void
@@ -93,7 +104,7 @@ class RolePermissionSeeder extends Seeder
         // are the ones who switch it.
         Role::findOrCreate('admin', 'web')->syncPermissions(
             collect($all)->reject(
-                fn(string $name) => str_starts_with($name, 'roles.')
+                fn (string $name) => str_starts_with($name, 'roles.')
                     || str_starts_with($name, 'backups.')
             )->values()->all()
         );
@@ -197,6 +208,13 @@ class RolePermissionSeeder extends Seeder
             'tasks.create',
             'tasks.update',
             'tasks.delete',
+            // Their own dashboard, and the reports about the work they run.
+            // `team-reports.export` is separate from `.view` for the same
+            // reason the academy's is: a spreadsheet leaves the building and a
+            // screen does not, so the two are grantable apart.
+            'team-dashboard.view',
+            'team-reports.view',
+            'team-reports.export',
         ]);
 
         // A team member works a task list. `tasks.update` is how they move a
@@ -207,6 +225,11 @@ class RolePermissionSeeder extends Seeder
             'projects.view',
             'tasks.view',
             'tasks.update',
+            // A dashboard about THEMSELVES — their tasks, their score, their
+            // attendance, what they owe. No reports at all: every one of the
+            // four is about other people, and a member has never been able to
+            // see a colleague's figures.
+            'team-dashboard.view',
         ]);
 
         // Clients get their own portal, not this one. The role exists so a

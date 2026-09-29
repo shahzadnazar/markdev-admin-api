@@ -42,10 +42,12 @@ use App\Http\Controllers\Admin\TeamAttendanceController;
 use App\Http\Controllers\Admin\TeamCalendarController;
 use App\Http\Controllers\Admin\TeamChannelController;
 use App\Http\Controllers\Admin\TeamController;
+use App\Http\Controllers\Admin\TeamDashboardController;
 use App\Http\Controllers\Admin\TeamFileController;
 use App\Http\Controllers\Admin\TeamFineController;
 use App\Http\Controllers\Admin\TeamLeaveController;
 use App\Http\Controllers\Admin\TeamProjectCommentController;
+use App\Http\Controllers\Admin\TeamReportController;
 use App\Http\Controllers\Admin\TeamScoreController;
 use App\Http\Controllers\Admin\TeamTaskCommentController;
 use App\Http\Controllers\Admin\UserController;
@@ -477,7 +479,7 @@ Route::prefix('admin')
 |
 | Manager is absent on purpose. Managers run the academy, not client work.
 |
-| The three permissions beside the role names are there for the same reason as
+| The permissions beside the role names are there for the same reason as
 | `dashboard.view` on the academy group: holding `teams.view` has to be enough
 | to open the team door, because a super-admin who granted it meant it, and a
 | custom role holding it is in none of the role names above. They are every
@@ -485,6 +487,12 @@ Route::prefix('admin')
 | ships the projects and tasks screens inherits the gate rather than debugging
 | it. No academy role holds any of them — TeamRoleSeparationTest asserts that in
 | both directions — so widening the door does not widen who comes through it.
+|
+| `team-dashboard.view` joined them in phase 8, and it joined them because a
+| test said so: PortalHomeTest iterates DESTINATIONS and builds a custom role
+| holding one permission each, and the moment the dashboard became a destination
+| that test answered 403 here. It was written in b27d246 for exactly this — the
+| fix is the gate, never the test.
 */
 /*
 |--------------------------------------------------------------------------
@@ -522,8 +530,39 @@ Route::prefix('admin')
 
 Route::prefix('admin')
     ->name('admin.')
-    ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team|teams.view|projects.view|tasks.view|clients.view'])
+    ->middleware(['auth', 'role_or_permission:super-admin|admin|team-lead|team|team-dashboard.view|teams.view|projects.view|tasks.view|clients.view'])
     ->group(function () {
+
+        /*
+         * The team portal's front door. ONE screen for all three audiences —
+         * what differs is which rows the existing scopes return, not which
+         * controller runs. `team-dashboard.view` is its own permission: the
+         * academy's `dashboard.view` is held by manager and instructor, and
+         * reusing it would have put this in front of both.
+         */
+        Route::get('team-dashboard', [TeamDashboardController::class, 'index'])
+            ->middleware('can:team-dashboard.view')
+            ->name('team-dashboard');
+
+        /*
+         * The four team reports.
+         *
+         * `team-reports.view` opens the list and `team-reports.export` produces
+         * a file: two permissions because a spreadsheet leaves the building and
+         * a screen does not, the same split the academy's reports use.
+         *
+         * WHICH reports, and WHOSE ROWS, are decided per report in the
+         * controller's map and again inside each export's own query. Not here:
+         * an export is a query rather than a screen, so a route-level gate
+         * would be the loosest of the four and the fine ledger would ride in
+         * behind the other three.
+         */
+        Route::middleware('can:team-reports.view')->group(function () {
+            Route::get('team-reports', [TeamReportController::class, 'index'])->name('team-reports.index');
+            Route::get('team-reports/{report}', [TeamReportController::class, 'export'])
+                ->middleware('can:team-reports.export')
+                ->name('team-reports.export');
+        });
 
         Route::middleware('can:teams.view')->group(function () {
             Route::get('teams', [TeamController::class, 'index'])->name('teams.index');

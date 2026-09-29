@@ -230,9 +230,11 @@ class BreadcrumbReachabilityTest extends TestCase
             'plan' => FeePlan::value('id'),
             'project' => Project::value('id'),
             'quiz' => Quiz::value('id'),
-            // A real report key. The controller 404s an unknown one, which would
-            // look like "not this role's screen" and quietly drop it.
-            'report' => 'enrollments',
+            // A real report key, per surface. The controllers 404 an unknown one,
+            // which would look like "not this role's screen" and quietly drop
+            // the route out of the crawl — so the team reports get a team key
+            // rather than an academy one.
+            'report' => str_contains($uri, 'team-reports') ? 'member-delivery' : 'enrollments',
             'role' => Role::value('id'),
             'student' => User::role('student')->value('users.id'),
             'task' => Task::value('id'),

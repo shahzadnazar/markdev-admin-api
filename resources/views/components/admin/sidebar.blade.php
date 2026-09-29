@@ -113,8 +113,13 @@
              before their screens existed, so a `team` user — who holds both and
              neither of which draws anything — was given a heading with nothing
              under it. Each phase adds its item and its permission together. --}}
-        @canany(['teams.view', 'projects.view', 'tasks.view', 'clients.view'])
+        @canany(['team-dashboard.view', 'teams.view', 'projects.view', 'tasks.view', 'clients.view'])
         <x-admin.nav-section label="Team">
+            {{-- The portal's front door, first. One screen for all three
+                 audiences — what differs is which rows the scopes return. --}}
+            @can('team-dashboard.view')
+            <x-admin.nav-item :href="route('admin.team-dashboard')" icon="dashboard" :active="request()->routeIs('admin.team-dashboard')">Dashboard</x-admin.nav-item>
+            @endcan
             @can('teams.view')
             <x-admin.nav-item :href="route('admin.teams.index')" icon="users" :active="request()->routeIs('admin.teams.*')">Teams</x-admin.nav-item>
             @endcan
@@ -146,6 +151,11 @@
             {{-- Leads and admins mark the register; a member marks nobody. --}}
             @can('teams.view')
             <x-admin.nav-item :href="route('admin.team-attendance.index')" icon="check" :active="request()->routeIs('admin.team-attendance.index')">Team Attendance</x-admin.nav-item>
+            @endcan
+            {{-- Reports about the work. A member holds neither permission and
+                 sees no item: every one of the four is about other people. --}}
+            @can('team-reports.view')
+            <x-admin.nav-item :href="route('admin.team-reports.index')" icon="chart" :active="request()->routeIs('admin.team-reports.*')">Reports</x-admin.nav-item>
             @endcan
             {{-- Reviewing leave and the ledger are ADMIN work. A lead is
                  deliberately absent from both. --}}

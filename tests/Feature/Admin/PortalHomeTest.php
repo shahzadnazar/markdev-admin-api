@@ -42,11 +42,11 @@ class PortalHomeTest extends TestCase
     /**
      * Every role in the seeder, and where it belongs today.
      *
-     * `team` and `client` are on the no-portal page on purpose: the team member
-     * holds projects.view and tasks.view, and neither screen exists until
-     * phase 2. `student` is here because a student can type this app's login
-     * form even though the portal is where they belong — they used to get a 403
-     * for it.
+     * `client` is on the no-portal page on purpose: the client ROLE alone
+     * entitles nobody to anything — phase 7 made the entitlement a client
+     * RECORD pointing at the login, and this provider's user has none.
+     * `student` is here because a student can type this app's login form even
+     * though the portal is where they belong — they used to get a 403 for it.
      */
     public static function landings(): array
     {
@@ -55,10 +55,15 @@ class PortalHomeTest extends TestCase
             'admin' => ['admin', 'admin.dashboard'],
             'manager' => ['manager', 'admin.dashboard'],
             'instructor' => ['instructor', 'admin.dashboard'],
-            'team-lead' => ['team-lead', 'admin.teams.index'],
-            // Phase 2 shipped admin.projects.index, so a team member now
-            // lands on their project list instead of the no-portal page.
-            'team' => ['team', 'admin.projects.index'],
+            // Phase 8 shipped admin.team-dashboard and put `team-dashboard.view`
+            // first among the team destinations, so BOTH team roles now land on
+            // the dashboard rather than on a list. A lead arriving wants the
+            // state of their teams, not an index of them; a member wants their
+            // own work, their attendance and what they owe. The entries below
+            // are still the landings for a custom role holding only one of
+            // those permissions, which is what the reachability test builds.
+            'team-lead' => ['team-lead', 'admin.team-dashboard'],
+            'team' => ['team', 'admin.team-dashboard'],
             'client' => ['client', PortalHome::NONE],
             'student' => ['student', PortalHome::NONE],
         ];
@@ -134,6 +139,9 @@ class PortalHomeTest extends TestCase
 
         $this->assertNotSame(route('admin.dashboard'), PortalHome::url($lead));
         $this->assertNotSame(route('admin.dashboard'), PortalHome::url($member));
+        // Both on the team portal's own front door since phase 8.
+        $this->assertSame(route('admin.team-dashboard'), PortalHome::url($lead));
+        $this->assertSame(route('admin.team-dashboard'), PortalHome::url($member));
 
         // And it opens for them, which route('admin.dashboard') did not.
         $this->actingAs($lead)->get(PortalHome::url($lead))->assertOk();
@@ -148,7 +156,7 @@ class PortalHomeTest extends TestCase
 
         $this->actingAs($lead);
 
-        $this->assertSame(route('admin.teams.index'), PortalHome::url());
+        $this->assertSame(route('admin.team-dashboard'), PortalHome::url());
     }
 
     /**
@@ -230,7 +238,7 @@ class PortalHomeTest extends TestCase
             ->get('/login')
             ->assertRedirect(route('dashboard'));
 
-        $this->get(route('dashboard'))->assertRedirect(route('admin.teams.index'));
+        $this->get(route('dashboard'))->assertRedirect(route('admin.team-dashboard'));
     }
 
     /* --------------------------- The phase seam ---------------------------- */

@@ -78,8 +78,16 @@ class PortalHome
         // first because the two roles that hold everything belong here.
         'dashboard.view' => 'admin.dashboard',
 
-        // The team portal, in the order a team person would rank them: the team
-        // they run, then the work it is on, then their own task list.
+        // The team portal's own front door, and the first team entry: a lead
+        // arriving wants the state of their teams, not a list of them. AFTER
+        // `dashboard.view` because super-admin and admin hold everything and
+        // belong on the academy dashboard.
+        'team-dashboard.view' => 'admin.team-dashboard',
+
+        // The rest of the team portal, in the order a team person would rank
+        // them: the team they run, then the work it is on, then their own task
+        // list. Each is still a valid landing for a custom role holding only
+        // that one permission.
         'teams.view' => 'admin.teams.index',
         'projects.view' => 'admin.projects.index',
         'tasks.view' => 'admin.tasks.index',

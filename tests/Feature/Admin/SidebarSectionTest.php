@@ -143,7 +143,7 @@ class SidebarSectionTest extends TestCase
                 'Overview' => ['Dashboard'],
                 'People' => ['Students', 'Instructors', 'Staff & Users', 'Roles & Permissions'],
                 'Learning' => $learning,
-                'Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Team Leave', 'Absence Ledger'],
+                'Team' => ['Dashboard', 'Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Reports', 'Team Leave', 'Absence Ledger'],
                 'Engagement' => ['Announcements', 'Help Center'],
                 'Finance' => ['Billing', 'Payment Methods'],
                 'System' => ['Private notes', 'Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
@@ -152,7 +152,7 @@ class SidebarSectionTest extends TestCase
                 'Overview' => ['Dashboard'],
                 'People' => ['Students', 'Instructors', 'Staff & Users'],
                 'Learning' => $learning,
-                'Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Team Leave', 'Absence Ledger'],
+                'Team' => ['Dashboard', 'Teams', 'Projects', 'Tasks', 'Board', 'Clients', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Reports', 'Team Leave', 'Absence Ledger'],
                 'Engagement' => ['Announcements', 'Help Center'],
                 'Finance' => ['Billing', 'Payment Methods'],
                 'System' => ['Audit Logs', 'Reports', 'Settings', 'Attendance Slots', 'Task Statuses', 'Project Statuses'],
@@ -173,9 +173,9 @@ class SidebarSectionTest extends TestCase
             ]],
             // A lead runs a team and sees its work; no Clients — they never
             // learn who a project is for.
-            'team-lead' => ['team-lead', ['Team' => ['Teams', 'Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance']]],
+            'team-lead' => ['team-lead', ['Team' => ['Dashboard', 'Teams', 'Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines', 'Team Attendance', 'Reports']]],
             // A member has no team list of their own yet, only the work.
-            'team' => ['team', ['Team' => ['Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines']]],
+            'team' => ['team', ['Team' => ['Dashboard', 'Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines']]],
             'client' => ['client', []],
             'student' => ['student', []],
         ];
@@ -307,7 +307,7 @@ class SidebarSectionTest extends TestCase
 
         // The heading is theirs now, because phase 2 gave it an item they can
         // open. What must never appear under it is Teams or Clients.
-        $this->assertSame(['Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines'], $this->items($member)['Team']);
+        $this->assertSame(['Dashboard', 'Projects', 'Tasks', 'Board', 'Channel', 'Calendar', 'My Attendance', 'My Leave', 'My Fines'], $this->items($member)['Team']);
     }
 
     public function test_a_team_lead_sees_the_team_section_and_nothing_else(): void
