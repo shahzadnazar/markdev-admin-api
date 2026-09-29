@@ -35,10 +35,26 @@ class TeamMemberDeliveryExport implements FromCollection, WithHeadings
         protected Carbon $month,
     ) {}
 
+    /**
+     * EARLY AND ON TIME ARE SEPARATE COLUMNS.
+     *
+     * They were one, "On time or early", and that made the spreadsheet the same
+     * shape of useless the screen was before 2427004: the delivery percentage
+     * caps at 100, so somebody early on every stint and somebody on time on
+     * every stint read the same number — and a scoreboard built from this file
+     * could not rank them either, because the one figure that separates them was
+     * added into the one beside it.
+     *
+     * The three finished outcomes now have a column each, and they sum to
+     * "Stints finished" — TaskAssignment::FINISHED is exactly early, on_time and
+     * late, so a row where they do not add up means an outcome was added to that
+     * constant and not to this file. TeamReportTest asserts the sum for that
+     * reason.
+     */
     public function headings(): array
     {
         return [
-            'Member', 'Month', 'Stints finished', 'On time or early', 'Late',
+            'Member', 'Month', 'Stints finished', 'Early', 'On time', 'Late',
             'Days promised', 'Days over', 'Blocked days',
         ];
     }
@@ -82,7 +98,10 @@ class TeamMemberDeliveryExport implements FromCollection, WithHeadings
                     $held->first()->user?->name ?? 'Unknown',
                     $this->month->format('F Y'),
                     $held->count(),
-                    $held->whereIn('outcome', TaskAssignment::KEPT_THE_PROMISE)->count(),
+                    // Counted separately, not summed into the next one — see
+                    // headings(). Both halves of KEPT_THE_PROMISE, apart.
+                    $held->where('outcome', 'early')->count(),
+                    $held->where('outcome', 'on_time')->count(),
                     $late->count(),
                     (int) $held->sum('days_allowed'),
                     (int) $late->sum(fn (TaskAssignment $stint) => $clock->daysOver($stint)),

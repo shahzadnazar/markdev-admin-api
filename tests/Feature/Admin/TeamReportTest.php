@@ -8,6 +8,7 @@ use App\Exports\TeamMemberDeliveryExport;
 use App\Exports\TeamProjectDeliveryExport;
 use App\Models\Client;
 use App\Models\Project;
+use App\Models\TaskAssignment;
 use App\Models\Team;
 use App\Models\TeamAbsenceFine;
 use App\Models\TeamAttendance;
@@ -285,12 +286,97 @@ class TeamReportTest extends TestCase
 
         $this->assertSame('Bilal Ahmed', $row[0]);
         $this->assertSame(1, $row[2]);   // stints finished
-        $this->assertSame(1, $row[3]);   // on time or early
-        $this->assertSame(0, $row[4]);   // late
-        $this->assertSame(4, $row[5]);   // days promised
+        $this->assertSame(0, $row[3]);   // early
+        $this->assertSame(1, $row[4]);   // on time
+        $this->assertSame(0, $row[5]);   // late
+        $this->assertSame(4, $row[6]);   // days promised
 
         // A month with nothing finished in it is empty, not last month's rows.
         $this->assertCount(0, (new TeamMemberDeliveryExport($this->lead, $this->monday()->copy()->subMonth()))->rows());
+    }
+
+    /**
+     * EARLY AND ON TIME ARE SEPARATE COLUMNS, so a scoreboard built from the
+     * spreadsheet can rank two people the percentage cannot.
+     *
+     * The delivery score caps at 100, so somebody early on every stint and
+     * somebody on time on every stint read the same number. 2427004 fixed that
+     * on the screen by drawing the early count; this file had the same defect
+     * one layer out, with both outcomes added into a single "On time or early".
+     *
+     * Asserted on the GENERATED ROWS, because the spreadsheet is the artefact
+     * somebody ranks from — a heading alone proves nothing about what is in the
+     * cells under it.
+     */
+    public function test_an_early_member_and_an_on_time_member_are_distinguishable(): void
+    {
+        // Two more people on the lead's own team, so the scoping stays intact:
+        // one early on everything, one on time on everything, same allowances.
+        $earlyBird = $this->roleUser('team', ['name' => 'Aabid Early']);
+        $steady = $this->roleUser('team', ['name' => 'Aabir Steady']);
+        $this->team->members()->syncWithoutDetaching([$earlyBird->id, $steady->id]);
+
+        foreach ([[$earlyBird, 'early'], [$steady, 'on_time']] as [$person, $outcome]) {
+            foreach ([1, 2] as $n) {
+                $task = $this->makeTask($this->team, [
+                    'project_id' => $this->project->id,
+                    'title' => "Task {$n} for {$person->name}",
+                    'days_allowed' => 4,
+                ]);
+
+                $this->makeStint($task, $person, 4, $this->monday(), $this->monday()->copy()->addDay(), $outcome);
+            }
+        }
+
+        $rows = (new TeamMemberDeliveryExport($this->lead, $this->monday()))->rows()->keyBy(0);
+
+        $early = $rows['Aabid Early'];
+        $onTime = $rows['Aabir Steady'];
+
+        // Indistinguishable by every figure the old single column carried…
+        $this->assertSame($early[2], $onTime[2], 'both finished the same number of stints');
+        $this->assertSame($early[6], $onTime[6], 'both were promised the same days');
+        $this->assertSame(0, $early[5]);
+        $this->assertSame(0, $onTime[5]);
+
+        // …and told apart by the two columns that used to be one.
+        $this->assertSame([2, 0], [$early[3], $early[4]], 'the early member should read 2 early, 0 on time');
+        $this->assertSame([0, 2], [$onTime[3], $onTime[4]], 'the on-time member should read 0 early, 2 on time');
+
+        // AND THE SCOPING IS UNTOUCHED. Both are on this lead's team, so neither
+        // reaches the other lead's spreadsheet — the split changed what a row
+        // says, not whose rows they are.
+        $theirs = $this->cells((new TeamMemberDeliveryExport($this->otherLead, $this->monday()))->rows());
+        $this->assertStringNotContainsString('Aabid Early', $theirs);
+        $this->assertStringNotContainsString('Aabir Steady', $theirs);
+    }
+
+    /**
+     * The three finished outcomes add up to the total.
+     *
+     * TaskAssignment::FINISHED is exactly early, on_time and late, so a row where
+     * they do not sum means an outcome was added to that constant and not to this
+     * export — which would show up as a column quietly missing work rather than
+     * as an error.
+     */
+    public function test_the_outcome_columns_sum_to_the_stints_finished(): void
+    {
+        $this->assertSame(['early', 'on_time', 'late'], TaskAssignment::FINISHED);
+
+        $late = $this->makeTask($this->team, ['project_id' => $this->project->id, 'days_allowed' => 2]);
+        $this->makeStint($late, $this->member, 2, $this->monday(), $this->monday()->copy()->addDays(5), 'late');
+
+        $rows = (new TeamMemberDeliveryExport($this->admin, $this->monday()))->rows();
+
+        $this->assertGreaterThan(0, $rows->count());
+
+        foreach ($rows as $row) {
+            $this->assertSame(
+                $row[2],
+                $row[3] + $row[4] + $row[5],
+                "early + on time + late does not equal the stints finished for {$row[0]}",
+            );
+        }
     }
 
     public function test_the_fine_ledger_holds_the_month_asked_for(): void
