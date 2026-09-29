@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
 /**
@@ -42,6 +43,7 @@ final class PrivateFiles
         'notes',                // course material, for enrolled students
         'resources',            // course material, for enrolled students
         'attachments',          // assignment briefs, for the assigned students
+        'team-files',           // project and task files, for the team on them
     ];
 
     /**
@@ -91,10 +93,10 @@ final class PrivateFiles
             return;
         }
 
-        \Illuminate\Support\Facades\Storage::disk(self::DISK)->delete($path);
+        Storage::disk(self::DISK)->delete($path);
 
         if (self::isPrivatePath($path)) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+            Storage::disk('public')->delete($path);
         }
     }
 

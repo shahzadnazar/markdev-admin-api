@@ -129,6 +129,10 @@
             @can('clients.view')
             <x-admin.nav-item :href="route('admin.clients.index')" icon="user-circle" :active="request()->routeIs('admin.clients.*')">Clients</x-admin.nav-item>
             @endcan
+            {{-- The one cross-team space. Every team-portal user; nobody else. --}}
+            @can('tasks.view')
+            <x-admin.nav-item :href="route('admin.team-channel.index')" icon="megaphone" :active="request()->routeIs('admin.team-channel.*')">Channel</x-admin.nav-item>
+            @endcan
             {{-- Everybody in the portal, about themselves. --}}
             @can('tasks.view')
             <x-admin.nav-item :href="route('admin.team-attendance.mine')" icon="calendar" :active="request()->routeIs('admin.team-attendance.mine')">My Attendance</x-admin.nav-item>

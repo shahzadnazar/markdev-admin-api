@@ -9,9 +9,11 @@ use App\Models\Enrollment;
 use App\Models\LessonResource;
 use App\Models\Note;
 use App\Models\StudentProfile;
+use App\Models\TeamFile;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Support\PrivateFiles;
+use App\Support\TeamWorkVisibility;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -204,6 +206,30 @@ class FileController extends Controller
      * instructor means their own courses only, the same category scoping the
      * rest of the panel uses.
      */
+    /**
+     * A file attached to a project or a task.
+     *
+     * THE SIGNATURE IS NOT THE AUTHORISATION. ResolveFileViewer has already
+     * established WHO is asking — from a session, or from `u` inside a signed
+     * link that cannot be tampered with — and this then asks the question that
+     * actually matters: can that person see the work the file hangs off? A
+     * signed link minted for one person and followed by another gets a 404,
+     * because the second person's scope is what is consulted, not the first's.
+     *
+     * Routed through TeamWorkVisibility, so it is the same Project and Task
+     * scopes the screens use rather than a second opinion that could drift.
+     */
+    public function teamFile(Request $request, TeamFile $file)
+    {
+        $viewer = $request->user();
+
+        // 404 rather than 403 throughout: a refusal would confirm the file
+        // exists, which for client work is already a fact worth protecting.
+        abort_unless(TeamWorkVisibility::seesOwner($viewer, $file->owner), 404);
+
+        return $this->stream($file->path, $file->original_name);
+    }
+
     protected function mayReadCourseMaterial(User $viewer, ?int $courseId): bool
     {
         if ($courseId === null) {

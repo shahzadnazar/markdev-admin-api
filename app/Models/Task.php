@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Validation\ValidationException;
 
@@ -184,6 +185,18 @@ class Task extends Model
     public function statusPeriods(): HasMany
     {
         return $this->hasMany(TaskStatusPeriod::class)->orderBy('started_on')->orderBy('id');
+    }
+
+    /** The conversation on this task, kept attached to the work. */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TeamTaskComment::class);
+    }
+
+    /** Files attached to this task, on the private disk. */
+    public function files(): MorphMany
+    {
+        return $this->morphMany(TeamFile::class, 'owner');
     }
 
     /* ------------------------------- Scopes -------------------------------- */

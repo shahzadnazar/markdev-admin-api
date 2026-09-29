@@ -1,44 +1,54 @@
 <?php
 
 use App\Http\Controllers\Admin\AnnouncementController;
-use App\Http\Controllers\FileController;
 use App\Http\Controllers\Admin\AssignmentController;
 use App\Http\Controllers\Admin\AttendanceSlotController;
-use App\Http\Controllers\Admin\HolidayController;
-use App\Http\Controllers\Admin\RuleTemplateController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BillingController;
-use App\Http\Controllers\Admin\PaymentMethodController;
+use App\Http\Controllers\Admin\BiometricController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CertificateController;
+use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\CourseController;
+use App\Http\Controllers\Admin\DailyAttendanceController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EnrollmentController;
 use App\Http\Controllers\Admin\HelpController;
+use App\Http\Controllers\Admin\HolidayController;
+use App\Http\Controllers\Admin\InstructorController;
+use App\Http\Controllers\Admin\LeaveApplicationController;
 use App\Http\Controllers\Admin\LessonController;
 use App\Http\Controllers\Admin\ModuleController;
+use App\Http\Controllers\Admin\NoteController;
+use App\Http\Controllers\Admin\PaymentMethodController;
+use App\Http\Controllers\Admin\PrivateNoteController;
+use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectMilestoneController;
+use App\Http\Controllers\Admin\ProjectStatusController;
 use App\Http\Controllers\Admin\QuestionController;
 use App\Http\Controllers\Admin\QuizController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\RuleTemplateController;
 use App\Http\Controllers\Admin\SettingController;
-use App\Http\Controllers\Admin\TaskStatusController;
-use App\Http\Controllers\Admin\ProjectStatusController;
-use App\Http\Controllers\Admin\ClientController;
-use App\Http\Controllers\Admin\ProjectController;
-use App\Http\Controllers\Admin\ProjectMilestoneController;
+use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Admin\TaskAssignmentController;
 use App\Http\Controllers\Admin\TaskBoardController;
 use App\Http\Controllers\Admin\TaskController;
+use App\Http\Controllers\Admin\TaskStatusController;
 use App\Http\Controllers\Admin\TeamAttendanceController;
+use App\Http\Controllers\Admin\TeamChannelController;
 use App\Http\Controllers\Admin\TeamController;
+use App\Http\Controllers\Admin\TeamFileController;
 use App\Http\Controllers\Admin\TeamFineController;
 use App\Http\Controllers\Admin\TeamLeaveController;
+use App\Http\Controllers\Admin\TeamProjectCommentController;
 use App\Http\Controllers\Admin\TeamScoreController;
+use App\Http\Controllers\Admin\TeamTaskCommentController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\FileController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Admin\NoteController;
-use App\Http\Controllers\Admin\PrivateNoteController;
+use App\Http\Middleware\ResolveFileViewer;
 use App\Support\PortalHome;
 use Illuminate\Support\Facades\Route;
 
@@ -114,21 +124,20 @@ Route::prefix('admin')
         /* ------------------------------ People ------------------------------ */
 
         Route::middleware('can:users.view')->group(function () {
-            Route::get('instructors', [\App\Http\Controllers\Admin\InstructorController::class, 'index'])->name('instructors.index');
-            Route::get('instructors/{instructor}', [\App\Http\Controllers\Admin\InstructorController::class, 'show'])->name('instructors.show');
+            Route::get('instructors', [InstructorController::class, 'index'])->name('instructors.index');
+            Route::get('instructors/{instructor}', [InstructorController::class, 'show'])->name('instructors.show');
         });
 
-
         Route::middleware('can:students.view')->group(function () {
-            Route::get('students', [\App\Http\Controllers\Admin\StudentController::class, 'index'])->name('students.index');
-            Route::get('students/register', [\App\Http\Controllers\Admin\StudentController::class, 'create'])->middleware('can:students.create')->name('students.create');
-            Route::post('students', [\App\Http\Controllers\Admin\StudentController::class, 'store'])->middleware('can:students.create')->name('students.store');
-            Route::get('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'show'])->name('students.show');
-            Route::get('students/{student}/edit', [\App\Http\Controllers\Admin\StudentController::class, 'edit'])->middleware('can:students.update')->name('students.edit');
-            Route::put('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'update'])->middleware('can:students.update')->name('students.update');
-            Route::delete('students/{student}', [\App\Http\Controllers\Admin\StudentController::class, 'destroy'])->middleware('can:students.delete')->name('students.destroy');
-            Route::post('students/{student}/restore', [\App\Http\Controllers\Admin\StudentController::class, 'restore'])->middleware('can:students.delete')->withTrashed()->name('students.restore');
-            Route::delete('students/{student}/force', [\App\Http\Controllers\Admin\StudentController::class, 'forceDestroy'])->middleware('can:students.delete')->withTrashed()->name('students.force-destroy');
+            Route::get('students', [StudentController::class, 'index'])->name('students.index');
+            Route::get('students/register', [StudentController::class, 'create'])->middleware('can:students.create')->name('students.create');
+            Route::post('students', [StudentController::class, 'store'])->middleware('can:students.create')->name('students.store');
+            Route::get('students/{student}', [StudentController::class, 'show'])->name('students.show');
+            Route::get('students/{student}/edit', [StudentController::class, 'edit'])->middleware('can:students.update')->name('students.edit');
+            Route::put('students/{student}', [StudentController::class, 'update'])->middleware('can:students.update')->name('students.update');
+            Route::delete('students/{student}', [StudentController::class, 'destroy'])->middleware('can:students.delete')->name('students.destroy');
+            Route::post('students/{student}/restore', [StudentController::class, 'restore'])->middleware('can:students.delete')->withTrashed()->name('students.restore');
+            Route::delete('students/{student}/force', [StudentController::class, 'forceDestroy'])->middleware('can:students.delete')->withTrashed()->name('students.force-destroy');
 
             Route::get('users', [UserController::class, 'index'])->name('users.index');
             Route::get('users/create', [UserController::class, 'create'])->middleware('can:users.create')->name('users.create');
@@ -254,30 +263,30 @@ Route::prefix('admin')
         // holds is what the controllers read to decide how much they see.
         // Spatie's `permission` middleware treats the pipe as OR.
         Route::middleware('permission:attendance.daily|attendance.daily.own-category')->group(function () {
-            Route::get('attendance/daily', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'index'])->name('attendance.daily');
-            Route::get('attendance/daily/print', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'print'])->name('attendance.daily.print');
-            Route::post('attendance/daily', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'mark'])->name('attendance.daily.mark');
-            Route::post('attendance/daily/bulk-present', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'bulkPresent'])->name('attendance.daily.bulk');
-            Route::get('attendance/daily/{student}', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'show'])->name('attendance.daily.show');
-            Route::get('attendance/daily/{student}/print', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'printStudent'])->name('attendance.daily.show-print');
-            Route::put('attendance/daily/{record}', [\App\Http\Controllers\Admin\DailyAttendanceController::class, 'update'])->name('attendance.daily.update');
+            Route::get('attendance/daily', [DailyAttendanceController::class, 'index'])->name('attendance.daily');
+            Route::get('attendance/daily/print', [DailyAttendanceController::class, 'print'])->name('attendance.daily.print');
+            Route::post('attendance/daily', [DailyAttendanceController::class, 'mark'])->name('attendance.daily.mark');
+            Route::post('attendance/daily/bulk-present', [DailyAttendanceController::class, 'bulkPresent'])->name('attendance.daily.bulk');
+            Route::get('attendance/daily/{student}', [DailyAttendanceController::class, 'show'])->name('attendance.daily.show');
+            Route::get('attendance/daily/{student}/print', [DailyAttendanceController::class, 'printStudent'])->name('attendance.daily.show-print');
+            Route::put('attendance/daily/{record}', [DailyAttendanceController::class, 'update'])->name('attendance.daily.update');
 
-            Route::get('leaves', [\App\Http\Controllers\Admin\LeaveApplicationController::class, 'index'])->name('leaves.index');
-            Route::post('leaves/{leave}/review', [\App\Http\Controllers\Admin\LeaveApplicationController::class, 'review'])->name('leaves.review');
+            Route::get('leaves', [LeaveApplicationController::class, 'index'])->name('leaves.index');
+            Route::post('leaves/{leave}/review', [LeaveApplicationController::class, 'review'])->name('leaves.review');
         });
 
         // Biometric devices & punch logs (infrastructure — not for instructors).
         // These sat inside the retired Class Attendance group and carry their
         // own device permissions, which were always the ones that mattered.
-        Route::get('biometric/devices', [\App\Http\Controllers\Admin\BiometricController::class, 'devices'])->middleware('can:devices.view')->name('biometric.devices');
-        Route::get('biometric/punches', [\App\Http\Controllers\Admin\BiometricController::class, 'punches'])->middleware('can:devices.view')->name('biometric.punches');
+        Route::get('biometric/devices', [BiometricController::class, 'devices'])->middleware('can:devices.view')->name('biometric.devices');
+        Route::get('biometric/punches', [BiometricController::class, 'punches'])->middleware('can:devices.view')->name('biometric.punches');
         Route::middleware('can:devices.manage')->group(function () {
-            Route::post('biometric/devices', [\App\Http\Controllers\Admin\BiometricController::class, 'storeDevice'])->name('biometric.devices.store');
-            Route::put('biometric/devices/{device}', [\App\Http\Controllers\Admin\BiometricController::class, 'updateDevice'])->name('biometric.devices.update');
-            Route::post('biometric/devices/{device}/key', [\App\Http\Controllers\Admin\BiometricController::class, 'regenerateKey'])->name('biometric.devices.key');
-            Route::post('biometric/devices/{device}/reprocess', [\App\Http\Controllers\Admin\BiometricController::class, 'reprocess'])->name('biometric.devices.reprocess');
-            Route::delete('biometric/devices/{device}', [\App\Http\Controllers\Admin\BiometricController::class, 'destroyDevice'])->name('biometric.devices.destroy');
-            Route::post('biometric/punches/import', [\App\Http\Controllers\Admin\BiometricController::class, 'import'])->name('biometric.punches.import');
+            Route::post('biometric/devices', [BiometricController::class, 'storeDevice'])->name('biometric.devices.store');
+            Route::put('biometric/devices/{device}', [BiometricController::class, 'updateDevice'])->name('biometric.devices.update');
+            Route::post('biometric/devices/{device}/key', [BiometricController::class, 'regenerateKey'])->name('biometric.devices.key');
+            Route::post('biometric/devices/{device}/reprocess', [BiometricController::class, 'reprocess'])->name('biometric.devices.reprocess');
+            Route::delete('biometric/devices/{device}', [BiometricController::class, 'destroyDevice'])->name('biometric.devices.destroy');
+            Route::post('biometric/punches/import', [BiometricController::class, 'import'])->name('biometric.punches.import');
         });
 
         Route::middleware('can:certificates.view')->group(function () {
@@ -603,6 +612,59 @@ Route::prefix('admin')
             Route::get('team/fines/{user}', [TeamFineController::class, 'show'])->name('team-fines.show');
         });
 
+        /*
+         * Talking, and files.
+         *
+         * The cross-team channel is the one surface with no project or task
+         * behind it, so `tasks.view` — the whole-portal gate — is its whole
+         * gate. Clients, instructors, managers and students hold none of it.
+         *
+         * Project and task conversations are gated by their own screens'
+         * permission and then SCOPED in the controller, through the same
+         * Project and Task scopes the screens use. A conversation on work you
+         * cannot see is a 404, never a 403.
+         */
+        Route::middleware('can:tasks.view')->group(function () {
+            Route::get('channel', [TeamChannelController::class, 'index'])->name('team-channel.index');
+            Route::post('channel', [TeamChannelController::class, 'store'])->name('team-channel.store');
+            Route::put('channel/{message}', [TeamChannelController::class, 'update'])->name('team-channel.update');
+            Route::delete('channel/{message}', [TeamChannelController::class, 'destroy'])->name('team-channel.destroy');
+
+            Route::post('tasks/{task}/comments', [TeamTaskCommentController::class, 'store'])->name('tasks.comments.store');
+            Route::put('tasks/{task}/comments/{comment}', [TeamTaskCommentController::class, 'update'])->name('tasks.comments.update');
+            Route::delete('tasks/{task}/comments/{comment}', [TeamTaskCommentController::class, 'destroy'])->name('tasks.comments.destroy');
+
+            // Files. Upload and delete are for anybody who can see the work;
+            // the visibility flag is admin-only, below.
+            //
+            // The literal `upload` segment keeps this clear of
+            // `files/{file}/visibility`, which has the same shape and the same
+            // verb — without it, posting to mark a file client-visible would
+            // have matched THIS route with ownerType "12" and ownerId
+            // "visibility", and quietly 404d.
+            Route::post('files/upload/{ownerType}/{ownerId}', [TeamFileController::class, 'store'])
+                ->whereNumber('ownerId')
+                ->name('team-files.store');
+            Route::delete('files/{file}', [TeamFileController::class, 'destroy'])->name('team-files.destroy');
+        });
+
+        Route::middleware('can:projects.view')->group(function () {
+            Route::post('projects/{project}/comments', [TeamProjectCommentController::class, 'store'])->name('projects.comments.store');
+            Route::put('projects/{project}/comments/{comment}', [TeamProjectCommentController::class, 'update'])->name('projects.comments.update');
+            Route::delete('projects/{project}/comments/{comment}', [TeamProjectCommentController::class, 'destroy'])->name('projects.comments.destroy');
+        });
+
+        /*
+         * What a client sees is an ADMIN decision.
+         *
+         * A lead and a member may upload and may not decide what leaves the
+         * building — which matches milestones, whose routes are already
+         * admin-only, so the two answers agree.
+         */
+        Route::middleware('can:clients.view')->group(function () {
+            Route::post('files/{file}/visibility', [TeamFileController::class, 'visibility'])->name('team-files.visibility');
+        });
+
         // Marking the register: leads and admins. A member marks nobody.
         Route::middleware('can:teams.view')->group(function () {
             Route::get('team/attendance', [TeamAttendanceController::class, 'index'])->name('team-attendance.index');
@@ -638,7 +700,7 @@ Route::prefix('admin')
 | Outside the admin group on purpose — a student has no business in /admin, and
 | these are as much the portal's routes as the panel's.
 */
-Route::middleware(\App\Http\Middleware\ResolveFileViewer::class)
+Route::middleware(ResolveFileViewer::class)
     ->prefix('files')
     ->name('files.')
     ->group(function () {
@@ -648,6 +710,9 @@ Route::middleware(\App\Http\Middleware\ResolveFileViewer::class)
         Route::get('receipts/{transaction}', [FileController::class, 'receipt'])->name('receipt');
         Route::get('notes/{note}', [FileController::class, 'note'])->name('note');
         Route::get('resources/{resource}', [FileController::class, 'resource'])->name('resource');
+        // Team project and task files. Same rule as every route above: the
+        // signature says who is asking, the controller says whether they may.
+        Route::get('team/{file}', [FileController::class, 'teamFile'])->name('team');
     });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

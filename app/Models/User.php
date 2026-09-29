@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditable;
+use App\Support\PortalLabel;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,12 +13,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use Auditable, HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
 
     protected $fillable = [
@@ -129,7 +132,7 @@ class User extends Authenticatable
      */
     public function portalLabel(): string
     {
-        return \App\Support\PortalLabel::for($this);
+        return PortalLabel::for($this);
     }
 
     public function dailyAttendance(): HasMany
@@ -138,9 +141,9 @@ class User extends Authenticatable
     }
 
     public function notes(): HasMany
-{
-    return $this->hasMany(Note::class, 'instructor_id');
-}
+    {
+        return $this->hasMany(Note::class, 'instructor_id');
+    }
 
     /* ------------------------------ Team portal ---------------------------- */
 
@@ -160,6 +163,19 @@ class User extends Authenticatable
     public function ledTeams(): HasMany
     {
         return $this->hasMany(Team::class, 'team_lead_id');
+    }
+
+    /**
+     * The handle somebody types to mention this person: `@ayesha.khan`.
+     *
+     * Derived from the name rather than stored, so it cannot go stale, and
+     * slugged rather than taken as a first name because two people called Ali
+     * would then be the same mention. Predictable enough to type; unambiguous
+     * enough to resolve.
+     */
+    public function mentionHandle(): string
+    {
+        return Str::slug($this->name, '.');
     }
 
     /* ------------------------------ Accessors ------------------------------ */

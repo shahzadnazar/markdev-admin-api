@@ -159,6 +159,23 @@
                 </x-card>
             @endif
 
+            <x-team.file-list :owner="$task" owner-type="task" :files="$task->files" />
+
+            {{-- The conversation, kept attached to the work. Never
+                 client-visible, and there is no flag that could change it. --}}
+            <x-card>
+                <h2 class="font-display text-[15px] font-semibold text-on-surface">Comments</h2>
+                <p class="mt-0.5 text-[13px] text-on-surface-variant">Visible to whoever can see this task.</p>
+            </x-card>
+
+            <x-team.comment-thread
+                :threads="$task->comments->whereNull('parent_id')"
+                :store-route="route('admin.tasks.comments.store', $task)"
+                :update-route="fn ($c) => route('admin.tasks.comments.update', [$task, $c])"
+                :destroy-route="fn ($c) => route('admin.tasks.comments.destroy', [$task, $c])"
+                placeholder="Comment on this task…"
+                empty-title="No comments yet" />
+
             <x-card>
                 <h2 class="font-display text-[15px] font-semibold text-on-surface">Status history</h2>
                 <p class="mt-0.5 text-[13px] text-on-surface-variant">Why the clock stopped, and who stopped it.</p>

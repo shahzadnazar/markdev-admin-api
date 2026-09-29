@@ -74,6 +74,24 @@
             </x-card>
         </div>
 
+        <div class="space-y-5">
+        <x-team.file-list :owner="$project" owner-type="project" :files="$project->files" />
+
+        {{-- The team's discussion. A CLIENT NEVER SEES THIS, even on their own
+             project, and there is no per-comment flag that could change that. --}}
+        <x-card>
+            <h2 class="font-display text-[15px] font-semibold text-on-surface">Discussion</h2>
+            <p class="mt-0.5 text-[13px] text-on-surface-variant">Private to the team on this project.</p>
+        </x-card>
+
+        <x-team.comment-thread
+            :threads="$project->comments->whereNull('parent_id')"
+            :store-route="route('admin.projects.comments.store', $project)"
+            :update-route="fn ($c) => route('admin.projects.comments.update', [$project, $c])"
+            :destroy-route="fn ($c) => route('admin.projects.comments.destroy', [$project, $c])"
+            placeholder="Talk to the team about this project…"
+            empty-title="No discussion yet" />
+
         <x-card>
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -138,5 +156,6 @@
                 @endforelse
             </div>
         </x-card>
+        </div>
     </div>
 </x-admin.layout>

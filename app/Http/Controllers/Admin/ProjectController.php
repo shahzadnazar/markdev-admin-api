@@ -77,7 +77,18 @@ class ProjectController extends Controller
     {
         $this->assertVisible($request, $project);
 
-        $project->load(['team:id,name', 'status', 'milestones']);
+        $project->load([
+            'team:id,name',
+            'status',
+            'milestones',
+            'files.uploader:id,name',
+            // Threads with their replies and the stored mention rows. The
+            // discussion is private to the team; see TeamProjectComment.
+            'comments.author:id,name',
+            'comments.replies.author:id,name',
+            'comments.mentions.user:id,name',
+            'comments.replies.mentions.user:id,name',
+        ]);
 
         if ($request->user()->can(Project::FULL_VIEW_PERMISSION)) {
             $project->load('client');

@@ -200,6 +200,7 @@ class TeamRoleSeparationTest extends TestCase
             'team register' => ['admin.team-attendance.index'],
             'leave review' => ['admin.team-leave.index'],
             'absence ledger' => ['admin.team-fines.index'],
+            'cross-team channel' => ['admin.team-channel.index'],
         ];
     }
 

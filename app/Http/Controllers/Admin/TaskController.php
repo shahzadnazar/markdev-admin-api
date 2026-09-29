@@ -89,6 +89,11 @@ class TaskController extends Controller
             'assignments.creator:id,name',
             'statusPeriods.status',
             'statusPeriods.changedBy:id,name',
+            'files.uploader:id,name',
+            'comments.author:id,name',
+            'comments.replies.author:id,name',
+            'comments.mentions.user:id,name',
+            'comments.replies.mentions.user:id,name',
         ]);
 
         return view('admin.tasks.show', [

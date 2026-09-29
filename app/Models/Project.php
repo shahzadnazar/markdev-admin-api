@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -130,6 +131,24 @@ class Project extends Model
     public function milestones(): HasMany
     {
         return $this->hasMany(ProjectMilestone::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * The team's discussion on this project.
+     *
+     * Private to the team doing the work. A client never sees any of it, and
+     * there is no per-comment flag that could change that — see
+     * App\Models\Concerns\IsTeamComment.
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TeamProjectComment::class);
+    }
+
+    /** Files attached to this project, on the private disk. */
+    public function files(): MorphMany
+    {
+        return $this->morphMany(TeamFile::class, 'owner');
     }
 
     /* ------------------------------- Scopes -------------------------------- */
