@@ -117,6 +117,85 @@ class AcademyCalendar
         return static::holidayName($date) !== null;
     }
 
+    /**
+     * How many working days a date range contains, both ends included.
+     *
+     * THE ONE COUNTER. Weekends the academy is shut and holidays are dropped;
+     * everything that needs "how many working days between these two dates"
+     * asks here rather than writing its own loop — the team portal's delivery
+     * score, its stint clocks and anything after them.
+     *
+     * `$exclude` is for days a caller knows should not count for a reason this
+     * class cannot see: a task parked on a blocked status, a project paused.
+     * Passed as Y-m-d strings so overlapping reasons collapse into one set and
+     * a day that is both blocked and paused is subtracted once, not twice.
+     *
+     * Pass `$holidays` when counting several ranges to avoid a query each; it
+     * is the same Y-m-d => name map holidayMap returns.
+     *
+     * @param  Collection<string, string>|null  $holidays  Y-m-d => name
+     * @param  array<int, string>|Collection<int, string>  $exclude  Y-m-d strings
+     */
+    public static function workingDaysBetween(mixed $from, mixed $to, ?Collection $holidays = null, array|Collection $exclude = []): int
+    {
+        $start = Carbon::parse($from)->startOfDay();
+        $end = Carbon::parse($to)->startOfDay();
+
+        if ($end->lessThan($start)) {
+            return 0;
+        }
+
+        $holidays ??= static::holidayMap($start, $end);
+        $skip = array_flip(collect($exclude)->all());
+        $count = 0;
+
+        for ($day = $start->copy(); $day->lessThanOrEqualTo($end); $day->addDay()) {
+            $key = $day->toDateString();
+
+            if (isset($skip[$key]) || $holidays->has($key) || ! static::isWorkingWeekday($day)) {
+                continue;
+            }
+
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * The working dates in a range, as Y-m-d strings.
+     *
+     * Same rules as workingDaysBetween; returned rather than counted for
+     * callers that need to intersect them with something else.
+     *
+     * @param  Collection<string, string>|null  $holidays  Y-m-d => name
+     * @return array<int, string>
+     */
+    public static function workingDatesBetween(mixed $from, mixed $to, ?Collection $holidays = null): array
+    {
+        $start = Carbon::parse($from)->startOfDay();
+        $end = Carbon::parse($to)->startOfDay();
+
+        if ($end->lessThan($start)) {
+            return [];
+        }
+
+        $holidays ??= static::holidayMap($start, $end);
+        $dates = [];
+
+        for ($day = $start->copy(); $day->lessThanOrEqualTo($end); $day->addDay()) {
+            $key = $day->toDateString();
+
+            if ($holidays->has($key) || ! static::isWorkingWeekday($day)) {
+                continue;
+            }
+
+            $dates[] = $key;
+        }
+
+        return $dates;
+    }
+
     /* ------------------------------ The verdict ---------------------------- */
 
     /**

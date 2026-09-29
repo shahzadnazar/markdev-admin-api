@@ -277,6 +277,28 @@
                     </div>
                 </div>
 
+                {{-- The team portal's delivery score. Two dials, deliberately:
+                     the formula is already the thing people argue about, and a
+                     third knob would be a third way to disagree about it. --}}
+                <div class="border-t border-surface-ice pt-5">
+                    <h2 class="font-display text-[15px] font-semibold text-on-surface">Delivery score</h2>
+                    <p class="mt-0.5 text-[13px] leading-5 text-on-surface-variant">
+                        How a team member's delivery is judged. The score is day-weighted — five one-day tasks on time
+                        do not outrank one ten-day task a day late — and is never shown without the counts beside it.
+                    </p>
+                    <div class="mt-3 grid gap-5 sm:grid-cols-2">
+                        <x-form.input type="number" label="Minimum finished stints" name="delivery_minimum_stints"
+                            :value="$settings['delivery_minimum_stints']" required min="1" max="50" class="no-spinner"
+                            hint="Below this a person shows &quot;not enough completed work yet&quot; rather than a percentage. One finished task must not decide whether somebody reads 0% or 100%." />
+                        <x-form.select label="Finishing early" name="delivery_early_mode" required
+                            hint="Whether beating the allowance is worth more than meeting it. The percentage is capped at 100 either way.">
+                            @foreach (\App\Support\DeliveryScore::EARLY_MODES as $mode => $label)
+                                <option value="{{ $mode }}" @selected(old('delivery_early_mode', $settings['delivery_early_mode']) === $mode)>{{ $label }}</option>
+                            @endforeach
+                        </x-form.select>
+                    </div>
+                </div>
+
                 <x-form.toggle label="Maintenance mode" name="maintenance_mode" :checked="(bool) old('maintenance_mode', $settings['maintenance_mode'])"
                     hint="Shows a maintenance banner to admin users; plan portal downtime with your team." />
 

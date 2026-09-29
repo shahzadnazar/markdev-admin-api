@@ -68,6 +68,7 @@ class ProjectStatus extends Model
      */
     public function usageCount(): int
     {
-        return Project::withTrashed()->where('project_status_id', $this->getKey())->count();
+        return Project::withTrashed()->where('project_status_id', $this->getKey())->count()
+            + ProjectStatusPeriod::where('project_status_id', $this->getKey())->count();
     }
 }

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\ProgressWeights;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\BuildsSettingsPayload;
 use Tests\TestCase;
 
 /**
@@ -18,7 +19,7 @@ use Tests\TestCase;
  */
 class ProgressWeightsSettingTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsSettingsPayload, RefreshDatabase;
 
     protected User $admin;
 
@@ -31,40 +32,17 @@ class ProgressWeightsSettingTest extends TestCase
         $this->admin->assignRole('super-admin');
     }
 
-    /** The whole settings form, with progress values overridden per test. */
+    /**
+     * The whole settings form, with progress values overridden per test.
+     *
+     * Delegates to the shared builder rather than keeping a sixth copy of the
+     * array — which is the duplication that builder was written to end, and
+     * which this class had quietly grown anyway. A new required setting is
+     * added there, once.
+     */
     protected function payload(array $overrides = []): array
     {
-        return array_merge([
-            'site_name' => 'MarkDev',
-            'registration_fee' => 2000,
-            'defaulter_fine_per_day' => 100,
-            'billing_grace_days' => 5,
-            'billing_activation_days' => 5,
-            'attendance_day_start_hour' => 9,
-            'attendance_day_start_minute' => 0,
-            'attendance_day_start_meridiem' => 'AM',
-            'attendance_late_after_minutes' => 15,
-            'academy_working_days' => [1, 2, 3, 4, 5],
-            'holiday_announce_days_before' => 3,
-            'attendance_weight_present' => 100,
-            'attendance_weight_late' => 70,
-            'attendance_weight_leave' => 50,
-            'attendance_weight_absent' => 0,
-            'monthly_leave_allowance' => 2,
-            'monthly_absent_allowance' => 2,
-            'absent_fine_amount' => 200,
-            'attendance_mode' => 'manual',
-            'quiz_default_attempts' => 1,
-            'quiz_seconds_per_question' => 60,
-            'progress_weight_attendance' => 40,
-            'progress_weight_quiz' => 20,
-            'progress_weight_assignment' => 20,
-            'progress_weight_premium' => 20,
-            'progress_enabled_attendance' => 1,
-            'progress_enabled_quiz' => 1,
-            'progress_enabled_assignment' => 1,
-            'progress_enabled_premium' => 1,
-        ], $overrides);
+        return $this->settingsPayload($overrides);
     }
 
     protected function save(array $overrides = [])

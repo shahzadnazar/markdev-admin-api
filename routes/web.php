@@ -27,7 +27,11 @@ use App\Http\Controllers\Admin\ProjectStatusController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ProjectMilestoneController;
+use App\Http\Controllers\Admin\TaskAssignmentController;
+use App\Http\Controllers\Admin\TaskBoardController;
+use App\Http\Controllers\Admin\TaskController;
 use App\Http\Controllers\Admin\TeamController;
+use App\Http\Controllers\Admin\TeamScoreController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\NoteController;
@@ -486,6 +490,12 @@ Route::prefix('admin')
             Route::put('teams/{team}', [TeamController::class, 'update'])->middleware('can:teams.update')->name('teams.update');
             Route::post('teams/{team}/toggle', [TeamController::class, 'toggle'])->middleware('can:teams.update')->name('teams.toggle');
             Route::delete('teams/{team}', [TeamController::class, 'destroy'])->middleware('can:teams.delete')->name('teams.destroy');
+
+            // A LIST screen, so it reads the cached figures. A member does not
+            // hold teams.view and never reaches it: somebody else's score is
+            // somebody else's business.
+            Route::get('teams/{team}/scores', [TeamScoreController::class, 'show'])->name('teams.scores');
+            Route::post('teams/{team}/scores/refresh', [TeamScoreController::class, 'refresh'])->name('teams.scores.refresh');
         });
 
         /*
@@ -538,6 +548,35 @@ Route::prefix('admin')
                 Route::post('projects/{project}/milestones/{milestone}/move', [ProjectMilestoneController::class, 'move'])->name('projects.milestones.move');
                 Route::delete('projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy'])->name('projects.milestones.destroy');
             });
+        });
+
+        /*
+         * Tasks, and the board.
+         *
+         * TWO PERMISSIONS, TWO JOBS. `tasks.create` DEFINES work — the form,
+         * the allowance, who holds it — and is held by leads and admins.
+         * `tasks.update` MOVES work along and is held by members too, on
+         * purpose: a member must be able to say they are blocked, and must not
+         * be able to rewrite the promise their score is measured against.
+         *
+         * `board` and `create` are declared before `{task}` so they are not
+         * swallowed as an id.
+         */
+        Route::middleware('can:tasks.view')->group(function () {
+            Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
+            Route::get('tasks/board', [TaskBoardController::class, 'index'])->name('tasks.board');
+            Route::get('tasks/create', [TaskController::class, 'create'])->middleware('can:tasks.create')->name('tasks.create');
+            Route::post('tasks', [TaskController::class, 'store'])->middleware('can:tasks.create')->name('tasks.store');
+            Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+            Route::get('tasks/{task}/edit', [TaskController::class, 'edit'])->middleware('can:tasks.create')->name('tasks.edit');
+            Route::put('tasks/{task}', [TaskController::class, 'update'])->middleware('can:tasks.create')->name('tasks.update');
+            Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->middleware('can:tasks.delete')->name('tasks.destroy');
+
+            // The board's drop and the page's picker, one endpoint.
+            Route::post('tasks/{task}/move', [TaskController::class, 'move'])->middleware('can:tasks.update')->name('tasks.move');
+
+            Route::get('tasks/{task}/assign', [TaskAssignmentController::class, 'create'])->middleware('can:tasks.create')->name('tasks.assign');
+            Route::post('tasks/{task}/assign', [TaskAssignmentController::class, 'store'])->middleware('can:tasks.create')->name('tasks.assign.store');
         });
     });
 

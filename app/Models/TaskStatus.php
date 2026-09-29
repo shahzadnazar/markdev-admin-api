@@ -60,13 +60,16 @@ class TaskStatus extends Model
     /**
      * How many tasks currently sit on this status.
      *
-     * Zero until the phase that builds tasks: there is no `tasks` table yet, so
-     * nothing can be pointing here. The delete path already refuses a non-zero
-     * answer, so that phase adds the count and inherits the refusal rather than
-     * having to remember it — which is the half of this that is easy to forget.
+     * Live as of phase 3, which is what makes WorkflowStatusController's
+     * refusal to delete an in-use status a real refusal for tasks too.
+     *
+     * Trashed tasks count, and so does the status HISTORY: a period row names
+     * this status for ever, and deleting it would leave the day counter unable
+     * to say why a stint's clock stopped.
      */
     public function usageCount(): int
     {
-        return 0;
+        return Task::withTrashed()->where('task_status_id', $this->getKey())->count()
+            + TaskStatusPeriod::where('task_status_id', $this->getKey())->count();
     }
 }

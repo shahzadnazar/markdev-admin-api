@@ -7,9 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\ProjectStatus;
+use App\Models\ProjectStatusPeriod;
 use App\Models\Team;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -91,7 +93,14 @@ class ProjectController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $project = Project::create($this->validated($request));
+        $data = $this->validated($request);
+
+        $project = DB::transaction(function () use ($data, $request) {
+            $project = Project::create($data);
+            $this->openStatusPeriod($project, $request);
+
+            return $project;
+        });
 
         return redirect()->route('admin.projects.show', $project)
             ->with('success', "Project \"{$project->code}\" created.");
@@ -104,7 +113,17 @@ class ProjectController extends Controller
 
     public function update(Request $request, Project $project): RedirectResponse
     {
-        $project->update($this->validated($request, $project));
+        $data = $this->validated($request, $project);
+
+        DB::transaction(function () use ($project, $data, $request) {
+            $wasOn = (int) $project->project_status_id;
+            $project->update($data);
+
+            if ((int) $project->project_status_id !== $wasOn) {
+                $this->closeStatusPeriod($project);
+                $this->openStatusPeriod($project, $request);
+            }
+        });
 
         return redirect()->route('admin.projects.show', $project)
             ->with('success', "Project \"{$project->code}\" updated.");
@@ -121,6 +140,37 @@ class ProjectController extends Controller
     }
 
     /* ------------------------------- Helpers ------------------------------- */
+
+    /**
+     * Record that the project is now on this status.
+     *
+     * The history exists so a stint's clock can ask "was this project paused
+     * on the 14th?" — a question the project's own status_id cannot answer
+     * once it has moved on. Dated from the project's start where it has one,
+     * because a project set up today as already running started when it says
+     * it did, not when somebody typed it in.
+     */
+    protected function openStatusPeriod(Project $project, Request $request): void
+    {
+        ProjectStatusPeriod::create([
+            'project_id' => $project->getKey(),
+            'project_status_id' => $project->project_status_id,
+            'started_on' => ProjectStatusPeriod::dayKey(
+                $project->wasRecentlyCreated && $project->start_date ? $project->start_date : today(),
+            ),
+            'changed_by' => $request->user()?->getKey(),
+        ]);
+    }
+
+    /** Stamp the period that was in force. See IsStatusPeriod::closeOn. */
+    protected function closeStatusPeriod(Project $project): void
+    {
+        ProjectStatusPeriod::query()
+            ->where('project_id', $project->getKey())
+            ->open()
+            ->get()
+            ->each(fn (ProjectStatusPeriod $period) => $period->closeOn(today()));
+    }
 
     /**
      * 404 rather than 403 for a project outside this viewer's teams.

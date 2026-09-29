@@ -191,6 +191,9 @@ class TeamRoleSeparationTest extends TestCase
             'new project' => ['admin.projects.create'],
             'clients list' => ['admin.clients.index'],
             'new client' => ['admin.clients.create'],
+            'task list' => ['admin.tasks.index'],
+            'board' => ['admin.tasks.board'],
+            'new task' => ['admin.tasks.create'],
         ];
     }
 

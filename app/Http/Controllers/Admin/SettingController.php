@@ -47,6 +47,11 @@ class SettingController extends Controller
                 // pinned on its own form.
                 'quiz_default_attempts' => \App\Support\QuizRules::defaultAttempts(),
                 'quiz_seconds_per_question' => \App\Support\QuizRules::defaultSecondsPerQuestion(),
+                // The team portal's delivery score. Two dials and no more: a
+                // third would be a third way for two academies to disagree
+                // about what the number means.
+                'delivery_minimum_stints' => \App\Support\DeliveryScore::minimumStints(),
+                'delivery_early_mode' => \App\Support\DeliveryScore::earlyMode(),
             ],
             // Lateness is judged per slot now; the two keys above are what a
             // student without one falls back to.
@@ -131,6 +136,12 @@ class SettingController extends Controller
                 'min:'.\App\Support\QuizRules::MIN_SECONDS_PER_QUESTION,
                 'max:'.\App\Support\QuizRules::MAX_SECONDS_PER_QUESTION,
             ],
+            // How much finished work somebody needs before a percentage is
+            // shown at all. At least one, because a score computed from
+            // nothing is not a score; capped so a typo cannot hide every
+            // figure in the portal for good.
+            'delivery_minimum_stints' => ['required', 'integer', 'min:1', 'max:50'],
+            'delivery_early_mode' => ['required', Rule::in(array_keys(\App\Support\DeliveryScore::EARLY_MODES))],
         ], [
             'monthly_leave_allowance.min' => 'Monthly leave allowance must be at least 1.',
             'monthly_leave_allowance.required' => 'Monthly leave allowance must be at least 1.',
@@ -144,6 +155,10 @@ class SettingController extends Controller
             'quiz_default_attempts.required' => 'A quiz has to allow at least 1 attempt.',
             'quiz_seconds_per_question.min' => 'Give a question at least 5 seconds.',
             'quiz_seconds_per_question.required' => 'Give a question at least 5 seconds.',
+            'delivery_minimum_stints.min' => 'A delivery score needs at least 1 finished stint to be computed from.',
+            'delivery_minimum_stints.required' => 'A delivery score needs at least 1 finished stint to be computed from.',
+            'delivery_early_mode.required' => 'Say whether finishing early counts the same as on time or for more.',
+            'delivery_early_mode.in' => 'Say whether finishing early counts the same as on time or for more.',
         ]);
 
         /*
@@ -236,6 +251,17 @@ class SettingController extends Controller
          * worker so a large academy's settings save does not block.
          */
         RecacheCourseProgress::dispatch();
+
+        /*
+         * And every cached delivery score, for the same reason.
+         *
+         * Raising the minimum from three stints to five hides some people's
+         * percentages; changing whether early counts for more moves others.
+         * A person's own page computes live and would show the new answer
+         * immediately, so the list screens have to catch up or the two
+         * surfaces disagree about the same person.
+         */
+        \App\Jobs\RecacheDeliveryScores::dispatch();
 
         return redirect()->route('admin.settings.edit')->with('success', 'Settings saved.');
     }

@@ -47,6 +47,11 @@ trait BuildsSettingsPayload
             'attendance_mode' => 'manual',
             'quiz_default_attempts' => 1,
             'quiz_seconds_per_question' => 30,
+            // Required since the team portal's delivery score landed: how much
+            // finished work somebody needs before a percentage appears, and
+            // whether early beats on time.
+            'delivery_minimum_stints' => \App\Support\DeliveryScore::DEFAULT_MINIMUM_STINTS,
+            'delivery_early_mode' => \App\Support\DeliveryScore::DEFAULT_EARLY_MODE,
         ];
 
         // The progress components, at their defaults — checked and totalling

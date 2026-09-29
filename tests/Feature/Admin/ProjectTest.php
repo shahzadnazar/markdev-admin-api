@@ -171,15 +171,20 @@ class ProjectTest extends TestCase
         $status = $this->statusFor('running');
         $this->create()->assertSessionHasNoErrors();
 
-        // usageCount() went live with this phase, which is what turns
+        // usageCount() went live with phase 2, which is what turns
         // WorkflowStatusController's refusal from a seam into a refusal.
-        $this->assertSame(1, $status->usageCount());
+        //
+        // Two records, not one: the project, and the status-history row phase
+        // 3 opens beside it. The history counts because deleting the status
+        // would leave the day counter unable to say why a stint's clock
+        // stopped on the days the project was on it.
+        $this->assertSame(2, $status->usageCount());
 
         $this->actingAs($this->admin)
             ->delete(route('admin.project-statuses.destroy', $status))
             ->assertSessionHasErrors('behaviour');
 
-        $this->assertStringContainsString('1 record(s)', session('errors')->first('behaviour'));
+        $this->assertStringContainsString('2 record(s)', session('errors')->first('behaviour'));
         $this->assertDatabaseHas('project_statuses', ['id' => $status->id]);
     }
 

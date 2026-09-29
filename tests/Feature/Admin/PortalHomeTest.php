@@ -118,33 +118,28 @@ class PortalHomeTest extends TestCase
     /* --------------------------- The phase seam ---------------------------- */
 
     /**
-     * A destination whose screen has not shipped is skipped, not returned.
+     * THE SEAM IS CLOSED. Every destination now has a screen.
      *
-     * This is what makes phases 2 to 7 inherit the fix: the entries are already
-     * in the map, and each lights up on its own the day its route exists.
+     * The assertion that used to say `admin.tasks.index` did not exist has
+     * been retired: phase 3 shipped it, which was the whole point of writing
+     * the entry before the screen. What replaces it is the guard that outlives
+     * the seam — a destination added to the map with no route behind it would
+     * make PortalHome skip it silently, and this is where that shows up.
      *
-     * IT IS MEANT TO GO RED the day phase 2 lands, and its failure message says
-     * so in a line, because a red test that looks like a regression gets
-     * "fixed" by whoever is in a hurry.
+     * Route::has is still consulted at run time, and still should be: it is
+     * what makes the next phase's entry safe to write early.
      */
-    public function test_destinations_whose_screens_do_not_exist_yet_are_skipped(): void
+    public function test_every_destination_now_has_a_screen(): void
     {
-        $this->assertArrayHasKey('projects.view', PortalHome::DESTINATIONS);
-        $this->assertArrayHasKey('tasks.view', PortalHome::DESTINATIONS);
-
-        // Phase 2 shipped this one, and the row in landings() moved with it.
-        $this->assertTrue(Route::has('admin.projects.index'));
-
-        $this->assertFalse(Route::has('admin.tasks.index'),
-            'NOT A REGRESSION: phase 3 has shipped the task list, so move the "team" row in '
-            .'landings() to admin.tasks.index if that is where a member belongs, and drop this assertion.');
-
-        $member = $this->user('team');
-
-        $this->assertTrue($member->can('tasks.view'));
-        // projects.view comes first in the map and now has a screen, so that is
-        // where they land; tasks.view is the entry still waiting on its phase.
-        $this->assertSame('admin.projects.index', PortalHome::for($member));
+        foreach (PortalHome::DESTINATIONS as $permission => $route) {
+            $this->assertTrue(Route::has($route), sprintf(
+                'PortalHome sends someone holding "%s" to %s, and no such route exists. Either the phase '
+                .'that owns that screen has not shipped — in which case this entry is waiting, and that is '
+                .'fine — or the route was renamed and the map was not.',
+                $permission,
+                $route,
+            ));
+        }
     }
 
     /** The academy wins for the two roles that hold everything. */
