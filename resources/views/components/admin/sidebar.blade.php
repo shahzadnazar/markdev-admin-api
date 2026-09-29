@@ -94,13 +94,16 @@
              A team lead or team member sees this section and nothing else: every
              academy section above is gated on an academy permission they do not
              hold. An instructor is the mirror image and never sees this one. --}}
-        @canany(['teams.view', 'projects.view', 'tasks.view'])
+        {{-- The section's gate matches the items it actually contains, and has
+             to keep matching: `projects.view` and `tasks.view` were listed here
+             before their screens existed, so a `team` user — who holds both and
+             neither of which draws anything — was given a heading with nothing
+             under it. Each phase adds its item and its permission together. --}}
+        @can('teams.view')
         <x-admin.nav-section label="Team">
-            @can('teams.view')
             <x-admin.nav-item :href="route('admin.teams.index')" icon="users" :active="request()->routeIs('admin.teams.*')">Teams</x-admin.nav-item>
-            @endcan
         </x-admin.nav-section>
-        @endcanany
+        @endcan
 
         @canany(['announcements.view', 'help.view'])
         <x-admin.nav-section label="Engagement">

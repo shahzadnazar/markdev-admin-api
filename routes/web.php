@@ -29,6 +29,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\NoteController;
 use App\Http\Controllers\Admin\PrivateNoteController;
+use App\Support\PortalHome;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,16 +38,38 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', function () {
-    return auth()->check()
-        ? redirect()->route('admin.dashboard')
-        : redirect()->route('login');
-});
+/*
+ * Both of these ask PortalHome where the arriving person belongs rather than
+ * naming a screen, because the answer differs per role and will differ again
+ * every phase. It returns the login route for a guest, so this is one
+ * expression rather than two.
+ */
+Route::get('/', fn () => redirect()->route(PortalHome::for(auth()->user())));
 
-// Breeze redirects here after login / register / verification.
-Route::get('/dashboard', fn() => redirect()->route('admin.dashboard'))
+/*
+ * Breeze redirects here after login, registration, email verification, the
+ * verification prompt, resending the verification mail and confirming a
+ * password — all seven of its controllers call route('dashboard'), and the
+ * framework's own guest middleware resolves to the same name when an
+ * already-authenticated visitor opens /login. Fixing the NAME therefore fixes
+ * every one of those at once, which is why Breeze itself is untouched.
+ */
+Route::get('/dashboard', fn () => redirect()->route(PortalHome::for(auth()->user())))
     ->middleware('auth')
     ->name('dashboard');
+
+/*
+ * Signed in, with no screens yet: a client today, and any role a later phase
+ * adds before the phase that builds its portal.
+ *
+ * A page, and a 200. A 403 at the end of a successful login looks like a
+ * broken account and turns into a support message; this says what is actually
+ * true, which is that the account works and an administrator has to finish
+ * setting it up.
+ */
+Route::get('/no-portal', fn () => view('portal.unavailable'))
+    ->middleware('auth')
+    ->name(PortalHome::NONE);
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

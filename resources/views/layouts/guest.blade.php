@@ -1,3 +1,9 @@
+{{-- The centred card the signed-out screens sit in. The two labels are
+     props with their existing values as defaults, so every auth screen reads
+     exactly as it did; the no-portal page is the one caller that overrides
+     them, because "Admin Portal" is not what it is. --}}
+@props(['eyebrow' => 'Admin Portal', 'heading' => 'MarkDev LMS'])
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -5,7 +11,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'MarkDev') }} — Admin Portal</title>
+        <title>{{ config('app.name', 'MarkDev') }} — {{ $eyebrow }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
@@ -29,8 +35,8 @@
                     <a href="/" class="inline-flex">
                         <x-brand-mark class="size-14" gradient-id="guest" />
                     </a>
-                    <p class="mt-5 font-mono text-[11px] font-medium uppercase tracking-[0.24em] text-primary">Admin Portal</p>
-                    <h1 class="mt-1.5 font-display text-2xl font-bold tracking-[-0.01em] text-on-surface">MarkDev LMS</h1>
+                    <p class="mt-5 font-mono text-[11px] font-medium uppercase tracking-[0.24em] text-primary">{{ $eyebrow }}</p>
+                    <h1 class="mt-1.5 font-display text-2xl font-bold tracking-[-0.01em] text-on-surface">{{ $heading }}</h1>
                 </div>
 
                 <div class="rounded-2xl bg-white p-8 shadow-elevated">
