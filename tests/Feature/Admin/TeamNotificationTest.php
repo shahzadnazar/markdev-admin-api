@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\ClientQuestion;
 use App\Models\Project;
 use App\Models\ProjectMilestone;
 use App\Models\Team;
@@ -9,6 +10,7 @@ use App\Models\TeamAbsenceFine;
 use App\Models\TeamAttendance;
 use App\Models\TeamLeaveApplication;
 use App\Models\User;
+use App\Notifications\ClientAskedAQuestion;
 use App\Notifications\MentionedInComment;
 use App\Notifications\MilestoneDueTomorrow;
 use App\Notifications\ProjectOverdue;
@@ -458,10 +460,11 @@ class TeamNotificationTest extends TestCase
     /* ---------------------------- The whole rule ---------------------------- */
 
     /**
-     * Clients and academy roles get nothing, in one place rather than seven.
+     * Clients and academy roles get nothing, in one place rather than eight.
      *
      * PortalNotifier asks whether the recipient is in the team portal at all
-     * before it asks anything else, so this is one answer for all seven events.
+     * before it asks anything else, so this is one answer for all eight events —
+     * including the one a client causes themselves.
      */
     public function test_a_client_and_an_instructor_are_told_nothing(): void
     {
@@ -481,18 +484,33 @@ class TeamNotificationTest extends TestCase
         }
     }
 
-    /** No seven-and-a-half: the events are the seven classes and no more. */
-    public function test_there_are_exactly_seven_team_portal_notification_classes(): void
+    /**
+     * EIGHT, and eight is a decision.
+     *
+     * Phase 6 fixed this at seven so an eighth could not arrive unnoticed, and
+     * phase 7 moved it to eight on purpose: a client asked a question on a
+     * project, sent to that project's team-lead. It passes the same bar the
+     * others pass — something a person would otherwise miss, that nothing else
+     * on their screens would tell them.
+     *
+     * THE NUMBER IS NOT A CEILING THAT GETS BUMPED WHENEVER IT IS INCONVENIENT.
+     * Failing this test is the prompt to argue for the event, in a commit
+     * message, against the standard above — not to add one to the count and
+     * move on. A list people scroll past is worse than no list, and it gets
+     * that way one defensible addition at a time.
+     */
+    public function test_there_are_exactly_eight_team_portal_notification_classes(): void
     {
         $classes = collect(glob(app_path('Notifications/*.php')))
             ->map(fn (string $file) => basename($file, '.php'))
             ->values()
             ->all();
 
-        // The academy's six, untouched, plus this phase's seven.
+        // The academy's six, untouched, plus the team portal's eight.
         $this->assertSame([
             'AnnouncementPublished',
             'AttendanceModeChanged',
+            'ClientAskedAQuestion',
             'FeeSubmissionReceived',
             'FeeSubmissionReviewed',
             'InstallmentStatusChanged',
@@ -504,8 +522,8 @@ class TeamNotificationTest extends TestCase
             'TaskReassignedAway',
             'TeamAbsenceFineCharged',
             'TeamLeaveReviewed',
-        ], $classes, 'A notification class was added or removed. Seven team events, and no more — a list '
-            .'people scroll past is worse than no list.');
+        ], $classes, 'A notification class was added or removed. Eight team events, and the number is a '
+            .'decision: argue for a ninth in the commit message, do not raise the count to make this pass.');
     }
 
     /** Nothing in this phase is delivered anywhere but the portal. */
@@ -520,6 +538,7 @@ class TeamNotificationTest extends TestCase
             new ProjectOverdue($this->project, 1),
             new TeamLeaveReviewed(new TeamLeaveApplication),
             new TeamAbsenceFineCharged(new TeamAbsenceFine),
+            new ClientAskedAQuestion(new ClientQuestion),
         ];
 
         foreach ($notifications as $notification) {

@@ -88,6 +88,10 @@ class ProjectController extends Controller
             'comments.replies.author:id,name',
             'comments.mentions.user:id,name',
             'comments.replies.mentions.user:id,name',
+            // What the client asked, unanswered first. Its own relation and not
+            // a comment surface: one question, one answer.
+            'questions' => fn ($query) => $query->queued(),
+            'questions.answerer:id,name',
         ]);
 
         if ($request->user()->can(Project::FULL_VIEW_PERMISSION)) {

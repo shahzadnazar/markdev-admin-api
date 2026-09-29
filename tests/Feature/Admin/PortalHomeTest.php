@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Client;
 use App\Models\User;
 use App\Support\PortalHome;
 use Database\Seeders\RolePermissionSeeder;
@@ -148,6 +149,65 @@ class PortalHomeTest extends TestCase
         $this->actingAs($lead);
 
         $this->assertSame(route('admin.teams.index'), PortalHome::url());
+    }
+
+    /**
+     * A client with a CLIENT RECORD lands on their portal.
+     *
+     * The provider above keeps saying NONE for `client`, and that is not stale:
+     * it describes a client ROLE with nothing linked to it, which is an account
+     * an admin has set up and not yet finished. The entitlement is the row.
+     */
+    public function test_a_linked_client_lands_on_the_client_portal(): void
+    {
+        $user = $this->user('client');
+
+        $this->assertSame(PortalHome::NONE, PortalHome::for($user));
+
+        Client::create(['name' => 'Bartleby Ironworks', 'user_id' => $user->id, 'is_active' => true]);
+
+        $this->assertSame(PortalHome::CLIENT_DESTINATION, PortalHome::for($user->fresh()));
+        $this->assertSame(route('client.projects.index'), PortalHome::url($user->fresh()));
+
+        $this->actingAs($user)->get('/')->assertRedirect(route('client.projects.index'));
+    }
+
+    /**
+     * Deactivating a client does not take their portal away.
+     *
+     * The toggle means "stop offering them on new projects" — phase 2 says so in
+     * as many words, and their existing projects stay readable. The switch that
+     * means "may not sign in" is the USER's own is_active, and it is the one
+     * switch that means that everywhere.
+     */
+    public function test_a_deactivated_client_still_has_a_portal(): void
+    {
+        $user = $this->user('client');
+        Client::create(['name' => 'Bartleby Ironworks', 'user_id' => $user->id, 'is_active' => false]);
+
+        $this->assertSame(PortalHome::CLIENT_DESTINATION, PortalHome::for($user->fresh()));
+    }
+
+    /**
+     * THE CLIENT DESTINATION IS NOT IN THE PANEL GATE.
+     *
+     * gate() is derived from DESTINATIONS and is the door to /admin. That is the
+     * whole reason the client destination is resolved from data rather than from
+     * a permission in that map: a permission there would be a permission that
+     * opens the admin topbar, which is the one thing this phase exists to keep
+     * from a client.
+     */
+    public function test_the_client_destination_is_not_one_of_the_panel_permissions(): void
+    {
+        $this->assertNotContains(PortalHome::CLIENT_DESTINATION, PortalHome::DESTINATIONS);
+        $this->assertStringNotContainsString('client', PortalHome::gate());
+
+        $user = $this->user('client');
+        Client::create(['name' => 'Bartleby Ironworks', 'user_id' => $user->id, 'is_active' => true]);
+
+        // Landing somewhere did not open the topbar.
+        $this->actingAs($user->fresh())->get(route('admin.notifications.index'))->assertForbidden();
+        $this->actingAs($user->fresh())->post(route('admin.notifications.read-all'))->assertForbidden();
     }
 
     public function test_a_guest_is_sent_to_the_login_screen(): void

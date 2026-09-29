@@ -48,6 +48,23 @@ use Illuminate\Support\Facades\Route;
  * lands. That is why `projects` and `tasks` are already listed: a team member
  * gets the no-portal page today and their project list the day it ships, with
  * nothing to remember here.
+ *
+ * ## The client is resolved by DATA, and that is not a lapse
+ *
+ * Everything above is keyed on a permission. The client portal is not, and could
+ * not safely be: `gate()` below is derived from DESTINATIONS, and `gate()` is the
+ * door to /admin. A client destination expressed as a permission would therefore
+ * be a permission that opens the admin topbar — it would hand a client the one
+ * thing phase 7 is built to keep from them.
+ *
+ * So DESTINATIONS stays the PANEL map, and being a client is asked of the data:
+ * you get the client portal when a client record points at your login. That is
+ * also the truer statement. A client's entitlement is not something granted to a
+ * role; it is the fact that MarkDev does work for them, and that fact is a row.
+ *
+ * Checked LAST, after every panel destination. A super-admin who is also linked
+ * as a client is still a super-admin, and PortalLabel — the authoritative file —
+ * ranks every staff role above every other, so this order agrees with it.
  */
 class PortalHome
 {
@@ -84,6 +101,14 @@ class PortalHome
      */
     public const PANEL_ROLES = ['super-admin', 'admin', 'manager', 'instructor', 'team-lead', 'team'];
 
+    /**
+     * Where a client lands. Not in DESTINATIONS, and see the class docblock why.
+     *
+     * Skipped when the route does not exist, exactly as a panel destination is,
+     * so this constant could have been written in phase 2 and lit up here.
+     */
+    public const CLIENT_DESTINATION = 'client.projects.index';
+
     /** Signed in, with nowhere to be. A page, not a 403 — see its view. */
     public const NONE = 'portal.unavailable';
 
@@ -116,6 +141,14 @@ class PortalHome
             }
 
             return $route;
+        }
+
+        // No panel. A client record pointing at this login is the client portal's
+        // whole entitlement — see the class docblock for why this is data and not
+        // a permission, and why it is asked after the panel map rather than
+        // before it.
+        if (ClientPortal::isClient($user) && Route::has(static::CLIENT_DESTINATION)) {
+            return static::CLIENT_DESTINATION;
         }
 
         return static::NONE;
@@ -169,7 +202,9 @@ class PortalHome
      * listed, with nothing to remember here.
      *
      * This is the union of the two existing gates and nothing more. It admits
-     * nobody who could not already open a panel screen.
+     * nobody who could not already open a panel screen — and in particular no
+     * client, which is why the client destination is deliberately not one of the
+     * permissions this is built from.
      */
     public static function gate(): string
     {

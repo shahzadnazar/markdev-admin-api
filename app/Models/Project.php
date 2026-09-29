@@ -151,6 +151,18 @@ class Project extends Model
         return $this->morphMany(TeamFile::class, 'owner');
     }
 
+    /**
+     * What the client has asked about this project.
+     *
+     * The ONE surface a client writes to, and not a second discussion: one
+     * question, one answer, and the team talks it over in `comments` above —
+     * which the client never sees. See ClientQuestion.
+     */
+    public function questions(): HasMany
+    {
+        return $this->hasMany(ClientQuestion::class);
+    }
+
     /* ------------------------------- Scopes -------------------------------- */
 
     /**

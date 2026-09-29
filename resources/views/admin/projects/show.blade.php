@@ -77,6 +77,77 @@
         <div class="space-y-5">
         <x-team.file-list :owner="$project" owner-type="project" :files="$project->files" />
 
+        {{-- WHAT THE CLIENT ASKED. One question, one answer — the lead's
+             DISCUSSION of it happens in the ordinary discussion below, which the
+             client cannot see. There is no thread here and there must not be
+             one: a client-visible conversation is what phase 5's whole table
+             design keeps out. --}}
+        @if ($project->questions->isNotEmpty())
+            <x-card>
+                <h2 class="font-display text-[15px] font-semibold text-on-surface">Client questions</h2>
+                <p class="mt-0.5 text-[13px] text-on-surface-variant">
+                    Only this project's team lead answers the client. Anyone else raises it in the discussion below.
+                </p>
+
+                <div class="mt-4 space-y-3">
+                    @foreach ($project->questions as $question)
+                        <div class="rounded-xl border border-outline-variant/60 p-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <p class="min-w-0 whitespace-pre-line text-[13px] leading-5 text-on-surface">{{ $question->body }}</p>
+                                <x-badge :variant="match ($question->status) {
+                                    \App\Models\ClientQuestion::ANSWERED => 'success',
+                                    \App\Models\ClientQuestion::CLOSED => 'neutral',
+                                    default => 'warning',
+                                }" class="shrink-0">{{ $question->statusLabel() }}</x-badge>
+                            </div>
+                            <p class="mt-1.5 font-mono text-[10px] text-outline">Asked {{ $question->created_at->format('j M Y') }}</p>
+
+                            @if ($question->answer_body)
+                                <div class="mt-3 rounded-lg bg-surface-ice px-4 py-3">
+                                    <p class="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-primary">
+                                        Answered by {{ $question->answerer?->name ?? 'the team' }}
+                                    </p>
+                                    <p class="mt-1 whitespace-pre-line text-[13px] leading-5 text-on-surface">{{ $question->answer_body }}</p>
+                                </div>
+                            @endif
+
+                            {{-- The form is drawn for the lead and the admins only.
+                                 A member who posts anyway gets a 403 from the
+                                 controller — the gate is there, and this only
+                                 stops offering a control that would refuse. --}}
+                            @if ($question->isOpen() && $question->mayBeAnsweredBy(auth()->user()))
+                                <form method="POST" action="{{ route('admin.projects.questions.answer', [$project, $question]) }}" class="mt-3">
+                                    @csrf
+                                    <label for="answer-{{ $question->id }}" class="sr-only">Your answer</label>
+                                    <textarea id="answer-{{ $question->id }}" name="answer_body" rows="3" required maxlength="4000"
+                                        placeholder="Write the answer the client will read…"
+                                        class="w-full rounded-xl border border-outline-variant/70 bg-white px-4 py-3 text-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"></textarea>
+                                    <div class="mt-2 flex justify-end">
+                                        <x-btn type="submit" size="sm">Send answer</x-btn>
+                                    </div>
+                                </form>
+
+                                {{-- Outside the answer form, not inside it: the
+                                     confirm dialog carries its own <form>, and one
+                                     form nested in another is a shape nobody should
+                                     have to reason about. --}}
+                                <div class="mt-2 flex justify-end">
+                                    <x-confirm-form :action="route('admin.projects.questions.close', [$project, $question])" method="POST"
+                                        title="Close without answering"
+                                        message="Close this question without an answer? The client will see that it was closed, rather than being left waiting."
+                                        confirm-label="Close it"
+                                        variant="primary"
+                                        class="px-3 py-1.5 text-xs font-medium text-on-surface-variant transition hover:bg-primary/5 hover:text-primary">
+                                        Close without answering
+                                    </x-confirm-form>
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </x-card>
+        @endif
+
         {{-- The team's discussion. A CLIENT NEVER SEES THIS, even on their own
              project, and there is no per-comment flag that could change that. --}}
         <x-card>

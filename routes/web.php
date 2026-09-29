@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\BiometricController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\ClientQuestionController;
 use App\Http\Controllers\Admin\CourseController;
 use App\Http\Controllers\Admin\DailyAttendanceController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\Admin\TeamProjectCommentController;
 use App\Http\Controllers\Admin\TeamScoreController;
 use App\Http\Controllers\Admin\TeamTaskCommentController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Client\ProjectController as ClientProjectController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Middleware\ResolveFileViewer;
@@ -689,7 +691,22 @@ Route::prefix('admin')
             Route::delete('files/{file}', [TeamFileController::class, 'destroy'])->name('team-files.destroy');
         });
 
+        /*
+         * Answering a client's question.
+         *
+         * `projects.view` at the door, because you have to be able to open the
+         * project at all; WHO may answer is decided in the controller, because
+         * it is "the lead of THIS project's team" and no permission can say
+         * that. A member reaching these gets a 403 — they can see the question,
+         * they are simply not the person the client asked.
+         *
+         * No store and no destroy: the client writes the question, the lead
+         * writes the answer, and neither is edited afterwards.
+         */
         Route::middleware('can:projects.view')->group(function () {
+            Route::post('projects/{project}/questions/{question}/answer', [ClientQuestionController::class, 'answer'])->name('projects.questions.answer');
+            Route::post('projects/{project}/questions/{question}/close', [ClientQuestionController::class, 'close'])->name('projects.questions.close');
+
             Route::post('projects/{project}/comments', [TeamProjectCommentController::class, 'store'])->name('projects.comments.store');
             Route::put('projects/{project}/comments/{comment}', [TeamProjectCommentController::class, 'update'])->name('projects.comments.update');
             Route::delete('projects/{project}/comments/{comment}', [TeamProjectCommentController::class, 'destroy'])->name('projects.comments.destroy');
@@ -729,6 +746,42 @@ Route::prefix('admin')
 
 /*
 |--------------------------------------------------------------------------
+| The client portal
+|--------------------------------------------------------------------------
+|
+| A SEPARATE GROUP, at its own prefix, with its own layout and its own views.
+| Not the admin panel, and not a narrowed version of it.
+|
+| Every /admin view assumes a panel user: a sidebar, a topbar bell, a breadcrumb
+| that resolves to a panel screen, a run of @can gates. Sharing one with a client
+| would mean growing an "unless they are a client" branch in each of them, and
+| that branch is where the leak would be. So the client group shares the LOGIN
+| and nothing else — the same form, the same session, the same users table, and
+| a different destination.
+|
+| THE DOOR IS NOT A PERMISSION. `client` holds none and gains none here: a
+| permission would show up on the Roles & Permissions screen as something to
+| grant, and "make this instructor a client" is not a sentence anybody should be
+| offered. What entitles somebody is a client record pointing at their login,
+| which EnsureClientPortal asks.
+|
+| Everything inside is scoped from that record, never from the request. A project
+| outside their own is a 404, decided in App\Support\ClientPortal.
+*/
+Route::prefix('client')
+    ->name('client.')
+    ->middleware(['auth', 'client'])
+    ->group(function () {
+        Route::get('/', [ClientProjectController::class, 'index'])->name('projects.index');
+        Route::get('projects/{project}', [ClientProjectController::class, 'show'])->name('projects.show');
+
+        // The ONE thing a client may write. No update, no destroy: a question
+        // asked is asked, and an answer is about the thing that was asked.
+        Route::post('projects/{project}/questions', [ClientProjectController::class, 'ask'])->name('questions.store');
+    });
+
+/*
+|--------------------------------------------------------------------------
 | Private files
 |--------------------------------------------------------------------------
 |
@@ -754,6 +807,12 @@ Route::middleware(ResolveFileViewer::class)
         // Team project and task files. Same rule as every route above: the
         // signature says who is asking, the controller says whether they may.
         Route::get('team/{file}', [FileController::class, 'teamFile'])->name('team');
+        // THE SAME FILE, asked for by the client it was shared with. A separate
+        // route because it is a separate question: teamFile asks whether you can
+        // see the work, which is false for a client by design, and this asks
+        // whether the file is flagged for clients AND its project is yours. One
+        // route with two answers inside it is how the wrong one gets given.
+        Route::get('client/{file}', [FileController::class, 'clientFile'])->name('client');
     });
 
 require __DIR__.'/auth.php';

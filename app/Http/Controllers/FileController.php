@@ -12,6 +12,7 @@ use App\Models\StudentProfile;
 use App\Models\TeamFile;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\ClientPortal;
 use App\Support\PrivateFiles;
 use App\Support\TeamWorkVisibility;
 use Illuminate\Http\Request;
@@ -200,13 +201,6 @@ class FileController extends Controller
     }
 
     /**
-     * May this person read material belonging to this course?
-     *
-     * An enrolled student, or staff who may edit the course — which for an
-     * instructor means their own courses only, the same category scoping the
-     * rest of the panel uses.
-     */
-    /**
      * A file attached to a project or a task.
      *
      * THE SIGNATURE IS NOT THE AUTHORISATION. ResolveFileViewer has already
@@ -230,6 +224,43 @@ class FileController extends Controller
         return $this->stream($file->path, $file->original_name);
     }
 
+    /**
+     * The same file, asked for by the CLIENT it was shared with.
+     *
+     * Its own method rather than a branch inside teamFile, because the question
+     * is a different question. teamFile asks "can you see the work this hangs
+     * off", which is false for a client by design — a client sees no task, no
+     * board and no team. This asks the two things that are true for a client:
+     *
+     *   the file is flagged `is_client_visible`, a flag only an admin can set,
+     *   AND its owning PROJECT is one of theirs.
+     *
+     * Both, in ClientPortal::seesFile. Either alone is a hole: the flag alone
+     * serves another client's shared file to whoever asks, and the ownership
+     * alone serves every internal file on their own project.
+     *
+     * AND THE SIGNATURE IS STILL NOT THE AUTHORISATION. ResolveFileViewer has
+     * established WHO is asking — from a session, or from `u` inside a signed
+     * link that cannot be tampered with — and the ownership check then runs
+     * against THAT person. A link minted for one client and followed by another
+     * is a 404, because the second client's own scope is what is consulted.
+     */
+    public function clientFile(Request $request, TeamFile $file)
+    {
+        // 404 rather than 403, as throughout: a refusal would confirm the file
+        // exists, and for client work that is already a fact worth protecting.
+        abort_unless(ClientPortal::seesFile($request->user(), $file), 404);
+
+        return $this->stream($file->path, $file->original_name);
+    }
+
+    /**
+     * May this person read material belonging to this course?
+     *
+     * An enrolled student, or staff who may edit the course — which for an
+     * instructor means their own courses only, the same category scoping the
+     * rest of the panel uses.
+     */
     protected function mayReadCourseMaterial(User $viewer, ?int $courseId): bool
     {
         if ($courseId === null) {

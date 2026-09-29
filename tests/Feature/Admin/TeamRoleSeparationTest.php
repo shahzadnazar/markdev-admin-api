@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -224,6 +225,82 @@ class TeamRoleSeparationTest extends TestCase
 
         foreach (['admin.dashboard', 'admin.teams.index', 'admin.settings.edit'] as $route) {
             $this->actingAs($client)->get(route($route))->assertForbidden();
+        }
+    }
+
+    /**
+     * EVERY /admin route, derived from the router — including this phase's.
+     *
+     * The three named above were a sample, and a sample is what phase 7 could
+     * have walked straight past: it gave a client their own portal and a login
+     * that lands somewhere, so "a client reaches no admin screen" stopped being
+     * a fact about a role with nowhere to go and became a fact that has to keep
+     * being true. Derived rather than listed, so a route added in a later phase
+     * is covered the day it appears.
+     *
+     * Every verb, not only GET. A POST is how a client would actually reach past
+     * a screen — answering a question they were not asked, marking a file
+     * client-visible — and those are the routes this phase added.
+     *
+     * 403 or 404 both count, and 405 for a verb a route does not take: what must
+     * never happen is a 2xx or a redirect, either of which means they got in.
+     * A parameterised route is called with a 1, which is either a row they may
+     * not see or no row at all; both are refusals and neither is admittance.
+     */
+    public function test_a_client_is_refused_by_every_single_admin_route(): void
+    {
+        $client = $this->user('client');
+        $admitted = [];
+        $checked = 0;
+
+        foreach (Route::getRoutes() as $route) {
+            $name = $route->getName();
+
+            if ($name === null || ! str_starts_with($name, 'admin.')) {
+                continue;
+            }
+
+            $url = '/'.preg_replace('/\{\w+\??\}/', '1', $route->uri());
+
+            foreach (array_diff($route->methods(), ['HEAD']) as $method) {
+                $status = $this->actingAs($client)
+                    ->call($method, $url)
+                    ->getStatusCode();
+
+                $checked++;
+
+                if (! in_array($status, [403, 404, 405], true)) {
+                    $admitted[] = sprintf('%s %s (%s) answered %d', $method, $url, $name, $status);
+                }
+            }
+        }
+
+        $this->assertSame([], $admitted, implode("\n", [
+            'A client was admitted to the admin panel:',
+            '  '.implode("\n  ", $admitted),
+            'The client portal is a separate group with its own layout. A client reaches NO /admin route,',
+            'and that is what keeps every panel view free of an "unless they are a client" branch.',
+        ]));
+
+        // Asserted, not assumed: a loop that found no routes would make the
+        // emptiness above meaningless and pass while blind.
+        $this->assertGreaterThan(150, $checked, 'the sweep barely visited any admin routes');
+    }
+
+    /**
+     * And the client portal refuses everybody who is not a client.
+     *
+     * The other direction of the same wall. A team-lead has no business on a
+     * client's screens either — not because they would learn anything new about
+     * that project, but because "staff can open the client view" is how a
+     * client-facing page quietly becomes a staff page with extra fields.
+     */
+    public function test_the_client_portal_refuses_every_staff_role(): void
+    {
+        foreach (['super-admin', 'admin', 'manager', 'instructor', 'team-lead', 'team', 'student'] as $role) {
+            $this->actingAs($this->user($role))
+                ->get(route('client.projects.index'))
+                ->assertForbidden(sprintf('a %s reached the client portal', $role));
         }
     }
 
