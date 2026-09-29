@@ -33,6 +33,7 @@ class DeliveryScoreCache
             [
                 'percent' => $score['percent'],
                 'stints_completed' => $score['stints_completed'],
+                'early_count' => $score['early_count'],
                 'late_count' => $score['late_count'],
                 'days_over' => $score['days_over'],
                 'blocked_days' => $score['blocked_days'],

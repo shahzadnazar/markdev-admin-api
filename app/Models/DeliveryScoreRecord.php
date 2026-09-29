@@ -25,6 +25,7 @@ class DeliveryScoreRecord extends Model
         'user_id',
         'percent',
         'stints_completed',
+        'early_count',
         'late_count',
         'days_over',
         'blocked_days',
@@ -36,6 +37,7 @@ class DeliveryScoreRecord extends Model
         return [
             'percent' => 'integer',
             'stints_completed' => 'integer',
+            'early_count' => 'integer',
             'late_count' => 'integer',
             'days_over' => 'integer',
             'blocked_days' => 'integer',
@@ -54,6 +56,7 @@ class DeliveryScoreRecord extends Model
         return [
             'percent' => $this->percent,
             'stints_completed' => $this->stints_completed,
+            'early_count' => $this->early_count,
             'late_count' => $this->late_count,
             'days_over' => $this->days_over,
             'blocked_days' => $this->blocked_days,

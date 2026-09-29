@@ -37,7 +37,7 @@ class DeliveryScoreCalculator
     public function __construct(protected StintClock $clock) {}
 
     /**
-     * @return array{percent: ?int, stints_completed: int, late_count: int, days_over: int, blocked_days: int, minimum: int}
+     * @return array{percent: ?int, stints_completed: int, early_count: int, late_count: int, days_over: int, blocked_days: int, minimum: int}
      */
     public function for(User $user): array
     {
@@ -54,6 +54,7 @@ class DeliveryScoreCalculator
 
         $numerator = 0.0;
         $denominator = 0;
+        $early = 0;
         $late = 0;
         $daysOver = 0;
 
@@ -62,6 +63,14 @@ class DeliveryScoreCalculator
             $denominator += $allowed;
 
             if (in_array($stint->outcome, TaskAssignment::KEPT_THE_PROMISE, true)) {
+                if ($stint->outcome === 'early') {
+                    // Counted whatever the early MODE is. The mode decides what
+                    // an early day is worth in the percentage; how many there
+                    // were is a fact about the record either way, and it is the
+                    // only figure that separates two people both capped at 100.
+                    $early++;
+                }
+
                 $numerator += $allowed * ($stint->outcome === 'early' ? DeliveryScore::earlyWeight() : 1.0);
 
                 continue;
@@ -85,6 +94,7 @@ class DeliveryScoreCalculator
                 ? (int) min(100, round($numerator / $denominator * 100))
                 : null,
             'stints_completed' => $completed,
+            'early_count' => $early,
             'late_count' => $late,
             'days_over' => $daysOver,
             'blocked_days' => (int) $blocked,

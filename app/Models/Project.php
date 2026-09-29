@@ -59,6 +59,34 @@ class Project extends Model
      * Only super-admin and admin hold it. The same string is the gate in the
      * views; it is named here so the query scope and the markup cannot part
      * company.
+     *
+     * ## ONE PERMISSION, TWO QUESTIONS — and that is a choice
+     *
+     * This constant answers both of these:
+     *
+     *   WHICH ROWS does this viewer see?      scopeVisibleTo, below
+     *   ARE the client and the value SHOWN?   the `@can` in the views
+     *
+     * They are the same answer today only because the only people holding
+     * `clients.view` are the two roles that see everything anyway. They stop
+     * being the same answer the first time somebody should oversee EVERY project
+     * without being shown what each one is worth — an auditor, a delivery
+     * manager, a second-tier admin. That is a real role, not a hypothetical one,
+     * and this is deliberately not built for it yet.
+     *
+     * THE SPLIT, when it is needed. Add a second constant beside this one:
+     *
+     *     public const FULL_VIEW_PERMISSION = 'clients.view';   // which rows
+     *     public const MONEY_VIEW_PERMISSION = 'clients.view';  // which fields
+     *
+     * both pointing at the same permission, so nothing changes on the day they
+     * are introduced. Then move every `@can(Project::FULL_VIEW_PERMISSION)` in a
+     * VIEW and every `->with('client')` in a controller onto the second one, and
+     * repoint it at a new permission. The order matters: two constants with one
+     * value first, callers moved second, value changed last — each step is
+     * verifiable on its own, and the middle step is the one a test can prove is
+     * complete. Doing it in one commit means the grep and the behaviour change
+     * together and nothing tells you which callers you missed.
      */
     public const FULL_VIEW_PERMISSION = 'clients.view';
 

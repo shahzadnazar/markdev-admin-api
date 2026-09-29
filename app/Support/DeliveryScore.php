@@ -28,10 +28,24 @@ class DeliveryScore
      */
     public const DEFAULT_MINIMUM_STINTS = 3;
 
-    /** `same` — early is on time. `better` — early is worth more. */
+    /**
+     * `same` — early is on time. `better` — early offsets lateness elsewhere.
+     *
+     * THE `better` LABEL SAYS WHAT THE DIAL DOES, not what its name suggests.
+     * It used to read "Early counts for more than on time", and that is false in
+     * the case anybody checks first: the score is capped at 100, so somebody
+     * early on everything reads 100 and somebody on time on everything also
+     * reads 100. The dial cannot separate those two people at all.
+     *
+     * What it CAN do is partly offset a late stint with an early one, which is
+     * the only record it changes — and the cap is right, because a score above
+     * full marks is nonsense. So the wording moved rather than the maths. The
+     * figure that DOES separate two people both sitting at 100 is the count of
+     * early stints, which the score component now draws beside the others.
+     */
     public const EARLY_MODES = [
         'same' => 'Early counts the same as on time',
-        'better' => 'Early counts for more than on time',
+        'better' => 'Early offsets late stints (the score still caps at 100%)',
     ];
 
     public const DEFAULT_EARLY_MODE = 'same';
@@ -43,7 +57,8 @@ class DeliveryScore
      * and by how much is a decision this codebase makes once so two academies
      * comparing notes are comparing the same number. The percentage is capped
      * at 100 afterwards, so the bonus lifts somebody whose other stints were
-     * late rather than inventing a score above full marks.
+     * late rather than inventing a score above full marks — which is also why
+     * the `better` label promises exactly that and no more.
      */
     public const EARLY_MULTIPLIER = 1.25;
 

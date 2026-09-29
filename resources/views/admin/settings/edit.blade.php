@@ -317,7 +317,7 @@
                             :value="$settings['delivery_minimum_stints']" required min="1" max="50" class="no-spinner"
                             hint="Below this a person shows &quot;not enough completed work yet&quot; rather than a percentage. One finished task must not decide whether somebody reads 0% or 100%." />
                         <x-form.select label="Finishing early" name="delivery_early_mode" required
-                            hint="Whether beating the allowance is worth more than meeting it. The percentage is capped at 100 either way.">
+                            hint="Whether an early stint offsets a late one. It cannot lift anybody above 100%, so it does not separate somebody early on everything from somebody on time on everything — the count of early stints beside each score is what does that.">
                             @foreach (\App\Support\DeliveryScore::EARLY_MODES as $mode => $label)
                                 <option value="{{ $mode }}" @selected(old('delivery_early_mode', $settings['delivery_early_mode']) === $mode)>{{ $label }}</option>
                             @endforeach

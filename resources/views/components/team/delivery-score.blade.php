@@ -5,9 +5,16 @@
      A percentage on its own is not a fact about a person, it is a number
      somebody will quote in a meeting. It is never drawn without the counts
      that make it readable: how many stints it is computed from, how many were
-     late, how many days over, and how many days were spent blocked — because
-     blocked days are the answer to "why is this low", and a score shown
-     without them invites the wrong conversation.
+     EARLY, how many late, how many days over, and how many days were spent
+     blocked — because blocked days are the answer to "why is this low", and a
+     score shown without them invites the wrong conversation.
+
+     THE EARLY COUNT IS WHY THIS LIST HAS FIVE FIGURES AND NOT FOUR. The score
+     caps at 100, so somebody early on every stint and somebody on time on every
+     stint both read 100 and the percentage cannot tell them apart — see
+     DeliveryScore::EARLY_MODES, whose `better` label promises only that early
+     offsets late. This is the figure that separates them, and a scoreboard that
+     wanted to rank two people both sitting at 100 had nothing to rank on.
 
      Below the minimum there is NO percentage at all. Null is "not enough
      completed work to say", which is a different statement from 0% and stays
@@ -44,6 +51,11 @@
             <dt class="sr-only">Stints completed</dt>
             <dd><span class="font-semibold text-on-surface-variant">{{ $score['stints_completed'] }}</span> completed</dd>
         </div>
+        {{-- Before "late", so the two read as the pair they are. --}}
+        <div class="flex items-center gap-1">
+            <dt class="sr-only">Early</dt>
+            <dd><span class="font-semibold {{ $score['early_count'] > 0 ? 'text-success' : 'text-on-surface-variant' }}">{{ $score['early_count'] }}</span> early</dd>
+        </div>
         <div class="flex items-center gap-1">
             <dt class="sr-only">Late</dt>
             <dd><span class="font-semibold {{ $score['late_count'] > 0 ? 'text-error' : 'text-on-surface-variant' }}">{{ $score['late_count'] }}</span> late</dd>
@@ -61,7 +73,9 @@
     @unless ($compact)
         <p class="mt-2 max-w-md text-[11px] leading-4 text-outline">
             Day-weighted: each stint counts for the days it was given, so a long task delivered late
-            outweighs several short ones delivered on time. Handovers count for neither side.
+            outweighs several short ones delivered on time. Handovers count for neither side, and the
+            percentage caps at 100 — the early count is what separates a perfect record from an
+            early one.
         </p>
     @endunless
 </div>

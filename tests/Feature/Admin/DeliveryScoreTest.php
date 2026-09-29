@@ -49,12 +49,18 @@ class DeliveryScoreTest extends TestCase
     /** A finished stint of a stated shape, with no clock arithmetic involved. */
     protected function stint(int $days, string $outcome): TaskAssignment
     {
-        $team = $this->makeTeam('Web '.uniqid(), null, [$this->member]);
+        return $this->stintFor($this->member, $days, $outcome);
+    }
+
+    /** The same, for somebody other than the member under test. */
+    protected function stintFor(User $user, int $days, string $outcome): TaskAssignment
+    {
+        $team = $this->makeTeam('Web '.uniqid(), null, [$user]);
         $task = $this->makeTask($team, ['days_allowed' => $days]);
 
         return $this->makeStint(
             $task,
-            $this->member,
+            $user,
             $days,
             $this->monday(),
             $this->monday()->copy()->addDays(4),
@@ -259,7 +265,11 @@ class DeliveryScoreTest extends TestCase
         // Eager-loaded, so six stints cost the same as one. A query per stint
         // is what the progress-percent work was written to avoid, and this is
         // the same arrangement.
-        fwrite(STDERR, "\nQUERIES: {$queries}\n");
+        //
+        // Printed in the same shape as the other five probes in this suite, and
+        // naming what was measured: a bare "QUERIES: 8" in a 1300-test run tells
+        // whoever reads the output nothing about which number moved.
+        fwrite(STDERR, "\n  [query count] one member's live delivery score, 6 stints and a leave: {$queries} queries\n");
         $this->assertLessThanOrEqual(8, $queries, 'the live score is running a query per stint');
     }
 
@@ -284,9 +294,92 @@ class DeliveryScoreTest extends TestCase
 
         $this->assertStringContainsString('50%', $html);
 
-        foreach (['completed', 'late', 'days over', 'blocked'] as $context) {
+        foreach (['completed', 'early', 'late', 'days over', 'blocked'] as $context) {
             $this->assertStringContainsString($context, $html);
         }
+    }
+
+    /**
+     * THE COUNT THAT SEPARATES TWO PEOPLE BOTH READING 100.
+     *
+     * The percentage caps at full marks, so somebody early on every stint and
+     * somebody on time on every stint are the same number — under either early
+     * mode. The component draws the early count for exactly this reason, and a
+     * scoreboard built on the percentage alone could not rank them.
+     */
+    public function test_the_early_count_is_what_tells_a_perfect_record_from_an_early_one(): void
+    {
+        $this->setMinimum(1);
+        $this->stint(4, 'early');
+        $this->stint(4, 'early');
+
+        $early = $this->calculator->for($this->member);
+
+        $onTimeMember = $this->roleUser('team', ['name' => 'Steady Hand']);
+        $this->stintFor($onTimeMember, 4, 'on_time');
+        $this->stintFor($onTimeMember, 4, 'on_time');
+
+        $onTime = $this->calculator->for($onTimeMember);
+
+        // Indistinguishable by the number…
+        $this->assertSame(100, $early['percent']);
+        $this->assertSame(100, $onTime['percent']);
+        $this->assertSame($early['stints_completed'], $onTime['stints_completed']);
+
+        // …and told apart by the count.
+        $this->assertSame(2, $early['early_count']);
+        $this->assertSame(0, $onTime['early_count']);
+
+        $html = Blade::render('<x-team.delivery-score :score="$score" />', ['score' => $early]);
+        $this->assertStringContainsString('2</span> early', $html);
+    }
+
+    /**
+     * And the same is true with the dial turned up, which is what the label had
+     * to stop promising.
+     *
+     * `better` used to be labelled "Early counts for more than on time". It does
+     * not: the cap means both of these still read 100. What it does is offset a
+     * late stint, which is what the label says now.
+     */
+    public function test_the_better_mode_still_cannot_separate_them(): void
+    {
+        $this->setMinimum(1);
+        Setting::updateOrCreate(['key' => DeliveryScore::EARLY_MODE_KEY], ['value' => 'better', 'group' => 'general']);
+        Setting::forgetCached();
+
+        $this->stint(4, 'early');
+        $this->stint(4, 'early');
+
+        $onTimeMember = $this->roleUser('team', ['name' => 'Steady Hand']);
+        $this->stintFor($onTimeMember, 4, 'on_time');
+        $this->stintFor($onTimeMember, 4, 'on_time');
+
+        $this->assertSame(100, $this->calculator->for($this->member)['percent']);
+        $this->assertSame(100, $this->calculator->for($onTimeMember)['percent']);
+
+        // So the option's wording must not claim otherwise. Asserted on the
+        // label itself, because it is the thing that was wrong.
+        $this->assertStringNotContainsString('for more than on time', DeliveryScore::EARLY_MODES['better']);
+        $this->assertStringContainsString('offsets late', DeliveryScore::EARLY_MODES['better']);
+    }
+
+    /** The cached row carries it too, or a list screen could not show it. */
+    public function test_the_cached_row_stores_the_early_count(): void
+    {
+        $this->setMinimum(1);
+        $this->stint(4, 'early');
+        $this->stint(4, 'late');
+
+        $row = app(DeliveryScoreCache::class)->refresh($this->member);
+
+        $this->assertSame(1, $row->early_count);
+        $this->assertSame(1, $row->late_count);
+        $this->assertSame(1, $row->toScoreArray()['early_count']);
+
+        // The component takes the cached shape as readily as the live one.
+        $html = Blade::render('<x-team.delivery-score :score="$score" />', ['score' => $row->toScoreArray()]);
+        $this->assertStringContainsString('1</span> early', $html);
     }
 
     public function test_the_component_says_so_when_there_is_not_enough_work(): void
@@ -303,5 +396,10 @@ class DeliveryScoreTest extends TestCase
         $this->assertStringNotContainsString('%', strip_tags($html));
         // Still with the counts: "1 of 5 finished stints" is the useful part.
         $this->assertStringContainsString('1 of 5 finished stints', $html);
+        // All five of them, including early — the component draws the counts
+        // whether or not there is a percentage to draw them beside.
+        foreach (['completed', 'early', 'late', 'days over', 'blocked'] as $context) {
+            $this->assertStringContainsString($context, $html);
+        }
     }
 }

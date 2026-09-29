@@ -26,6 +26,7 @@
                     :score="$scores->get($member->id)?->toScoreArray() ?? [
                         'percent' => null,
                         'stints_completed' => 0,
+                        'early_count' => 0,
                         'late_count' => 0,
                         'days_over' => 0,
                         'blocked_days' => 0,
