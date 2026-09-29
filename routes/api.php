@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\V1\RuleController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\AssignmentController;
 use App\Http\Controllers\Api\V1\AttendanceController;
@@ -12,28 +11,30 @@ use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CertificateController;
 use App\Http\Controllers\Api\V1\CommentController;
-use App\Http\Controllers\Api\V1\LessonPrivateNoteController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LeaveApplicationController;
 use App\Http\Controllers\Api\V1\LessonController;
+use App\Http\Controllers\Api\V1\LessonPrivateNoteController;
 use App\Http\Controllers\Api\V1\ModuleController;
+use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProgressController;
 use App\Http\Controllers\Api\V1\QuizAttemptController;
 use App\Http\Controllers\Api\V1\QuizController;
+use App\Http\Controllers\Api\V1\RuleController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettingsController;
-use App\Http\Controllers\Api\V1\NoteController;
+use App\Http\Middleware\AuthenticateBiometricDevice;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     /* ---------------------- Biometric devices (X-Device-Key) --------------- */
 
     Route::post('biometric/punches', [BiometricPunchController::class, 'store'])
-        ->middleware(\App\Http\Middleware\AuthenticateBiometricDevice::class);
+        ->middleware(AuthenticateBiometricDevice::class);
 
     /* ------------------------------- Guest -------------------------------- */
 
@@ -53,7 +54,18 @@ Route::prefix('v1')->group(function () {
 
     /* ---------------------------- Authenticated --------------------------- */
 
-    Route::middleware('auth:sanctum')->group(function () {
+    /*
+     * Everything a signed-in student does.
+     *
+     * `maintenance` sits here and NOT on the guest routes above, deliberately.
+     * Downtime is decided per person — students and clients out, staff in — and
+     * nobody can be shown to be staff before they have authenticated. Blocking
+     * `auth/login` would make a scheduled maintenance window indistinguishable
+     * from the server being down, and would hold out the staff signing in to fix
+     * it. The first authenticated call after that login is where a blocked
+     * student meets the 503.
+     */
+    Route::middleware(['auth:sanctum', 'maintenance'])->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('auth/me', [AuthController::class, 'me']);
         Route::put('auth/password', [AuthController::class, 'updatePassword']);

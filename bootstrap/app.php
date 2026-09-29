@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnsureClientPortal;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -23,6 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // The client portal's door. Not a permission, and not a role name:
             // what entitles somebody is a client record pointing at their login.
             'client' => EnsureClientPortal::class,
+            // Scheduled downtime. On the student API and the client portal, and
+            // on NEITHER admin group — staff are the ones doing the maintenance,
+            // and an admin locked out of the setting that turns this off has a
+            // problem no banner can fix.
+            'maintenance' => EnforceMaintenanceMode::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

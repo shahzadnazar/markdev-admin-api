@@ -325,8 +325,17 @@
                     </div>
                 </div>
 
+                {{-- What this actually does, said on the control that does it.
+                     It used to promise a banner and block nobody. --}}
                 <x-form.toggle label="Maintenance mode" name="maintenance_mode" :checked="(bool) old('maintenance_mode', $settings['maintenance_mode'])"
-                    hint="Shows a maintenance banner to admin users; plan portal downtime with your team." />
+                    hint="Holds students and clients out of the portals while you work. Every staff role — including yours — keeps working, and so does the login page." />
+
+                <div class="mt-4">
+                    <x-form.textarea label="Downtime message" name="maintenance_message" :value="$settings['maintenance_message']" rows="3"
+                        maxlength="500"
+                        :placeholder="\App\Support\MaintenanceMode::DEFAULT_MESSAGE"
+                        hint="What a student or client reads while maintenance mode is on. Leave it empty to use the wording shown here." />
+                </div>
 
             </x-card>
 

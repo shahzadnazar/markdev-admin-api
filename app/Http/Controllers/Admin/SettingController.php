@@ -4,13 +4,29 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\RecacheCourseProgress;
+use App\Jobs\RecacheDeliveryScores;
+use App\Models\AttendanceSlot;
+use App\Models\Holiday;
 use App\Models\Setting;
+use App\Support\AbsenceFine;
+use App\Support\AcademyCalendar;
+use App\Support\AttendanceConfig;
+use App\Support\AttendanceWeights;
 use App\Support\AuditLogger;
+use App\Support\DeliveryScore;
+use App\Support\LeaveAllowance;
+use App\Support\ProgressWeights;
+use App\Support\QuizRules;
+use App\Support\TeamAttendanceConfig;
+use App\Support\TeamFineRules;
+use App\Support\TeamLeaveAllowance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SettingController extends Controller
@@ -29,46 +45,51 @@ class SettingController extends Controller
                 'billing_grace_days' => $settings['billing_grace_days'] ?? 5,
                 'billing_activation_days' => $settings['billing_activation_days'] ?? 5,
                 'maintenance_mode' => (bool) ($settings['maintenance_mode'] ?? false),
-                'attendance_pin_set' => \App\Support\AttendanceConfig::hasEditPin(),
-                'attendance_day_start' => \App\Support\AttendanceConfig::dayStart(),
-                'attendance_mode' => \App\Support\AttendanceConfig::mode(),
-                'attendance_late_after_minutes' => \App\Support\AttendanceConfig::lateAfterMinutes(),
-                'academy_working_days' => \App\Support\AcademyCalendar::workingDays(),
-                'holiday_announce_days_before' => \App\Support\AcademyCalendar::announceDaysBefore(),
-                'attendance_weights' => \App\Support\AttendanceWeights::all(),
+                // The wording whoever is blocked actually reads. Shown as the
+                // stored value or blank, NOT pre-filled with the default: a box
+                // that already contains text reads as "somebody wrote this",
+                // and the placeholder says what happens if it is left empty.
+                'maintenance_message' => (string) ($settings['maintenance_message'] ?? ''),
+                'attendance_pin_set' => AttendanceConfig::hasEditPin(),
+                'attendance_day_start' => AttendanceConfig::dayStart(),
+                'attendance_mode' => AttendanceConfig::mode(),
+                'attendance_late_after_minutes' => AttendanceConfig::lateAfterMinutes(),
+                'academy_working_days' => AcademyCalendar::workingDays(),
+                'holiday_announce_days_before' => AcademyCalendar::announceDaysBefore(),
+                'attendance_weights' => AttendanceWeights::all(),
                 // Four components, each a checkbox and a percentage. The
                 // checked ones must total 100; nothing redistributes on its own.
-                'progress_weights' => \App\Support\ProgressWeights::all(),
-                'monthly_leave_allowance' => \App\Support\LeaveAllowance::perMonth(),
-                'monthly_absent_allowance' => \App\Support\AbsenceFine::allowance(),
-                'absent_fine_amount' => \App\Support\AbsenceFine::perAbsence(),
+                'progress_weights' => ProgressWeights::all(),
+                'monthly_leave_allowance' => LeaveAllowance::perMonth(),
+                'monthly_absent_allowance' => AbsenceFine::allowance(),
+                'absent_fine_amount' => AbsenceFine::perAbsence(),
                 // Defaults for a NEW quiz. A quiz storing NULL follows these
                 // and keeps following them; one storing a number has been
                 // pinned on its own form.
-                'quiz_default_attempts' => \App\Support\QuizRules::defaultAttempts(),
-                'quiz_seconds_per_question' => \App\Support\QuizRules::defaultSecondsPerQuestion(),
+                'quiz_default_attempts' => QuizRules::defaultAttempts(),
+                'quiz_seconds_per_question' => QuizRules::defaultSecondsPerQuestion(),
                 // The team portal's delivery score. Two dials and no more: a
                 // third would be a third way for two academies to disagree
                 // about what the number means.
-                'delivery_minimum_stints' => \App\Support\DeliveryScore::minimumStints(),
-                'delivery_early_mode' => \App\Support\DeliveryScore::earlyMode(),
+                'delivery_minimum_stints' => DeliveryScore::minimumStints(),
+                'delivery_early_mode' => DeliveryScore::earlyMode(),
                 // The team portal's own attendance numbers. Every one of these
                 // is team-specific: changing a student number must never move a
                 // team number, and TeamSettingsIsolationTest asserts both ways.
-                'team_office_start_time' => \App\Support\TeamAttendanceConfig::officeStart(),
-                'team_late_after_minutes' => \App\Support\TeamAttendanceConfig::lateAfterMinutes(),
-                'team_leave_allowance_per_month' => \App\Support\TeamLeaveAllowance::perMonth(),
-                'team_absent_allowance_per_month' => \App\Support\TeamFineRules::allowance(),
-                'team_absent_fine_amount' => \App\Support\TeamFineRules::perAbsence(),
+                'team_office_start_time' => TeamAttendanceConfig::officeStart(),
+                'team_late_after_minutes' => TeamAttendanceConfig::lateAfterMinutes(),
+                'team_leave_allowance_per_month' => TeamLeaveAllowance::perMonth(),
+                'team_absent_allowance_per_month' => TeamFineRules::allowance(),
+                'team_absent_fine_amount' => TeamFineRules::perAbsence(),
             ],
             // Lateness is judged per slot now; the two keys above are what a
             // student without one falls back to.
-            'slots' => \App\Models\AttendanceSlot::ordered()->get(),
-            'slotCount' => \App\Models\AttendanceSlot::count(),
-            'holidayCount' => \App\Models\Holiday::count(),
-            'nextHoliday' => \App\Models\Holiday::where('date', '>=', today()->toDateString())
+            'slots' => AttendanceSlot::ordered()->get(),
+            'slotCount' => AttendanceSlot::count(),
+            'holidayCount' => Holiday::count(),
+            'nextHoliday' => Holiday::where('date', '>=', today()->toDateString())
                 ->orderBy('date')->first(),
-            'activeSlotCount' => \App\Models\AttendanceSlot::active()->count(),
+            'activeSlotCount' => AttendanceSlot::active()->count(),
             'backups' => $this->backups(),
         ]);
     }
@@ -84,6 +105,10 @@ class SettingController extends Controller
             'billing_grace_days' => ['required', 'integer', 'min:0', 'max:60'],
             'billing_activation_days' => ['required', 'integer', 'min:0', 'max:28'],
             'maintenance_mode' => ['nullable', 'boolean'],
+            // Optional: empty means MaintenanceMode::DEFAULT_MESSAGE, which is
+            // at least true and says what to do. Capped because this is one
+            // paragraph on a page with nothing else on it.
+            'maintenance_message' => ['nullable', 'string', 'max:500'],
             'attendance_edit_pin' => ['nullable', 'digits_between:4,8'],
             // Entered 12-hour with an AM/PM selector, like slot times; stored
             // as the same 24-hour H:i string this key has always held.
@@ -96,7 +121,7 @@ class SettingController extends Controller
             // academy that never opens marks nobody and bills nobody, and that
             // is a mistake to show rather than a state to store.
             'academy_working_days' => ['required', 'array', 'min:1'],
-            'academy_working_days.*' => ['integer', Rule::in(array_keys(\App\Models\AttendanceSlot::DAYS))],
+            'academy_working_days.*' => ['integer', Rule::in(array_keys(AttendanceSlot::DAYS))],
             // At least one day, because a notice that arrives on the morning of
             // the holiday is not notice. Capped so a typo cannot push every
             // notice a year out.
@@ -116,7 +141,7 @@ class SettingController extends Controller
             // Zero is meaningful here, unlike the allowances: it is how an
             // academy says absences are tracked but never charged for.
             'absent_fine_amount' => ['required', 'numeric', 'min:0', 'max:100000'],
-            'attendance_mode' => ['required', Rule::in(\App\Support\AttendanceConfig::MODES)],
+            'attendance_mode' => ['required', Rule::in(AttendanceConfig::MODES)],
             // Course progress components. The percentage is required whether
             // or not the box is ticked, which is what lets an unchecked
             // component keep its number and get it back when re-checked.
@@ -133,23 +158,23 @@ class SettingController extends Controller
             // sit, and unpublishing is the way to say that.
             'quiz_default_attempts' => [
                 'required', 'integer',
-                'min:'.\App\Support\QuizRules::MIN_ATTEMPTS,
-                'max:'.\App\Support\QuizRules::MAX_ATTEMPTS,
+                'min:'.QuizRules::MIN_ATTEMPTS,
+                'max:'.QuizRules::MAX_ATTEMPTS,
             ],
             // Seconds PER QUESTION, not per quiz: the total is this times the
             // questions the quiz has when the attempt starts. The floor stops
             // a typo creating a quiz that expires before it renders.
             'quiz_seconds_per_question' => [
                 'required', 'integer',
-                'min:'.\App\Support\QuizRules::MIN_SECONDS_PER_QUESTION,
-                'max:'.\App\Support\QuizRules::MAX_SECONDS_PER_QUESTION,
+                'min:'.QuizRules::MIN_SECONDS_PER_QUESTION,
+                'max:'.QuizRules::MAX_SECONDS_PER_QUESTION,
             ],
             // How much finished work somebody needs before a percentage is
             // shown at all. At least one, because a score computed from
             // nothing is not a score; capped so a typo cannot hide every
             // figure in the portal for good.
             'delivery_minimum_stints' => ['required', 'integer', 'min:1', 'max:50'],
-            'delivery_early_mode' => ['required', Rule::in(array_keys(\App\Support\DeliveryScore::EARLY_MODES))],
+            'delivery_early_mode' => ['required', Rule::in(array_keys(DeliveryScore::EARLY_MODES))],
             // Office start, entered 12-hour with an AM/PM selector like every
             // other time here, and stored as the 24-hour string.
             'team_office_start_hour' => ['required', 'integer', 'min:1', 'max:12'],
@@ -196,7 +221,7 @@ class SettingController extends Controller
          * up four boxes by hand to find the one that is wrong.
          */
         $checked = [];
-        foreach (array_keys(\App\Support\ProgressWeights::DEFAULTS) as $component) {
+        foreach (array_keys(ProgressWeights::DEFAULTS) as $component) {
             $data['progress_enabled_'.$component] = $request->boolean('progress_enabled_'.$component);
 
             if ($data['progress_enabled_'.$component]) {
@@ -205,13 +230,13 @@ class SettingController extends Controller
         }
 
         if ($checked === []) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'progress_enabled_premium' => 'Tick at least one progress component — progress has to be measured on something.',
             ]);
         }
 
         if (array_sum($checked) !== 100) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'progress_weight_attendance' => sprintf(
                     'Checked components must total 100%% — they currently total %d%%.',
                     array_sum($checked),
@@ -224,7 +249,7 @@ class SettingController extends Controller
         $data['academy_working_days'] = collect($data['academy_working_days'])
             ->map(fn ($day) => (int) $day)->unique()->sort()->values()->all();
 
-        $data['attendance_day_start'] = \Illuminate\Support\Carbon::createFromFormat(
+        $data['attendance_day_start'] = Carbon::createFromFormat(
             'g:i A',
             sprintf('%d:%02d %s',
                 $data['attendance_day_start_hour'],
@@ -240,7 +265,7 @@ class SettingController extends Controller
 
         // Folded into the 24-hour string the setting holds, exactly as the
         // academy day start is. The AM/PM wording is an input concern only.
-        $data['team_office_start_time'] = \Illuminate\Support\Carbon::createFromFormat(
+        $data['team_office_start_time'] = Carbon::createFromFormat(
             'g:i A',
             sprintf('%d:%02d %s',
                 $data['team_office_start_hour'],
@@ -255,11 +280,13 @@ class SettingController extends Controller
         );
 
         $data['maintenance_mode'] = $request->boolean('maintenance_mode');
-
+        // Trimmed to empty rather than stored as whitespace, so "the admin has
+        // written nothing" is one value and not several.
+        $data['maintenance_message'] = trim((string) ($data['maintenance_message'] ?? ''));
 
         // The PIN is stored hashed and only replaced when a new one is typed.
         if (! empty($data['attendance_edit_pin'])) {
-            \App\Support\AttendanceConfig::setEditPin($data['attendance_edit_pin']);
+            AttendanceConfig::setEditPin($data['attendance_edit_pin']);
             AuditLogger::log('updated', 'settings', null, null, ['key' => 'attendance_edit_pin']);
         }
         unset($data['attendance_edit_pin']);
@@ -271,7 +298,7 @@ class SettingController extends Controller
         // Only one source may write to the register, so instructors have to be
         // told which way it is being filled today — otherwise they either mark a
         // register that rejects them, or leave one unmarked expecting devices.
-        \App\Support\AttendanceConfig::setMode($data['attendance_mode'], $request->user());
+        AttendanceConfig::setMode($data['attendance_mode'], $request->user());
         unset($data['attendance_mode']);
 
         // The layout reads these from cache on every render.
@@ -302,7 +329,7 @@ class SettingController extends Controller
          * immediately, so the list screens have to catch up or the two
          * surfaces disagree about the same person.
          */
-        \App\Jobs\RecacheDeliveryScores::dispatch();
+        RecacheDeliveryScores::dispatch();
 
         return redirect()->route('admin.settings.edit')->with('success', 'Settings saved.');
     }
@@ -322,7 +349,7 @@ class SettingController extends Controller
         }
     }
 
-    /** @return array<int, array{name: string, size: int, date: \Illuminate\Support\Carbon}> */
+    /** @return array<int, array{name: string, size: int, date: Carbon}> */
     protected function backups(): array
     {
         return rescue(function () {
@@ -334,7 +361,7 @@ class SettingController extends Controller
                 ->map(fn (string $file) => [
                     'name' => basename($file),
                     'size' => $disk->size($file),
-                    'date' => \Illuminate\Support\Carbon::createFromTimestamp($disk->lastModified($file)),
+                    'date' => Carbon::createFromTimestamp($disk->lastModified($file)),
                 ])
                 ->sortByDesc('date')
                 ->values()

@@ -770,7 +770,7 @@ Route::prefix('admin')
 */
 Route::prefix('client')
     ->name('client.')
-    ->middleware(['auth', 'client'])
+    ->middleware(['auth', 'client', 'maintenance'])
     ->group(function () {
         Route::get('/', [ClientProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/{project}', [ClientProjectController::class, 'show'])->name('projects.show');

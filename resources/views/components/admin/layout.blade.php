@@ -218,7 +218,13 @@ $siteName = \App\Models\Setting::cached('site_name') ?: config('app.name', 'Mark
                     <div class="mx-auto flex w-full max-w-[1440px] items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-10">
                         <x-icon name="warning" class="size-4.5 shrink-0 text-warning" />
                         <p class="text-[13px] font-medium text-warning">
-                            Maintenance mode is on — students currently see a downtime notice.
+                            {{-- Says what the middleware does, not what somebody
+                                 hoped it did. It read "students currently see a
+                                 downtime notice" while nothing blocked anybody,
+                                 and would have been wrong in a second way the
+                                 day the block shipped, because clients are held
+                                 out too. --}}
+                            Maintenance mode is on — students and clients are being held out of their portals. Staff are unaffected.
                             @can('settings.update')
                                 <a href="{{ route('admin.settings.edit') }}" class="underline underline-offset-2">Manage in settings</a>
                             @endcan

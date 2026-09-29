@@ -4,13 +4,66 @@ namespace Tests\Feature\Admin;
 
 use App\Models\DailyAttendance;
 use App\Models\LeaveApplication;
+use App\Models\Setting;
 use App\Models\User;
-use App\Notifications\LeaveApplicationReviewed;
+use App\Support\AttendanceConfig;
+use App\Support\LeaveAllowance;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
+/**
+ * Student leave: applying, reviewing, and what it costs the monthly allowance.
+ *
+ * ## Why the clock is frozen
+ *
+ * Most of this file builds ranges from `today()->addDays(1..7)` and then asserts
+ * on the MONTH NAME the balance message carries — "Only 1 leave remaining in
+ * September." Run on a day close enough to a month end and the range crosses
+ * into the next month, the allowance is checked against THAT month, and the
+ * assertion fails on a name that was never wrong. Roughly one day in five,
+ * including every 29th, 30th and 31st.
+ *
+ * Three tests failed that way for the whole of this build and were reported each
+ * time as "pre-existing and date-relative", which is exactly the problem: "3
+ * failures" became background noise, and the day a real fourth appeared nobody
+ * would have looked.
+ *
+ * ## The date, and why this one
+ *
+ * MONDAY 8 NOVEMBER 2027.
+ *
+ *   a Monday — so the working-week arithmetic starts at the beginning of a week
+ *              rather than in the middle of one. It does not change any figure
+ *              TODAY, because setUp calls academyOpensEveryDay() and the academy
+ *              is therefore open seven days a week in this file; it matters the
+ *              day somebody removes that call, which is precisely when a
+ *              deliberate weekday stops being decoration.
+ *
+ *   the 8th  — the furthest any test reaches is `addDays(11)` (19 Nov) forwards
+ *              and `subDays(2)` (6 Nov) back, so every range this file builds
+ *              stays inside one month with room on both sides. That is the whole
+ *              bug, fixed by choosing a date rather than by weakening an
+ *              assertion.
+ *
+ *   November — no holiday is seeded anywhere in this file, so no month here has
+ *              one; November is named rather than inherited so that a fixture
+ *              that later adds holidays has a month to avoid.
+ *
+ *   2027     — beyond anything real, and outside February, March, April and May
+ *              2027, the four months the tests below travel to on their own.
+ *
+ * ## The tests that travel somewhere else
+ *
+ * Six of them do, and they keep their own dates: `travelTo` is Carbon::setTestNow
+ * under the hood, so a later call replaces this one rather than stacking with it.
+ * Verified rather than assumed — test_a_new_month_starts_the_balance_over travels
+ * to April and then May 2027 and asserts a reset that only happens if this freeze
+ * was genuinely overridden.
+ */
 class LeaveApplicationTest extends TestCase
 {
     use RefreshDatabase;
@@ -22,6 +75,10 @@ class LeaveApplicationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Before anything is seeded or created, so every row this fixture writes
+        // carries the frozen time too.
+        $this->travelTo(Carbon::parse('2027-11-08 09:00'));
 
         $this->seed(RolePermissionSeeder::class);
         $this->academyOpensEveryDay();
@@ -39,16 +96,16 @@ class LeaveApplicationTest extends TestCase
 
     protected function setAllowance(int $days): void
     {
-        \App\Models\Setting::updateOrCreate(
+        Setting::updateOrCreate(
             ['key' => 'monthly_leave_allowance'],
             ['value' => $days, 'group' => 'general'],
         );
-        \App\Models\Setting::forgetCached();
+        Setting::forgetCached();
     }
 
-    protected function balance(?User $student = null, ?\Illuminate\Support\Carbon $month = null): array
+    protected function balance(?User $student = null, ?Carbon $month = null): array
     {
-        return \App\Support\LeaveAllowance::balance(($student ?? $this->student)->id, $month ?? now());
+        return LeaveAllowance::balance(($student ?? $this->student)->id, $month ?? now());
     }
 
     protected function makeLeave(array $overrides = []): LeaveApplication
@@ -71,6 +128,32 @@ class LeaveApplicationTest extends TestCase
             'marked_by' => $this->admin->id,
             'marked_at' => now(),
         ]);
+    }
+
+    /**
+     * The freeze is in effect, and a travelling test really does override it.
+     *
+     * Pinned because the freeze is invisible: without it these tests fail on
+     * about one day in five, and nothing else in the file would say why. If
+     * somebody removes the travelTo in setUp, this fails on the spot with a
+     * reason, instead of three other tests failing intermittently for months.
+     *
+     * The second half is the claim the docblock makes about the six tests that
+     * travel somewhere else — checked here rather than asserted in prose.
+     */
+    public function test_the_clock_is_frozen_where_setup_put_it(): void
+    {
+        $this->assertSame('2027-11-08', today()->toDateString());
+        $this->assertSame('Monday', today()->format('l'));
+
+        // Room on both sides, which is the whole point of the 8th: every range
+        // this file builds stays inside November.
+        $this->assertSame('November', today()->subDays(2)->format('F'));
+        $this->assertSame('November', today()->addDays(11)->format('F'));
+
+        // And a test that travels lands where it asked, not here.
+        $this->travelTo(Carbon::parse('2027-04-10 09:00'));
+        $this->assertSame('2027-04-10', today()->toDateString());
     }
 
     /* ------------------------------ Student API ---------------------------- */
@@ -202,7 +285,7 @@ class LeaveApplicationTest extends TestCase
             ->assertViewHas('pendingCount', 0);
     }
 
-    protected function review(LeaveApplication $leave, array $payload = []): \Illuminate\Testing\TestResponse
+    protected function review(LeaveApplication $leave, array $payload = []): TestResponse
     {
         return $this->actingAs($this->admin)->post("/admin/leaves/{$leave->id}/review", $payload);
     }
@@ -397,7 +480,7 @@ class LeaveApplicationTest extends TestCase
 
     /* --------------------------- Monthly allowance -------------------------- */
 
-    protected function apply(string $from, string $to, string $reason = 'Away'): \Illuminate\Testing\TestResponse
+    protected function apply(string $from, string $to, string $reason = 'Away'): TestResponse
     {
         Sanctum::actingAs($this->student);
 
@@ -522,12 +605,12 @@ class LeaveApplicationTest extends TestCase
     {
         $this->setAllowance(3);
         // 28 Feb – 2 Mar: one day in February, two in March.
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-02-20 09:00'));
+        $this->travelTo(Carbon::parse('2027-02-20 09:00'));
 
         $this->apply('2027-02-28', '2027-03-02')->assertCreated();
 
-        $feb = $this->balance(month: \Illuminate\Support\Carbon::parse('2027-02-01'));
-        $mar = $this->balance(month: \Illuminate\Support\Carbon::parse('2027-03-01'));
+        $feb = $this->balance(month: Carbon::parse('2027-02-01'));
+        $mar = $this->balance(month: Carbon::parse('2027-03-01'));
 
         $this->assertSame(1, $feb['used']);
         $this->assertSame(2, $feb['remaining']);
@@ -538,12 +621,12 @@ class LeaveApplicationTest extends TestCase
     public function test_an_unused_month_never_adds_to_the_next(): void
     {
         $this->setAllowance(3);
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-02-10 09:00'));
+        $this->travelTo(Carbon::parse('2027-02-10 09:00'));
 
         // February goes entirely unused.
-        $this->assertSame(3, $this->balance(month: \Illuminate\Support\Carbon::parse('2027-02-01'))['remaining']);
+        $this->assertSame(3, $this->balance(month: Carbon::parse('2027-02-01'))['remaining']);
 
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-03-10 09:00'));
+        $this->travelTo(Carbon::parse('2027-03-10 09:00'));
         $this->assertSame(3, $this->balance()['remaining']);
 
         // And a four-day March request is still one too many.
@@ -555,7 +638,7 @@ class LeaveApplicationTest extends TestCase
     public function test_a_crossing_range_is_refused_for_the_month_that_is_short(): void
     {
         $this->setAllowance(3);
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-02-20 09:00'));
+        $this->travelTo(Carbon::parse('2027-02-20 09:00'));
 
         // March already has two days spoken for; February is untouched.
         $this->apply('2027-03-10', '2027-03-11')->assertCreated();
@@ -605,17 +688,17 @@ class LeaveApplicationTest extends TestCase
             'attendance_weight_leave' => 50,
             'attendance_weight_absent' => 0,
             'monthly_leave_allowance' => 0,
-            'attendance_mode' => \App\Support\AttendanceConfig::MODE_MANUAL,
+            'attendance_mode' => AttendanceConfig::MODE_MANUAL,
         ])->assertSessionHasErrors(['monthly_leave_allowance' => 'Monthly leave allowance must be at least 1.']);
 
-        \App\Models\Setting::forgetCached();
-        $this->assertSame(5, \App\Support\LeaveAllowance::perMonth());
+        Setting::forgetCached();
+        $this->assertSame(5, LeaveAllowance::perMonth());
     }
 
     public function test_a_new_month_starts_the_balance_over(): void
     {
         $this->setAllowance(2);
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-04-10 09:00'));
+        $this->travelTo(Carbon::parse('2027-04-10 09:00'));
 
         $this->apply('2027-04-20', '2027-04-21')->assertCreated();
         $this->assertSame(0, $this->balance()['remaining']);
@@ -626,7 +709,7 @@ class LeaveApplicationTest extends TestCase
             ->assertJsonPath('balance.remaining', 0)
             ->assertJsonPath('balance.resets_on', '2027-05-01');
 
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2027-05-02 09:00'));
+        $this->travelTo(Carbon::parse('2027-05-02 09:00'));
         $this->assertSame(2, $this->balance()['remaining']);
         $this->apply('2027-05-10', '2027-05-11')->assertCreated();
     }
