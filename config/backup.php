@@ -162,15 +162,45 @@ return [
 
             /*
              * The disk names on which the backups will be stored.
+             *
+             * LOCAL IS ALWAYS THERE, and it is the fast one -- the nightly job
+             * has to finish on a shared host whether or not anything else is
+             * reachable. But local alone means the backup sits on the disk it
+             * exists to protect: the server that loses the database loses its
+             * backups with it, which is the same as having none.
+             *
+             * So a second, off-server destination is switchable with nothing but
+             * environment variables. Name a disk from config/filesystems.php in
+             * BACKUP_OFFSITE_DISK -- `s3` is already defined there and takes its
+             * bucket and credentials from AWS_* -- and tonight's archive is
+             * copied to both. NO CREDENTIALS LIVE IN THIS REPOSITORY; unset, the
+             * array is exactly what it was before, ['local'].
              */
-            'disks' => [
+            'disks' => array_values(array_unique(array_filter([
                 'local',
-            ],
+                env('BACKUP_OFFSITE_DISK'),
+            ]))),
 
             /*
              * Determines whether to allow backups to continue when some targets fail instead of failing completely.
+             *
+             * TRUE SO THAT A BROKEN OFFSITE DESTINATION DEGRADES TO LOCAL rather
+             * than taking the nightly backup down. A disk name with no driver, an
+             * empty AWS_BUCKET, a bucket that has stopped answering -- all of
+             * those surface as an unreachable destination, and with this false
+             * the first one throws out of the destination loop entirely: the job
+             * reports failure, and any disk listed after the broken one is never
+             * written at all. Only the order above keeps the local copy in that
+             * case, and the order of a list is not something a backup should
+             * depend on. Without this flag, adding an off-server destination is
+             * strictly more dangerous than not having one.
+             *
+             * It does not weaken the single-disk case: spatie still fails the job
+             * when EVERY destination fails, so a backup that cannot be written
+             * anywhere is still a failure, and each failed disk still fires
+             * BackupHasFailed on its own. A degraded night is loud, not silent.
              */
-            'continue_on_failure' => false,
+            'continue_on_failure' => true,
         ],
 
         /*
@@ -236,7 +266,28 @@ return [
         'notifiable' => Notifiable::class,
 
         'mail' => [
-            'to' => 'your@example.com',
+            /*
+             * WHO HEARS THAT THE BACKUPS STOPPED.
+             *
+             * This shipped as spatie's placeholder, your@example.com, which is a
+             * real domain belonging to somebody else: every failure notice, and
+             * every "your backups have not run for a month", went to a stranger
+             * while nobody here was told anything.
+             *
+             * Unset, it falls back to an address under .invalid -- the TLD RFC
+             * 2606 reserves precisely so that it can never resolve. Two things
+             * were rejected to get here. Null: the mailer throws a generic "an
+             * email must have a To" from somewhere deep inside Symfony, naming
+             * neither the backup nor the setting. A bare `@invalid` with no dot:
+             * spatie validates this value when the config is READ, so an address
+             * filter_var rejects takes down backup:run itself -- no notification
+             * and no backup, which is far worse than a notice nobody gets.
+             *
+             * What this does instead: the backup is written, the send fails, and
+             * the log line carries the reason in the address itself. Obviously
+             * broken, next to the thing it was about, with the backup intact.
+             */
+            'to' => env('BACKUP_NOTIFICATION_EMAIL', 'backup-notification-email-is-not-set@example.invalid'),
 
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
@@ -295,6 +346,15 @@ return [
      * UnHealthyBackupWasFound event will be fired.
      */
     'monitor_backups' => [
+        /*
+         * LOCAL ONLY, on purpose. This answers "is there a recent backup at
+         * all", and the answer must not depend on an off-server destination
+         * that may be misconfigured -- adding BACKUP_OFFSITE_DISK here would
+         * turn a perfectly good local backup into a nightly unhealthy alert.
+         * The trade is that a silently-failing offsite copy is not caught by
+         * the monitor; it is caught by BackupHasFailed, which continue_on_failure
+         * fires per disk.
+         */
         [
             'name' => env('APP_NAME', 'laravel-backup'),
             'disks' => ['local'],

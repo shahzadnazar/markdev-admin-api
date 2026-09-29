@@ -58,6 +58,24 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
+            'dump' => [
+                /*
+                 * WHERE mysqldump LIVES. spatie/laravel-backup shells out to it
+                 * for every backup, and with this unset it calls a bare
+                 * `mysqldump` and dies on any host that does not have one on
+                 * PATH -- which is most shared hosting, where the binaries sit
+                 * somewhere like /opt/alt/mysql80/usr/bin. The nightly
+                 * backup:run then fails silently from cron and the first
+                 * anybody hears of it is when a restore is needed.
+                 *
+                 * A DIRECTORY, not the binary itself, and empty by default: the
+                 * empty string is exactly today's behaviour, so nothing changes
+                 * for a machine that does have mysqldump on PATH, and no one
+                 * server's layout is baked into the repository.
+                 */
+                'dump_binary_path' => env('DB_DUMP_BINARY_PATH', ''),
+            ],
+
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
@@ -83,6 +101,15 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
+            'dump' => [
+                /*
+                 * Same variable, same reason as the mysql connection above.
+                 * Whichever of the two DB_CONNECTION names, backup.source
+                 * .databases follows it, so the fault and the fix are identical.
+                 */
+                'dump_binary_path' => env('DB_DUMP_BINARY_PATH', ''),
+            ],
+
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
