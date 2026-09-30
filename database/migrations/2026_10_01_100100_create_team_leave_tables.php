@@ -57,7 +57,15 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index(['team_leave_application_id', 'status']);
+            // NAMED, AND IT HAS TO BE. Unnamed, Laravel calls this
+            // team_leave_application_days_team_leave_application_id_status_index
+            // -- 66 characters, and MySQL and MariaDB refuse anything over 64
+            // with SQLSTATE[42000] 1059. The table name is 27 characters and the
+            // column is 25, so the limit is crossed without a long name being
+            // written anywhere. SQLite has no such limit, which is why the suite
+            // passed while this migration could not run on a real install.
+            // IdentifierLengthGuardTest now fails on any migration that does it.
+            $table->index(['team_leave_application_id', 'status'], 'team_leave_days_application_status');
             $table->index('date');
         });
     }
