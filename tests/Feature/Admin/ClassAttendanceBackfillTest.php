@@ -7,8 +7,11 @@ use App\Models\Course;
 use App\Models\DailyAttendance;
 use App\Models\User;
 use App\Support\ClassAttendanceBackfill;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\TestCase;
@@ -61,7 +64,7 @@ class ClassAttendanceBackfillTest extends TestCase
      */
     protected function createRetiredClassTable(): void
     {
-        \Illuminate\Support\Facades\Schema::create('attendance_records', function (\Illuminate\Database\Schema\Blueprint $table) {
+        Schema::create('attendance_records', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('course_id')->nullable()->constrained()->nullOnDelete();
@@ -80,6 +83,14 @@ class ClassAttendanceBackfillTest extends TestCase
     /** Written through the query builder: the model is about to stop having a table. */
     protected function classRow(string $date, string $status, array $extra = []): void
     {
+        // PARSED, not concatenated. `$date.' 09:00:00'` only works while every
+        // caller passes a bare Y-m-d; the conflict test below deliberately
+        // passes "2026-08-03 00:00:00", which concatenation turned into
+        // "2026-08-03 00:00:00 09:00:00". SQLite stores that happily because it
+        // does not check a datetime, and MySQL refuses it with 1292 -- so the
+        // test failed on the fixture rather than on what it asserts.
+        $stamp = Carbon::parse($date)->setTime(9, 0);
+
         DB::table('attendance_records')->insert(array_merge([
             'user_id' => $this->student->id,
             'course_id' => $this->course->id,
@@ -87,8 +98,8 @@ class ClassAttendanceBackfillTest extends TestCase
             'date' => $date,
             'status' => $status,
             'notes' => 'a note',
-            'created_at' => $date.' 09:00:00',
-            'updated_at' => $date.' 09:00:00',
+            'created_at' => $stamp,
+            'updated_at' => $stamp,
         ], $extra));
     }
 
@@ -240,6 +251,13 @@ class ClassAttendanceBackfillTest extends TestCase
      * back "Y-m-d H:i:s" on a store that keeps the time part and "Y-m-d" on
      * one that truncates; the backfill compares both tables' dates as calendar
      * days in PHP so a conflict is seen on either.
+     *
+     * The time-bearing value goes in whatever the store does with it. SQLite
+     * keeps it and the comparison meets the awkward shape; MySQL truncates it to
+     * the calendar day, which is the only shape a DATE column there can hold, so
+     * the same assertion covers the only case that exists. Nothing is skipped
+     * and nothing is relaxed -- the write is simply honoured as the store
+     * honours it.
      */
     public function test_a_conflict_is_seen_whatever_shape_the_stored_date_is_in(): void
     {

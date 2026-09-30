@@ -39,14 +39,61 @@ class RecordingBlueprint extends Blueprint
     /** @var array<int, array{file: string, table: string, type: string, name: string, columns: array<int, string>}> */
     public static array $identifiers = [];
 
+    /**
+     * Every column declaration, in the order the migrations make them.
+     *
+     * A declaration rather than a schema reading, because the LENGTH does not
+     * survive the migration on SQLite: Laravel's SQLite grammar compiles
+     * string('behaviour', 30) to a bare `varchar`, and pragma table_info reports
+     * no number at all. The Blueprint is the last place the 30 exists, and it is
+     * the same 30 the MySQL grammar would have written. A `->change()` shows up
+     * as another entry later in the list, so folding the list in order gives the
+     * width a column ends up with.
+     *
+     * @var array<int, array{file: string, table: string, name: string, type: ?string, length: ?int}>
+     */
+    public static array $declarations = [];
+
     public static function reset(): void
     {
         static::$identifiers = [];
+        static::$declarations = [];
     }
 
     public function build()
     {
         parent::build();
+
+        $file = $this->callingMigration();
+
+        foreach ($this->getColumns() as $column) {
+            static::$declarations[] = [
+                'file' => $file,
+                'table' => $this->getTable(),
+                'name' => (string) $column->name,
+                'type' => $column->type === null ? null : (string) $column->type,
+                'length' => $column->length === null ? null : (int) $column->length,
+            ];
+        }
+
+        // A dropped column is a command, not a definition, and it has to cancel
+        // the declaration above it or the fold would keep a column the table no
+        // longer has.
+        foreach ($this->getCommands() as $command) {
+            if ($command->name !== 'dropColumn') {
+                continue;
+            }
+
+            foreach ((array) ($command->columns ?? []) as $dropped) {
+                static::$declarations[] = [
+                    'file' => $file,
+                    'table' => $this->getTable(),
+                    'name' => (string) $dropped,
+                    'type' => null,
+                    'length' => null,
+                ];
+            }
+        }
 
         foreach ($this->getCommands() as $command) {
             $name = $command->index ?? null;
@@ -56,7 +103,7 @@ class RecordingBlueprint extends Blueprint
             }
 
             static::$identifiers[] = [
-                'file' => $this->callingMigration(),
+                'file' => $file,
                 'table' => $this->getTable(),
                 'type' => $command->name,
                 'name' => $name,

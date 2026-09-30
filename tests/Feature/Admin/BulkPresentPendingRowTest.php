@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\DailyAttendance;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -103,6 +104,20 @@ class BulkPresentPendingRowTest extends TestCase
      * the insert hits the unique index — measured, not argued. forDay resolves
      * the day itself and looks it up as a range, so it works whatever it is
      * handed.
+     *
+     * WHICH HALF IS TRUE DEPENDS ON THE STORE, so the store is asked rather than
+     * assumed. A Carbon binds as "Y-m-d H:i:s" on every driver; whether that
+     * still finds a row stored for that day is the difference between SQLite,
+     * where the stored value is the string and the lookup misses, and MySQL,
+     * where a DATE column compares as a calendar day and it matches. That is
+     * precisely why production never saw this bug and the suite did.
+     *
+     * Neither branch is weaker than the other and neither is skipped. On a store
+     * that misses, the assertion is what it always was: the old form collides
+     * with its own row. On a store that matches, the assertion is the fact that
+     * kept production working — the old form updates the row instead of
+     * duplicating it. forDay is then asserted on both, which is the claim the
+     * test is named for.
      */
     public function test_forday_takes_a_carbon_where_update_or_create_cannot(): void
     {
@@ -116,18 +131,38 @@ class BulkPresentPendingRowTest extends TestCase
             'status' => DailyAttendance::PENDING, 'source' => 'manual', 'marked_at' => now(),
         ]);
 
+        // The exact lookup the old updateOrCreate performed, run on its own so
+        // the branch below is chosen by measurement and not by a driver name.
+        // Eloquent does not cast a where-clause binding, which is the whole bug.
+        $carbonStillFindsTheRow = DailyAttendance::where('user_id', $student->id)
+            ->where('date', $day)
+            ->exists();
+
         // The form this replaced, handed the most natural argument there is.
-        try {
+        if ($carbonStillFindsTheRow) {
             DailyAttendance::updateOrCreate(
                 ['user_id' => $student->id, 'date' => $day],
                 ['status' => 'present'],
             );
-            $this->fail('updateOrCreate with a Carbon should still miss its own row');
-        } catch (\Illuminate\Database\QueryException) {
-            // Expected: the lookup missed, the insert hit the unique index.
+
+            $this->assertCount(
+                1,
+                DailyAttendance::where('user_id', $student->id)->get(),
+                'The date column truncates here, so the old form found its own row — the reason production survived.',
+            );
+        } else {
+            try {
+                DailyAttendance::updateOrCreate(
+                    ['user_id' => $student->id, 'date' => $day],
+                    ['status' => 'present'],
+                );
+                $this->fail('updateOrCreate with a Carbon should still miss its own row');
+            } catch (QueryException) {
+                // Expected: the lookup missed, the insert hit the unique index.
+            }
         }
 
-        // The sanctioned form, same argument.
+        // The sanctioned form, same argument, on either store.
         DailyAttendance::forDay(['user_id' => $student->id], $day, ['status' => 'present']);
 
         $this->assertCount(1, DailyAttendance::where('user_id', $student->id)->get());

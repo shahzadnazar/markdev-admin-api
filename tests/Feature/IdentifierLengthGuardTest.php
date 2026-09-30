@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
+use Tests\Concerns\ReplaysMigrations;
 use Tests\Support\RecordingBlueprint;
 use Tests\TestCase;
 
@@ -40,10 +39,13 @@ use Tests\TestCase;
  * be maintained by the same memory that let this through.
  *
  * @see RecordingBlueprint for how the names are captured.
+ * @see ReplaysMigrations for how the migrations are re-run to capture them.
  * @see DateColumnGuardTest for the other half of the divergence.
  */
 class IdentifierLengthGuardTest extends TestCase
 {
+    use ReplaysMigrations;
+
     /**
      * MySQL's and MariaDB's limit, in characters.
      *
@@ -63,68 +65,10 @@ class IdentifierLengthGuardTest extends TestCase
      */
     protected const MINIMUM_EXPECTED_IDENTIFIERS = 50;
 
-    /**
-     * The connection the migrations are replayed onto.
-     *
-     * Its own name so nothing in this file can be mistaken for a test against
-     * the application's own database.
-     */
-    protected const THROWAWAY_CONNECTION = 'identifier_length_guard';
-
-    /**
-     * Every index, unique, full-text and foreign key the migrations create.
-     *
-     * The hook is a CONTAINER BINDING, not Schema::blueprintResolver. The
-     * resolver would be the obvious choice and it does not work: the Schema
-     * facade is not cached, so every `Schema::create` in every migration resolves
-     * a brand-new builder and a resolver set on one of them is thrown away with
-     * it. Builder::createBlueprint resolves Blueprint out of the container when
-     * no resolver is set, so binding it there reaches every builder there will
-     * ever be. The guard's own floor on the number of identifiers is what caught
-     * this: the first version captured nothing and would otherwise have passed.
-     *
-     * IT MIGRATES ITS OWN THROWAWAY DATABASE, not the suite's. Two reasons. The
-     * migrator only generates a name for a migration it actually runs, so
-     * pointing this at a database something else has already migrated captures
-     * nothing and the floor above turns the guard red for the wrong reason --
-     * which is exactly what happens against a persistent test database, where
-     * the tables survive between runs. And the driver is beside the point: the
-     * name comes out of Blueprint::createIndexName from the table and the
-     * columns, with no grammar involved, so it is the same name whatever this
-     * connects to. An in-memory SQLite that lives for the length of this method
-     * is the one target guaranteed to be empty.
-     */
+    /** Every index, unique, full-text and foreign key the migrations create. */
     protected function identifiers(): array
     {
-        RecordingBlueprint::reset();
-
-        $this->app->bind(Blueprint::class, fn ($app, array $parameters) => new RecordingBlueprint(
-            $parameters['connection'],
-            $parameters['table'],
-            $parameters['callback'] ?? null,
-        ));
-
-        $original = config('database.default');
-
-        config(['database.connections.'.self::THROWAWAY_CONNECTION => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-            // Matches the mysql connection, so a prefixed install generates the
-            // same names here as it would there.
-            'prefix_indexes' => true,
-            'foreign_key_constraints' => true,
-        ]]);
-
-        try {
-            $this->artisan('migrate', [
-                '--database' => self::THROWAWAY_CONNECTION,
-                '--force' => true,
-            ])->assertExitCode(0);
-        } finally {
-            // migrate --database swaps the DEFAULT connection for the run.
-            DB::setDefaultConnection($original);
-        }
+        $this->replayMigrations();
 
         return RecordingBlueprint::$identifiers;
     }

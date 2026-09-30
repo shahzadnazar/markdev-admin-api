@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\LearningActivity;
+use App\Models\LessonCompletion;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -234,8 +235,12 @@ class LearningActivityTest extends ApiTestCase
         $updates = array_values(array_filter($statements, fn (string $sql) => str_starts_with($sql, 'update')));
 
         $this->assertCount(1, $updates);
+        // Backticks as well as double quotes: MySQL quotes an identifier with
+        // `minutes`, SQLite with "minutes", and this assertion is about the
+        // shape of the statement rather than about either dialect. Without the
+        // backtick the test failed on MySQL against perfectly correct SQL.
         $this->assertMatchesRegularExpression(
-            '/set\s+"?minutes"?\s*=\s*"?minutes"?\s*\+/i',
+            '/set\s+["`]?minutes["`]?\s*=\s*["`]?minutes["`]?\s*\+/i',
             $updates[0],
             'the expression has to be in a SET clause — that is the whole bug',
         );
@@ -384,7 +389,7 @@ class LearningActivityTest extends ApiTestCase
 
         $this->assertSame(12, LearningActivity::firstOrFail()->minutes);
         $this->assertEquals(50.0, (float) $enrollment->fresh()->progress_percent);
-        $this->assertSame(1, \App\Models\LessonCompletion::count());
+        $this->assertSame(1, LessonCompletion::count());
     }
 
     /**
