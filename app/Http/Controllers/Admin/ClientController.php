@@ -80,15 +80,7 @@ class ClientController extends Controller
     {
         ['client' => $attributes, 'login' => $login] = $this->validated($request);
 
-        $client = DB::transaction(function () use ($attributes, $login) {
-            $client = Client::create($attributes);
-
-            if ($login !== null) {
-                $client->update(['user_id' => $this->createPortalLogin($login)->getKey()]);
-            }
-
-            return $client;
-        });
+        $client = $this->saveWithOptionalLogin(null, $attributes, $login);
 
         return redirect()->route('admin.clients.index')->with('success', $login === null
             ? "Client \"{$client->name}\" added."
@@ -107,19 +99,33 @@ class ClientController extends Controller
     public function edit(Client $client): View
     {
         return view('admin.clients.form', [
-            'client' => $client,
+            // The linked account, for the panel that replaces the creation
+            // fields once there is one.
+            'client' => $client->load('user:id,name,email'),
             'logins' => $this->logins(),
         ]);
     }
 
+    /**
+     * Edit, which may also be where the login is finally created.
+     *
+     * The common case store() could not reach: the company was added before
+     * anybody decided about portal access, and giving it access later meant the
+     * Users detour all over again — the detour this screen exists to remove. So
+     * the same section appears here while `user_id` is still null, through the
+     * same validation, the same transaction and the same single role. A client
+     * that already has a login gets no creation fields at all: changing somebody
+     * else's password is the Users form's job.
+     */
     public function update(Request $request, Client $client): RedirectResponse
     {
-        // Edit takes no portal fields: see validated(). The login dropdown is
-        // how an existing client is attached to an account here.
-        $client->update($this->validated($request, $client)['client']);
+        ['client' => $attributes, 'login' => $login] = $this->validated($request, $client);
 
-        return redirect()->route('admin.clients.index')
-            ->with('success', "Client \"{$client->name}\" updated.");
+        $this->saveWithOptionalLogin($client, $attributes, $login);
+
+        return redirect()->route('admin.clients.index')->with('success', $login === null
+            ? "Client \"{$client->name}\" updated."
+            : "Client \"{$client->name}\" updated, and {$login['portal_email']} can now sign in to the client portal.");
     }
 
     /**
@@ -178,6 +184,37 @@ class ClientController extends Controller
     }
 
     /**
+     * Write the client, then its login if one is being created — atomically.
+     *
+     * ONE METHOD FOR BOTH SCREENS. New client and Edit differ only in whether
+     * there is a row already; everything the transaction is protecting is the
+     * same, and two copies of it would be two places for the ordering to drift.
+     *
+     * THE CLIENT IS WRITTEN FIRST, on purpose, so that a login which fails to
+     * save leaves something to lose — a company saved with no login, looking
+     * finished, which is the exact state the twenty minutes came from. On edit
+     * that "something" is the company edits, which roll back with it rather than
+     * landing half-applied beside a login that never happened.
+     * ClientPortalAccessTest makes User::creating throw to prove both.
+     */
+    protected function saveWithOptionalLogin(?Client $client, array $attributes, ?array $login): Client
+    {
+        return DB::transaction(function () use ($client, $attributes, $login) {
+            if ($client === null) {
+                $client = Client::create($attributes);
+            } else {
+                $client->update($attributes);
+            }
+
+            if ($login !== null) {
+                $client->update(['user_id' => $this->createPortalLogin($login)->getKey()]);
+            }
+
+            return $client;
+        });
+    }
+
+    /**
      * Create the portal login for a client being added.
      *
      * THE CLIENT ROLE AND NOTHING ELSE. syncRoles rather than assignRole: sync
@@ -223,7 +260,30 @@ class ClientController extends Controller
     {
         $request->merge(['name' => trim((string) $request->input('name'))]);
 
-        $wantsLogin = $client === null && $this->wantsPortalLogin($request);
+        // OFFERED WHILE THERE IS NO LOGIN, whichever screen this is. Create
+        // obviously; edit too, because the company is often added before anybody
+        // decides about portal access and the whole point of this screen is that
+        // deciding later must not mean a trip to Users.
+        //
+        // THE RELATION, NOT THE COLUMN. `users` soft-deletes and clients.user_id
+        // is only nulled by a FORCE delete, so a trashed account leaves the
+        // column set and the relation null. Asking the column would refuse a new
+        // login for a client whose account no longer exists AND leave nothing in
+        // Users to fix it with — a dead end of exactly the kind this screen is
+        // here to remove. Asking the relation offers the fields instead.
+        $mayCreateLogin = $client === null || $client->user === null;
+        $wantsLogin = $mayCreateLogin && $this->wantsPortalLogin($request);
+
+        // A client that already has one is REFUSED, not quietly ignored. The
+        // fields are not on the page in that case, so anything arriving here was
+        // hand-posted — and silently dropping a password somebody typed is worse
+        // than saying no. Changing the password of an account that exists is the
+        // Users form's job, which is where this points.
+        if (! $mayCreateLogin && $this->wantsPortalLogin($request)) {
+            throw ValidationException::withMessages([
+                'user_id' => 'This client already has a login. Change its password or its name from Users, or clear the Portal access fields.',
+            ]);
+        }
 
         // REFUSED BEFORE ANYTHING ELSE, and named rather than resolved. Both
         // filled means two different accounts were asked for, and quietly

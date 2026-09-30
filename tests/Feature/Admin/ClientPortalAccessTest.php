@@ -236,26 +236,6 @@ class ClientPortalAccessTest extends TestCase
         $this->actingAs($user)->get(route('admin.clients.index'))->assertForbidden();
     }
 
-    /* --------------------------------- Edit --------------------------------- */
-
-    /** The section is on New client only, and edit ignores a posted copy of it. */
-    public function test_editing_a_client_does_not_take_portal_fields(): void
-    {
-        $client = Client::create(['name' => 'Bartleby', 'is_active' => true]);
-        $before = User::count();
-
-        $this->actingAs($this->admin)
-            ->put(route('admin.clients.update', $client), $this->company(['name' => 'Bartleby Renamed']) + $this->portal())
-            ->assertRedirect(route('admin.clients.index'));
-
-        $this->assertSame('Bartleby Renamed', $client->fresh()->name);
-        $this->assertSame($before, User::count(), 'Edit must not quietly create an account.');
-
-        $this->actingAs($this->admin)->get(route('admin.clients.edit', $client))
-            ->assertOk()
-            ->assertDontSee('portal_email');
-    }
-
     /** And the create screen does offer it. */
     public function test_the_create_screen_offers_the_portal_fields(): void
     {
@@ -264,5 +244,207 @@ class ClientPortalAccessTest extends TestCase
             ->assertSee('Portal access')
             ->assertSee('portal_email')
             ->assertSee('portal_password_confirmation');
+    }
+
+    /* --------------------------------- Edit --------------------------------- */
+
+    /**
+     * The common case store() could not reach.
+     *
+     * Somebody decides about portal access AFTER creating the company, which is
+     * how it usually goes — work starts, then the client asks to see it. Until
+     * now that meant the Users detour all over again, which is the detour this
+     * screen exists to remove.
+     */
+    public function test_a_client_with_no_login_gets_one_from_the_edit_form_and_can_sign_in(): void
+    {
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true]);
+
+        $this->actingAs($this->admin)
+            ->put(route('admin.clients.update', $client), $this->company(['name' => 'Bartleby Ironworks PLC']) + $this->portal())
+            ->assertRedirect(route('admin.clients.index'));
+
+        $user = User::where('email', 'zephyrine@bartleby-ironworks.test')->sole();
+
+        $this->assertSame($user->getKey(), $client->fresh()->user_id);
+        $this->assertTrue($user->is_active);
+        $this->assertTrue(Hash::check('a-long-enough-password', $user->password));
+
+        // The same single role the create path hands out, from the same method.
+        $this->assertSame([ClientController::PORTAL_ROLE], $user->getRoleNames()->all());
+        $this->assertSame([], $user->getAllPermissions()->pluck('name')->all());
+
+        $this->post(route('logout'));
+        $this->assertGuest();
+
+        $this->post(route('login'), [
+            'email' => 'zephyrine@bartleby-ironworks.test',
+            'password' => 'a-long-enough-password',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+        $this->get(route('dashboard'))->assertRedirect(route(PortalHome::CLIENT_DESTINATION));
+        $this->get(route(PortalHome::CLIENT_DESTINATION))->assertOk();
+    }
+
+    /** Offered on the edit screen only while there is nothing to offer it for. */
+    public function test_the_edit_screen_offers_the_fields_only_until_there_is_a_login(): void
+    {
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true]);
+
+        $this->actingAs($this->admin)->get(route('admin.clients.edit', $client))
+            ->assertOk()
+            ->assertSee('portal_email')
+            ->assertSee('portal_password_confirmation');
+
+        $linked = User::factory()->create(['name' => 'Zephyrine Quartermain', 'email' => 'linked@bartleby-ironworks.test']);
+        $linked->assignRole(ClientController::PORTAL_ROLE);
+        $client->update(['user_id' => $linked->getKey()]);
+
+        $response = $this->actingAs($this->admin)->get(route('admin.clients.edit', $client))->assertOk();
+
+        $response->assertDontSee('portal_email');
+        $response->assertDontSee('portal_password_confirmation');
+
+        // Replaced by the account it has, and a pointer at the screen that owns
+        // passwords rather than a second place to change one.
+        $response->assertSee('linked@bartleby-ironworks.test');
+        $response->assertSee(route('admin.users.edit', $linked), escape: false);
+        $this->actingAs($this->admin)->get(route('admin.users.edit', $linked))->assertOk();
+    }
+
+    /**
+     * A hand-posted attempt at a client that already has one is REFUSED.
+     *
+     * The fields are not on that page, so anything arriving here was typed at the
+     * request. Silently dropping a password somebody set is worse than saying no,
+     * and the no names where passwords are changed.
+     */
+    public function test_portal_fields_posted_at_a_client_that_already_has_a_login_are_refused(): void
+    {
+        $linked = User::factory()->create(['email' => 'linked@bartleby-ironworks.test']);
+        $linked->assignRole(ClientController::PORTAL_ROLE);
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true, 'user_id' => $linked->getKey()]);
+
+        $this->actingAs($this->admin)
+            ->put(route('admin.clients.update', $client), $this->company(['name' => 'Renamed Mid-Attempt']) + $this->portal())
+            ->assertSessionHasErrors('user_id');
+
+        $this->assertSame('Bartleby Ironworks PLC', $client->fresh()->name, 'A refused save must not apply the company edits either.');
+        $this->assertSame(0, User::where('email', 'zephyrine@bartleby-ironworks.test')->count());
+        $this->assertSame($linked->getKey(), $client->fresh()->user_id, 'The existing link must be untouched.');
+
+        $this->assertStringContainsString('already has a login', session('errors')->first('user_id'));
+    }
+
+    /** The conflict refusal reaches the edit screen too, through the same check. */
+    public function test_filling_both_halves_on_the_edit_form_is_refused(): void
+    {
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true]);
+        $existing = User::factory()->create(['email' => 'already@bartleby-ironworks.test']);
+        $existing->assignRole(ClientController::PORTAL_ROLE);
+
+        $this->actingAs($this->admin)->put(
+            route('admin.clients.update', $client),
+            $this->company(['user_id' => $existing->getKey()]) + $this->portal(),
+        )->assertSessionHasErrors('user_id');
+
+        $this->assertNull($client->fresh()->user_id);
+        $this->assertSame(0, User::where('email', 'zephyrine@bartleby-ironworks.test')->count());
+    }
+
+    /** A duplicate email is refused on edit as well, and changes nothing. */
+    public function test_a_duplicate_email_on_the_edit_form_is_refused(): void
+    {
+        User::factory()->create(['email' => 'taken@bartleby-ironworks.test']);
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true]);
+
+        $this->actingAs($this->admin)->put(
+            route('admin.clients.update', $client),
+            $this->company(['name' => 'Renamed Mid-Attempt']) + $this->portal(['portal_email' => 'taken@bartleby-ironworks.test']),
+        )->assertSessionHasErrors('portal_email');
+
+        $this->assertSame('Bartleby Ironworks PLC', $client->fresh()->name);
+        $this->assertNull($client->fresh()->user_id);
+    }
+
+    /**
+     * ATOMIC ON EDIT TOO, and what rolls back is the company edits.
+     *
+     * The client is written first on both screens, so on edit a failing login
+     * leaves the renamed company committed beside a login that never happened.
+     * The transaction is what loses it. Remove DB::transaction from
+     * saveWithOptionalLogin and this goes red holding "Renamed Mid-Attempt".
+     */
+    public function test_a_login_that_fails_on_edit_rolls_back_the_company_edits(): void
+    {
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true]);
+
+        User::creating(fn () => throw new RuntimeException('the login could not be written'));
+        $this->withoutExceptionHandling();
+
+        $thrown = null;
+
+        try {
+            $this->actingAs($this->admin)->put(
+                route('admin.clients.update', $client),
+                $this->company(['name' => 'Renamed Mid-Attempt']) + $this->portal(),
+            );
+        } catch (\Throwable $e) {
+            $thrown = $e;
+        } finally {
+            User::flushEventListeners();
+        }
+
+        $this->assertInstanceOf(RuntimeException::class, $thrown, 'The injected failure did not happen, so this proves nothing.');
+        $this->assertSame('Bartleby Ironworks PLC', $client->fresh()->name, 'The company edits were committed without the login they came with.');
+        $this->assertNull($client->fresh()->user_id);
+    }
+
+    /**
+     * A client whose account was TRASHED is offered a new login, not a dead end.
+     *
+     * `users` soft-deletes and clients.user_id is only nulled by a force delete,
+     * so a trashed account leaves the column set and the relation null. Asking
+     * the column would refuse a new login here AND leave nothing in Users to fix
+     * it with, which is the shape of dead end this whole screen exists to remove.
+     */
+    public function test_a_client_whose_account_was_trashed_may_be_given_a_new_one(): void
+    {
+        $gone = User::factory()->create(['email' => 'gone@bartleby-ironworks.test']);
+        $gone->assignRole(ClientController::PORTAL_ROLE);
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true, 'user_id' => $gone->getKey()]);
+
+        $gone->delete();
+
+        $this->assertNotNull($client->fresh()->user_id, 'A soft delete leaves the column set — that is the premise.');
+        $this->assertNull($client->fresh()->user, 'And the relation empty.');
+
+        $this->actingAs($this->admin)->get(route('admin.clients.edit', $client))
+            ->assertOk()
+            ->assertSee('portal_email');
+
+        $this->actingAs($this->admin)
+            ->put(route('admin.clients.update', $client), $this->company() + $this->portal())
+            ->assertRedirect(route('admin.clients.index'));
+
+        $fresh = User::where('email', 'zephyrine@bartleby-ironworks.test')->sole();
+        $this->assertSame($fresh->getKey(), $client->fresh()->user_id);
+        $this->assertSame([ClientController::PORTAL_ROLE], $fresh->getRoleNames()->all());
+    }
+
+    /** Editing without touching the section still just edits. */
+    public function test_editing_without_the_portal_fields_creates_no_account(): void
+    {
+        $client = Client::create(['name' => 'Bartleby Ironworks PLC', 'is_active' => true]);
+        $before = User::count();
+
+        $this->actingAs($this->admin)
+            ->put(route('admin.clients.update', $client), $this->company(['name' => 'Bartleby Renamed']))
+            ->assertRedirect(route('admin.clients.index'));
+
+        $this->assertSame('Bartleby Renamed', $client->fresh()->name);
+        $this->assertSame($before, User::count());
+        $this->assertNull($client->fresh()->user_id);
     }
 }

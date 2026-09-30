@@ -39,9 +39,24 @@
                     hint="Internal. Never shown to the client or to a team." />
             </div>
 
+            @php
+                // The creation fields are offered while this client has no
+                // account, on New client and on Edit alike. Once there is one,
+                // the section is replaced by a panel naming it: changing
+                // somebody's password belongs on the Users form, not here.
+                //
+                // The RELATION, matching ClientController::validated — a trashed
+                // account leaves user_id set and the relation null, and that
+                // client needs a new login rather than a panel about a name
+                // nobody can reach.
+                $mayCreateLogin = $client === null || $client->user === null;
+            @endphp
+
             <div class="border-t border-surface-ice pt-5">
                 <x-form.select label="Client login" name="user_id"
-                    hint="For an account that ALREADY exists. Leave it on &ldquo;No login&rdquo; if you are creating one below.">
+                    :hint="$mayCreateLogin
+                        ? 'For an account that ALREADY exists. Leave it on “No login” if you are creating one below.'
+                        : 'The account this client signs in with. Changing it here re-links the client; it does not rename or re-password anything.'">
                     <option value="">No login</option>
                     @foreach ($logins as $login)
                         <option value="{{ $login->id }}" @selected((string) old('user_id', $client?->user_id) === (string) $login->id)>{{ $login->name }} &middot; {{ $login->email }}</option>
@@ -49,14 +64,36 @@
                 </x-form.select>
             </div>
 
-            {{-- CREATE ONLY. On edit the client already exists, so the empty
-                 dropdown this section was added to fix cannot happen, and
-                 "portal access" would need a second meaning for a client who
-                 already has a login. --}}
-            @unless ($client)
+            @unless ($mayCreateLogin)
+                <x-form.section title="Portal access"
+                    description="This client already signs in.">
+                    <div class="rounded-xl border border-outline-variant/60 bg-surface-ice/50 px-4 py-3">
+                        <p class="text-[13px] font-medium text-on-surface">{{ $client->user->name }}</p>
+                        <p class="text-[13px] text-on-surface-variant">{{ $client->user->email }}</p>
+                        <p class="mt-2 text-xs text-outline">
+                            To rename the account or set a new password, edit it in Users — this form does not change
+                            somebody else's sign-in details.
+                        </p>
+                        @can('users.update')
+                            <a href="{{ route('admin.users.edit', $client->user) }}" class="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
+                                Open this account in Users
+                                <x-icon name="chevron-right" class="size-3.5" />
+                            </a>
+                        @endcan
+                    </div>
+                </x-form.section>
+            @endunless
+
+            {{-- WHILE THERE IS NO LOGIN — on New client, and on Edit for a
+                 company that was added before anybody decided about access.
+                 That second case is the common one, and leaving it out meant
+                 deciding later still cost a trip to Users. --}}
+            @if ($mayCreateLogin)
                 {{-- x-form.section draws its own top border, so no wrapper. --}}
                 <x-form.section title="Portal access"
-                    description="Optional. Fill this in and saving also creates the sign-in for the client portal — no second screen, no separate step in Users. Leave it blank for a company that is not being given access yet; work often starts first.">
+                    :description="$client
+                        ? 'Optional. Fill this in and saving also creates the sign-in for the client portal — this company has none yet.'
+                        : 'Optional. Fill this in and saving also creates the sign-in for the client portal — no second screen, no separate step in Users. Leave it blank for a company that is not being given access yet; work often starts first.'">
                     <div class="grid gap-5 sm:grid-cols-2">
                         <x-form.input label="Full name" name="portal_name" :value="old('portal_name')"
                             placeholder="e.g. Jane Doe" hint="The person who signs in — not the company." />
@@ -70,7 +107,7 @@
                         The account is created with the <strong>client</strong> role and nothing else. It reaches the client portal and no part of this admin panel.
                     </p>
                 </x-form.section>
-            @endunless
+            @endif
 
             <div class="border-t border-surface-ice pt-5">
                 <x-form.toggle label="Taking new projects" name="is_active"
