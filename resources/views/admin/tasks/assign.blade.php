@@ -26,12 +26,22 @@
                 </div>
             @endif
 
-            <x-form.select label="Assign to" name="user_id" required hint="Somebody on this task's team.">
-                <option value="">Pick a member</option>
-                @foreach ($members as $member)
-                    <option value="{{ $member->id }}" @selected((string) old('user_id') === (string) $member->id)>{{ $member->name }}</option>
-                @endforeach
-            </x-form.select>
+            {{-- A team is created with at least one member, so this is empty
+                 only once every member's account has been deleted. Rare, and a
+                 dead end all the same: nobody to pick, no way to say why. --}}
+            @if ($members->isEmpty())
+                <x-form.prerequisite label="Assign to"
+                    :message="'No one is on '.($task->team?->name ?? 'this task\'s team').' any more, so there is nobody to give this stint to.'"
+                    :href="$task->team && auth()->user()->can('teams.update') ? route('admin.teams.edit', $task->team) : null"
+                    action="Add a member to the team" />
+            @else
+                <x-form.select label="Assign to" name="user_id" required hint="Somebody on this task's team.">
+                    <option value="">Pick a member</option>
+                    @foreach ($members as $member)
+                        <option value="{{ $member->id }}" @selected((string) old('user_id') === (string) $member->id)>{{ $member->name }}</option>
+                    @endforeach
+                </x-form.select>
+            @endif
 
             <x-form.input type="number" label="Days allowed for this stint" name="days_allowed" :value="old('days_allowed', 1)" required min="1" max="3650" class="no-spinner"
                 hint="What this person is promising, and the only number their score is measured against. Never the parent task's." />

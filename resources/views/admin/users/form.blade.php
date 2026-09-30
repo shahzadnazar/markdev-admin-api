@@ -39,17 +39,45 @@
             </x-form.section>
 
             <x-form.section title="Access & status" description="Roles decide what this user can see and do.">
-            <div>
+            {{-- TICKING `client` IS HALF THE JOB, and this screen used to let
+                 somebody leave believing it was all of it. The portal reads a
+                 `clients` row that points at the account; the role alone gives
+                 access to nothing and makes the account invisible to the project
+                 form's client dropdown. The checkbox stays — an account that
+                 already exists sometimes needs the role — but the screen now says
+                 what it does and what it does not. Alpine only reveals the line;
+                 it is in the markup either way, so it is there without JS too. --}}
+            <div x-data="{ roles: @js(array_values((array) old('roles', $user?->roles->pluck('name')->all() ?? (request('role') ? [request('role')] : [])))) }">
                 <x-form.label value="Roles" />
                 <div class="grid gap-2 sm:grid-cols-2">
                     @foreach ($roles as $role)
                         <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-outline-variant/60 px-4 py-3 transition hover:border-primary/40">
-                            <input type="checkbox" name="roles[]" value="{{ $role->name }}" class="check"
+                            {{-- @checked AND x-model. Alpine needs x-model to know
+                                 which line to reveal; the server-rendered checked
+                                 attribute is what keeps the EDIT screen correct if
+                                 Alpine never loads, because a form that posted an
+                                 empty roles[] would strip the roles it was showing.
+                                 Both read the same array, so they cannot disagree. --}}
+                            <input type="checkbox" name="roles[]" value="{{ $role->name }}" class="check" x-model="roles"
                                 @checked(in_array($role->name, old('roles', $user?->roles->pluck('name')->all() ?? (request('role') ? [request('role')] : []))))>
                             <span class="text-sm font-medium text-on-surface">{{ $role->name }}</span>
                         </label>
                     @endforeach
                 </div>
+
+                <div x-show="roles.includes('client')" x-cloak
+                    class="mt-3 rounded-xl border border-dashed border-outline-variant bg-surface-ice/50 px-4 py-3">
+                    <p class="text-[13px] leading-5 text-on-surface-variant">
+                        The <strong>client</strong> role on its own does not give portal access. The portal needs a client
+                        record pointing at this account, and until one exists this person signs in to nothing and is not
+                        offered on a project.
+                    </p>
+                    <a href="{{ route('admin.clients.create') }}" class="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline">
+                        Create the client record — it can create the login too
+                        <x-icon name="chevron-right" class="size-3.5" />
+                    </a>
+                </div>
+
                 @unless (auth()->user()->hasRole('super-admin'))
                     <p class="mt-2 text-xs text-outline">Only a super admin can grant the admin or super-admin roles.</p>
                 @endunless

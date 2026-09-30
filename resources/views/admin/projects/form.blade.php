@@ -31,21 +31,42 @@
             </div>
 
             <div class="grid gap-5 border-t border-surface-ice pt-5 sm:grid-cols-2">
-                <x-form.select label="Client" name="client_id" required
-                    hint="Never shown to the team doing the work.">
-                    <option value="">Pick a client</option>
-                    @foreach ($clients as $client)
-                        <option value="{{ $client->id }}" @selected((string) old('client_id', $project?->client_id) === (string) $client->id)>{{ $client->company ? $client->company.' — '.$client->name : $client->name }}</option>
-                    @endforeach
-                </x-form.select>
+                {{-- A project must have a client, so an empty dropdown here is
+                     the end of the road. The advice differs by cause: nothing to
+                     create when they all exist but are switched off. --}}
+                @if ($clients->isEmpty())
+                    <x-form.prerequisite label="Client"
+                        :message="$anyClient
+                            ? 'Every client is switched off for new projects. Turn one back on, or add another — a project must belong to one.'
+                            : 'No client exists yet. A project must belong to one, and the client is who the work is for.'"
+                        :href="auth()->user()->can('clients.create') ? ($anyClient ? route('admin.clients.index') : route('admin.clients.create')) : null"
+                        :action="$anyClient ? 'Open clients' : 'Add the first client'" />
+                @else
+                    <x-form.select label="Client" name="client_id" required
+                        hint="Never shown to the team doing the work.">
+                        <option value="">Pick a client</option>
+                        @foreach ($clients as $client)
+                            <option value="{{ $client->id }}" @selected((string) old('client_id', $project?->client_id) === (string) $client->id)>{{ $client->company ? $client->company.' — '.$client->name : $client->name }}</option>
+                        @endforeach
+                    </x-form.select>
+                @endif
 
-                <x-form.select label="Team" name="team_id" required
-                    hint="Exactly one. The team's members are who can see this project.">
-                    <option value="">Pick a team</option>
-                    @foreach ($teams as $team)
-                        <option value="{{ $team->id }}" @selected((string) old('team_id', $project?->team_id) === (string) $team->id)>{{ $team->name }}</option>
-                    @endforeach
-                </x-form.select>
+                @if ($teams->isEmpty())
+                    <x-form.prerequisite label="Team"
+                        :message="$anyTeam
+                            ? 'Every team is switched off. Turn one back on, or add another — a project is delivered by exactly one team.'
+                            : 'No team exists yet. A project is delivered by exactly one team, and its members are who can see the work.'"
+                        :href="auth()->user()->can('teams.create') ? ($anyTeam ? route('admin.teams.index') : route('admin.teams.create')) : null"
+                        :action="$anyTeam ? 'Open teams' : 'Add the first team'" />
+                @else
+                    <x-form.select label="Team" name="team_id" required
+                        hint="Exactly one. The team's members are who can see this project.">
+                        <option value="">Pick a team</option>
+                        @foreach ($teams as $team)
+                            <option value="{{ $team->id }}" @selected((string) old('team_id', $project?->team_id) === (string) $team->id)>{{ $team->name }}</option>
+                        @endforeach
+                    </x-form.select>
+                @endif
             </div>
 
             <div class="border-t border-surface-ice pt-5">

@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\FiltersByValues;
+use App\Http\Controllers\Admin\Concerns\FiltersTrashed;
+use App\Http\Controllers\Admin\Concerns\ValidatesLoginCredentials;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
-    use \App\Http\Controllers\Admin\Concerns\FiltersByValues;
-    use \App\Http\Controllers\Admin\Concerns\FiltersTrashed;
+    use FiltersByValues;
+    use FiltersTrashed;
+    use ValidatesLoginCredentials;
 
     /** What the status filter may be asked for. */
     public const STATUSES = ['active', 'inactive'];
@@ -50,7 +54,7 @@ class UserController extends Controller
             ->when($trashed, fn ($query) => $query->onlyTrashed())
             ->latest()
             ->paginate(12)
-            ->appends(\Illuminate\Support\Arr::except($request->query(), ['partial', 'page']));
+            ->appends(Arr::except($request->query(), ['partial', 'page']));
 
         // Live search re-renders only the results, so typing never reloads the
         // page and the cursor stays in the search box. The Filter button still
@@ -149,9 +153,9 @@ class UserController extends Controller
     protected function validated(Request $request, ?User $user = null): array
     {
         return $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
-            'password' => [$user ? 'nullable' : 'required', 'confirmed', Password::defaults()],
+            // Name, email and password come from the shared trait: Clients →
+            // New client creates a login too, and the two must not drift.
+            ...$this->loginCredentialRules($user),
             'phone' => ['nullable', 'string', 'max:30'],
             'biometric_id' => ['nullable', 'string', 'max:64', Rule::unique('users', 'biometric_id')->ignore($user?->id)],
             'headline' => ['nullable', 'string', 'max:255'],

@@ -21,13 +21,26 @@
             <x-form.textarea label="Description" name="description" rows="3" :value="$task?->description" />
 
             <div class="grid gap-5 border-t border-surface-ice pt-5 sm:grid-cols-2">
-                <x-form.select label="Team" name="team_id" required
-                    hint="Who does the work. A task carries its own team, so internal work has a home and the board is one query.">
-                    <option value="">Pick a team</option>
-                    @foreach ($teams as $team)
-                        <option value="{{ $team->id }}" @selected((string) old('team_id', $task?->team_id) === (string) $team->id)>{{ $team->name }}</option>
-                    @endforeach
-                </x-form.select>
+                {{-- The message has to be true for two different viewers. An
+                     admin sees every active team and can make one; a team lead
+                     sees only the teams they are on and cannot, so they get the
+                     explanation without a link that would refuse them. --}}
+                @if ($teams->isEmpty())
+                    <x-form.prerequisite label="Team"
+                        :message="auth()->user()->can('teams.create')
+                            ? 'No team is available. A task belongs to exactly one, and the team\'s members are who can see it.'
+                            : 'You are not on a team yet, so there is nothing to create a task against. An admin adds you to one.'"
+                        :href="auth()->user()->can('teams.create') ? route('admin.teams.create') : null"
+                        action="Add the first team" />
+                @else
+                    <x-form.select label="Team" name="team_id" required
+                        hint="Who does the work. A task carries its own team, so internal work has a home and the board is one query.">
+                        <option value="">Pick a team</option>
+                        @foreach ($teams as $team)
+                            <option value="{{ $team->id }}" @selected((string) old('team_id', $task?->team_id) === (string) $team->id)>{{ $team->name }}</option>
+                        @endforeach
+                    </x-form.select>
+                @endif
 
                 <x-form.select label="Project" name="project_id"
                     hint="Leave blank for internal work. A project's tasks belong to the project's team — another team's project is refused.">

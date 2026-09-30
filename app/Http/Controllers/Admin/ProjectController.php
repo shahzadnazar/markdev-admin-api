@@ -225,6 +225,11 @@ class ProjectController extends Controller
             'project' => $project,
             'clients' => Client::active()->ordered()->get(['id', 'name', 'company']),
             'teams' => Team::active()->ordered()->get(['id', 'name']),
+            // Whether ANY exists, not just an active one: an empty dropdown gets
+            // an explanation instead of a select, and "add the first client" is
+            // wrong advice for somebody who has three of them switched off.
+            'anyClient' => Client::query()->exists(),
+            'anyTeam' => Team::query()->exists(),
             // Only statuses on offer. A retired one stays on the projects that
             // already hold it and is never offered to a new one.
             'statuses' => ProjectStatus::active()->ordered()->get(),
